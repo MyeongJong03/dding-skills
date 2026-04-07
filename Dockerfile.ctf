@@ -1,0 +1,41 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Seoul
+
+RUN apt-get update && apt-get install -y \
+    python3 python3-pip \
+    gdb \
+    netcat-openbsd \
+    wget curl git \
+    file binutils \
+    ltrace strace \
+    nasm \
+    patchelf \
+    socat \
+    libssl-dev \
+    libc6-dbg \
+    gdbserver \
+    libseccomp-dev \
+
+    ruby ruby-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install pwntools ROPgadget
+
+RUN git clone https://github.com/pwndbg/pwndbg /opt/pwndbg && \
+    cd /opt/pwndbg && ./setup.sh
+
+RUN gem install one_gadget seccomp-tools
+
+ENV TERM=xterm
+
+# pwninit - PWN 문제 초기 세팅 자동화
+RUN apt-get update && apt-get install -y curl && \
+    curl -L https://github.com/io12/pwninit/releases/latest/download/pwninit -o /usr/local/bin/pwninit && \
+    chmod +x /usr/local/bin/pwninit && \
+    rm -rf /var/lib/apt/lists/*
+# radare2
+RUN curl -Ls https://github.com/radareorg/radare2/releases/download/5.9.4/radare2_5.9.4_amd64.deb -o /tmp/r2.deb && dpkg -i /tmp/r2.deb && rm /tmp/r2.deb
+
+WORKDIR /workspace
