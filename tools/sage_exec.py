@@ -3,7 +3,11 @@ import json
 import tempfile
 import os
 
-SAGE_PATH = "/Applications/SageMath-10-8.app/Contents/Frameworks/Sage.framework/Versions/10.8/local/bin/sage"
+
+SAGE_PATH = os.environ.get(
+    "SAGE_PATH",
+    "/Applications/SageMath-10-8.app/Contents/Frameworks/Sage.framework/Versions/10.8/local/bin/sage"
+)
 
 def register(mcp):
     @mcp.tool()

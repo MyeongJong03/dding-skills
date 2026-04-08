@@ -2,6 +2,7 @@ import subprocess
 import json
 import hashlib
 import re
+import os
 
 # 일반 CTF 해시 타입 패턴
 HASH_PATTERNS = [
@@ -25,7 +26,7 @@ def register(mcp):
     @mcp.tool()
     def hash_crack(
         hash_value: str,
-        wordlist_path: str = "/Users/myeongjong/wordlists/rockyou.txt",
+        wordlist_path: str = os.path.expanduser("~/wordlists/rockyou.txt"),
         hashcat_mode: str = None,
         extra_flags: str = ""
     ) -> str:
