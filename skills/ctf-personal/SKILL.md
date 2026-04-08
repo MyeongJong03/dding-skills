@@ -191,6 +191,46 @@ from Crypto.Util.number import *
 # Hastad's broadcast: 같은 m을 여러 n,e로 암호화 → CRT
 ```
 
+### GF(256) Sage API 함정
+
+최신 Sage에서 GF(256) 원소 변환 시 구 API가 없는 경우 있음:
+
+```python
+# 구 API (일부 Sage 버전에서 AttributeError)
+F.fetch_int(n)              # → AttributeError
+e.integer_representation()  # → AttributeError
+
+# 대체 API
+F.from_integer(int(n))      # 정수 → GF(256) 원소
+def to_int(e):              # GF(256) 원소 → 정수
+    poly = e.polynomial()
+    coeffs = poly.coefficients(sparse=False)
+    result = 0
+    for i, c in enumerate(coeffs):
+        if c == GF(2)(1): result |= (1 << i)
+    return result
+```
+
+### Oil-and-Vinegar(UOV) 서명 위조 — Kipnis-Shamir 공격
+
+공개키 m개의 n×n 행렬 P_k over GF(256)만으로 서명 위조:
+
+```
+핵심 흐름:
+1. S_k = P_k + P_k^T (대칭화)
+2. M = A⁻¹B (A,B = S_k의 랜덤 선형결합)
+3. char_poly(M) 인수분해 → 1차 인수 (x-λ) 탐색 (약 50% 확률/시도)
+4. 2-dim 고유공간 span{v1,v2}에서 α∈GF(256) 256회 탐색 → oil 벡터 w
+5. W = ker{(S_k·w)^T·x=0} (dim=32, 드물게 33)
+6. 32×W_dim 시스템 풀기, W_dim=33이면 null space 보정 (α∈GF(256) 256회 반복)
+7. sig = v_rand + o, 검증 후 전송
+
+주의: char_poly(M) = p(x)² 항상 성립 (A,B 대칭 → M^T=BA⁻¹, W와 W^⊥이 같은 char_poly)
+      → 커널 분리 불가 → 1차 인수가 유일한 진입점
+```
+
+전체 코드: ctf-crypto/advanced-math.md "Oil-and-Vinegar" 섹션 참조.
+
 ### AES
 - ECB mode: 블록 경계 활용, chosen plaintext
 - CBC mode: IV 조작, padding oracle
