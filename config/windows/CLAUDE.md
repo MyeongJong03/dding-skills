@@ -148,6 +148,8 @@ reva-* skill은 Ghidra가 실행 중일 때만 추가 로드한다.
 - Linux 전용 도구(steghide, zsteg 등)는 docker_exec에서 실행
 - 초기 분석 단계에서 독립적인 작업은 병렬 실행하여 대기 시간 최소화
 - GDB 디버깅은 gdb -batch -x 스크립트로 docker_exec에서 실행 (WSL2 x86 네이티브라 빠름)
+- 풀이 중 생성한 /tmp 임시 파일은 해당 시도 완료 즉시 삭제 (rm -f /tmp/tmp*)
+- 풀이 완료 또는 세션 종료 전 docker system prune -f 실행하여 Docker 캐시 정리
 - 플래그 형식 항상 확인, 획득 즉시 보고
 - 플래그 획득 즉시, 대화 종료 전에 반드시 아래를 수행한다:
   1. 이번 풀이에서 사용한 새 기법/패턴/CVE/플랫폼 특이사항을 해당 skill 파일에 추가
