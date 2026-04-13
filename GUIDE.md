@@ -196,7 +196,8 @@ PWN 문제 풀어줘. 바이너리: ~/CTF/문제폴더/binary
 | 장기 실행 | 세션 끝까지 연속 실행 | 중간에 보고하며 멈출 수 있음 |
 | MCP | dreamhack_solver + ReVa | 동일 |
 | Skills | 동일 | 동일 |
-| 권장 용도 | 복잡한 문제, 장시간 풀이 | 빠른 분석, 보조 |
+
+세팅이 동일하므로 어떤 문제든 둘 다 사용 가능. Claude Code는 장기 연속 실행이 안정적이고, Codex는 병렬 실행이나 GPT 계열이 더 잘 풀 것 같은 문제에 활용.
 
 ---
 
@@ -347,6 +348,8 @@ git push
 cd ~/ctf-solver && git pull
 # 심링크라 자동 반영됨
 ```
+
+ctf-personal은 풀이 완료 즉시 자동으로 push됨 (CLAUDE.md 규칙). 다른 기기 시작 전 반드시 git pull.
 
 ### CLAUDE.md 수정 시
 
@@ -537,6 +540,7 @@ sudo fstrim -av
 - **토큰을 채팅이나 터미널 결과에 붙여넣기 금지** → 노출 시 즉시 Revoke
 - **MALWARE 문제에서 로컬 실행 금지** → 반드시 docker_exec으로 격리 실행
 - **`claude` 명령어로 실행 금지** → CLAUDE.md가 로드 안 됨, 반드시 `ctf` 사용
+- **풀이 완료 후 ~/CTF/ 하위 작업 폴더/파일 정리 안 하기** → 저장공간 누적 원인
 
 ### 맥북 제한사항
 
