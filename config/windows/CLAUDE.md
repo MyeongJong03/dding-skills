@@ -167,6 +167,9 @@ reva-* skill은 Ghidra가 실행 중일 때만 추가 로드한다.
 - 새 CVE → ctf-web/cves.md 또는 해당 카테고리 파일에 추가
 - ctf-personal → 새로운 MCP 활용 패턴, 플랫폼 특이사항 발견 시 업데이트
 - 기존 내용은 절대 삭제하지 않음
+- ctf-personal 업데이트 후 즉시 아래 명령어 실행 (push까지 자동으로):
+  cd ~/ctf-solver && git add skills/ctf-personal/SKILL.md && git commit -m "Update ctf-personal: [문제명]" && git push
+- 다른 기기 시작 전 반드시: cd ~/ctf-solver && git pull
 
 ## Codex 전용 규칙
 - 중간 보고 금지. 플래그를 획득하거나 완전히 막힐 때까지 멈추지 말고 계속 진행한다.
