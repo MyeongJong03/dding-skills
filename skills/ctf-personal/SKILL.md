@@ -185,6 +185,12 @@ r.interactive()
 - libc leak → system("/bin/sh") 체이닝
 - `ret` 가젯으로 stack alignment 맞추기 (64bit)
 
+### Decoy 포트 뒤에 공개 course 포트가 살아있는 유형
+- 문제 설명에서 몇 개의 decoy endpoint만 강조해도, 연관된 공개 vhost/course site가 살아 있으면 거기에 적힌 원래 포트를 먼저 다시 스캔한다.
+- 특히 교육용/랩형 문제는 `/page/...` 문서에 `ssh -p ...`, `:5151`, `:5301-5303` 같은 실제 공략 포트가 그대로 남아 있는 경우가 있다.
+- 운영진이 anti-LLM 경고 문구를 의도적으로 넣은 경우, 그 문구 자체를 신호로 보고 서비스 전체를 버리지 말고 같은 도메인의 sibling port/vhost를 넓게 확인한다.
+- 이번 케이스처럼 `pwnme-vpn` 계열은 한 포트가 `system` leak를 주고, sibling 포트가 같은 바이너리/변형일 수 있으니 둘 다 확인한다.
+
 ### libc 식별
 ```python
 # leak된 주소로 libc 버전 식별

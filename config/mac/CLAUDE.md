@@ -148,12 +148,20 @@ reva-* skill은 Ghidra가 실행 중일 때만 추가 로드한다.
   2. ctf-personal → 새로운 MCP 활용 패턴, 플랫폼 특이사항 발견 시 추가
   3. 업데이트 완료 후 사용자에게 어떤 파일의 어느 섹션에 무엇을 추가했는지 보고
   4. 업데이트할 내용이 없으면 '업데이트 없음'이라고 명시적으로 보고
+- 플래그 획득 후 ~/CTF/ 하위에 생성한 작업 폴더 및 파일 정리:
+  - 문제 풀이용 임시 폴더(~/CTF/문제이름/) 삭제
+  - ~/CTF/ 직접 생성한 이미지/소스/바이너리 파일 삭제
+  - CLAUDE.md, AGENTS.md 심링크는 절대 삭제 금지
+  - writeup으로 남길 파일은 사용자에게 확인 후 보존
 
 ## 풀이 완료 후 skill 업데이트 규칙
 - 새 기법 → 해당 카테고리 skill 파일에 추가
 - 새 CVE → ctf-web/cves.md 또는 해당 카테고리 파일에 추가
 - ctf-personal → 새로운 MCP 활용 패턴, 플랫폼 특이사항 발견 시 업데이트
 - 기존 내용은 절대 삭제하지 않음
+- ctf-personal 업데이트 후 즉시 아래 명령어 실행 (push까지 자동으로):
+  cd ~/ctf-solver && git add skills/ctf-personal/SKILL.md && git commit -m "Update ctf-personal: [문제명]" && git push
+- 다른 기기 시작 전 반드시: cd ~/ctf-solver && git pull
 
 ## Codex 전용 규칙
 - 중간 보고, 진행 요약, 승인 요청, 계획 보고를 금지한다. 사용자가 명시적으로 `멈춰`, `정리해`, `지금까지 한 것만 말해`라고 할 때만 상태를 보고한다.
