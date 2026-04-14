@@ -1,6 +1,7 @@
 import subprocess
 import json
 import os
+import re
 
 def register(mcp):
     @mcp.tool()
@@ -25,7 +26,7 @@ def register(mcp):
         except Exception as e:
             result["file"] = f"error: {e}"
 
-        # strings (길이 4 이상, 상위 100개)
+        # strings (길이 4 이상, 상위 100개 + CTF 관련 패턴 별도 추출)
         try:
             r = subprocess.run(
                 ["strings", "-n", "4", file_path],
@@ -35,6 +36,18 @@ def register(mcp):
             lines = r.stdout.strip().splitlines()
             result["strings_count"] = len(lines)
             result["strings_sample"] = lines[:100]
+
+            # CTF 관련 주요 패턴 별도 추출
+            patterns = re.compile(
+                r'(flag|ctf|DH\{|FLAG\{|HTB\{|pico|/bin/sh|system|execve|'
+                r'win|secret|admin|password|token|key|shell|gets\b|scanf|'
+                r'printf|strcpy|strcat|malloc|free|__free_hook|__malloc_hook|'
+                r'one_gadget|/flag)', re.IGNORECASE
+            )
+            result["interesting_strings"] = [
+                l for l in lines if patterns.search(l)
+            ][:50]
+
         except Exception as e:
             result["strings"] = f"error: {e}"
 
