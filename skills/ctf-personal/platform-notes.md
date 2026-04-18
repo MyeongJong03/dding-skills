@@ -13,6 +13,7 @@
 - 봇: Puppeteer 기반 Chromium
 - 서버 포트: 8000~9000번대
 - 서버 크래시 시: dreamhack_vm MCP로 restart
+- 외부 CTF 문제를 재호스팅한 워게임은 hidden secret이 원 대회 포맷(`INCOGNITO{...}` 등)으로 남아 있을 수 있다. 제출도 원 포맷 그대로 받는 경우가 있으니, `DH{...}` 가정이 안 맞으면 실제로 leak된 포맷을 먼저 제출해 본다.
 
 ---
 
