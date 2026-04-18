@@ -13,7 +13,6 @@
 - 봇: Puppeteer 기반 Chromium
 - 서버 포트: 8000~9000번대
 - 서버 크래시 시: dreamhack_vm MCP로 restart
-- Dockerfile이 `ubuntu:24.04@sha256:...`처럼 digest로 고정돼 있으면 로컬 WSL의 같은 `24.04` libc와도 **가젯 오프셋이 달라질 수 있다**. seccomp/FSOP/ROP에서 로컬 재현은 되는데 원격만 조용히 실패하면, 먼저 `docker pull <image@sha256>` 후 컨테이너에서 exact `libc.so.6`/`ld-linux-x86-64.so.2`를 꺼내 원격 libc 기준으로 가젯을 다시 잡는다.
 
 ---
 
