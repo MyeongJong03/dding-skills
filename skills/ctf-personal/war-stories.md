@@ -4,6 +4,41 @@
 
 ---
 
+## Pwn 특수 사례
+
+### Hidden `modprobe_path` + direct-map alias 복구
+
+커널 pwn에서 `modprobe_path` 심볼이 `/proc/kallsyms`에 안 보이고, `free_modprobe_argv` 같은 근처 심볼만 보일 때는 둘 중 하나로 빠르게 복구한다.
+
+1. 먼저 공개 심볼 앵커를 찾는다.
+   `free_modprobe_argv`처럼 이름이 남아 있으면 그 오프셋에서 `modprobe_path`까지의 정적 delta를 로컬 `vmlinux`로 계산한다.
+2. 그 경로가 원격에서 실패하면, 임의 읽기로 누출한 `kmalloc-*` 포인터를 direct map 기준점으로 쓴다.
+   `ffff88..` 형태의 heap/direct-map 포인터가 하나라도 있으면:
+   - `dm_base = leaked_ptr & ~0x1fffffff`
+   - 로컬 `vmlinux`에서 `"/sbin/modprobe"`의 file offset -> virtual offset을 미리 계산
+   - candidate = `dm_base + phys_base_guess + string_offset_in_image`
+   - `phys_base_guess`는 2MB step으로 몇 개만 찍어도 맞는 경우가 많다.
+
+실전 포인트:
+- 문자열 전체를 블라인드 스캔하지 말고, 로컬 ELF에서 구한 `"/sbin/modprobe"` 위치를 기준으로 direct-map 별칭 후보만 읽는 편이 훨씬 안정적이다.
+- `modprobe_path` 자체 심볼이 숨겨져 있어도 문자열 내용은 그대로 남아 있는 경우가 많다.
+- `AAR/AAW`가 이미 성립했다면 `commit_creds`보다 `modprobe_path` overwrite가 더 짧고 KPTI/SMEP/SMAP 영향을 덜 받는다.
+
+### Control slot / access slot 분리
+
+`note->data = H`로 만든 fake note 경로에서는 제어 슬롯과 실제 AAR/AAW 슬롯을 분리해서 생각해야 한다.
+
+- control slot:
+  `WRITE(victim)`가 fake note header `H` 자체를 덮는 채널
+- access slot:
+  OOB raw slot 값이 `H`로 해석되어 `READ/WRITE`가 `H->data`를 따라가는 채널
+
+실수 패턴:
+- victim slot 하나만 가지고 곧바로 AAR/AAW를 하려고 하면 `READ(M)`가 `H->data`를 읽는다고 착각하기 쉽다.
+- 실제로는 `READ(M)`는 `M.data`가 가리키는 note struct의 raw bytes를 읽는 단계일 뿐이고, arbitrary address read/write는 별도의 access slot이 필요하다.
+
+---
+
 ## Web 특수 사례
 
 ### Dreamhack Go Through Me — user-panel bot -> admin-app Automad RCE
