@@ -166,6 +166,13 @@ payload = pickle.dumps(Exploit())
 # 또는 docker_exec에서: python3 -c "from pwnlib.libcdb import *; print(search_by_symbol_offsets({'puts': 0xXXXXX}))"
 ```
 
+### large tcache를 unsorted leak으로 강제 전환
+- glibc가 `tcache_max`를 크게 열어 둔 환경에서는 `0x1010`급 large chunk도 tcache로 들어가서 unsorted leak이 안 나온다.
+- 이때 `tcache_perthread_struct`의 `num_slots[idx]`와 `entries[idx]`를 heap UAF arbitrary write로 직접 0으로 덮으면, 다음 free에서 같은 size chunk를 unsorted bin으로 보낼 수 있다.
+- leak 이후에는 `__exit_funcs` 포인터 자체를 새 fake list로 바꾸지 말고, 기존 head 노드의 `fn`/`arg`만 덮는 쪽이 write 수가 적고 안정적이다.
+- exit handler는 pointer mangling(`rol((fn ^ guard), 0x11)`)을 쓰므로, `environ -> auxv -> AT_RANDOM` 또는 동등 경로로 guard를 먼저 확보해야 한다.
+- stack leak이 없으면 `setcontext`를 exit handler로 걸고 heap 위 `ucontext_t` + ROP를 준비해 ORW로 마무리하는 경로를 우선 검토한다.
+
 ---
 
 ## Crypto 패턴
