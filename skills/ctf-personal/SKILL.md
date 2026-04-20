@@ -54,6 +54,26 @@ payload 작성 체크리스트:
 3. bore.pub 콜백 수신 (VPS 불필요)
 4. 리다이렉트 루프 우회 (HTTPS-only, 빈 응답 주의)
 
+### Validation Before Decoding Mismatch
+
+입력 검사가 **percent-encoded 원문**에 걸리고, 실제 sink에 넣기 직전에 `QueryUnescape` 같은 디코딩이 한 번 더 수행되면 금지 문자를 되살릴 수 있다.
+
+특히 다음 순서면 위험하다:
+1. 정규식이 `%`, `#`, `;`, `}` 같은 문자만 허용
+2. 검사는 decode 전에 수행
+3. 이후 `QueryUnescape` 결과가 nginx/템플릿/DSL 설정값으로 들어감
+
+`edge-gate` 계열 ingress-nginx admission RCE에서 유효했던 형태:
+```text
+http://example.com/#%3B%7D%7D%7D%0A%0Assl_engine%20../../../../../../mnt/share/payload.so%3B%0A%0A
+```
+
+체크리스트:
+- raw 입력에 개행/세미콜론이 직접 들어가면 필터에 걸리는지 확인
+- `%0A`, `%3B`, `%7D`, `%23`처럼 인코딩했을 때는 통과하는지 비교
+- sink가 URL 자체가 아니라 "설정 문자열"로 재사용되는지 확인
+- decode 이후 값이 별도 재검증 없이 config/template에 박히면 코드 주입 관점으로 전환
+
 ### SSTI
 ```python
 # Jinja2 기본 확인

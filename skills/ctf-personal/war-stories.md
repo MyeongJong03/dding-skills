@@ -111,6 +111,16 @@ report URL: /#/%2F%2Fevil.com%2Fitem/detail
 - CVE-2025-24514 + CVE-2025-1974 체이닝
 - auth-url 인젝션 페이로드: `}}}` 블록 탈출
 
+### Dreamhack edge-gate
+- gate 앱이 `probe`를 정규식으로 먼저 검사하고, 그 뒤 `url.QueryUnescape`를 수행했다.
+- 그래서 raw newline/`;`는 막혀도 `%0A`, `%3B`, `%7D`, `%23`로 인코딩하면 admission webhook까지 살아 들어갔다.
+- 실전 페이로드 형태:
+  `http://example.com/#%3B%7D%7D%7D%0A%0Assl_engine%20../../../../../../proc/<pid>/fd/<fd>%3B%0A%0A`
+- 로컬 검증은 blob 업로드 브루트포스 전에 direct path로 분리해서 확인하는 게 빠르다:
+  `ssl_engine ../../../../../../mnt/share/payload.so;`
+- remote gate는 요청마다 내부에서 hold를 5초 유지하므로 직렬 브루트포스가 아니라 병렬 PID/FD 탐색이 필요했다.
+- 실제 원격 히트: `pid=22`, `fd=25`
+
 ### ETag Length Leak (PortSwigger Top 10 2025)
 - Cross-origin 길이 오라클 → 바이너리 서치
 - false positive 방지: 두 번 confirm (`!c1 || !c2`)
