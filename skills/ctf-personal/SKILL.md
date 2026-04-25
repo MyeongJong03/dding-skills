@@ -278,6 +278,17 @@ from Crypto.Util.number import *
 - Go: 심볼 스트리핑 → GoReSym으로 복원
 - Rust: 거대 바이너리, 패닉 문자열에서 함수 이름 힌트
 
+### 원격 실행 코드가 파일 검증 오라클일 때
+- 클라이언트가 서버에서 받은 x86-64 stage를 `mmap(PROT_EXEC)` 후 실행하고 `uint64 ret`만 돌려주면, stage 자체가 플래그 데이터를 직접 들고 있지 않아도 **로컬 파일 검증 오라클**일 수 있다.
+- `open("flag.png")`, `mmap`, `cmp [mapped+off], embedded` 패턴이면 embedded bytes/constraints를 추출해서 파일을 재구성한다. 서버에는 실제 실행 결과 대신 성공값을 보내 다음 stage를 계속 받는다.
+- 자주 나오는 stage 인코딩:
+  - 직접 비교: `file[i] == enc[i]`
+  - 인접 XOR/차분: `file[i-1] ^ file[i]`, `(file[i]-file[i-1]) & 0xff`
+  - 두 배열 XOR: `file[i] ^ arr1[i] == arr2[i]`
+  - 8바이트 선형식: 8x8 모듈러 방정식(`mod 65537`)으로 블록별 복원
+- 중간에 `Solve: ... = ?`, figlet 숫자 `Input:`, `ptrace(PTRACE_TRACEME)` 같은 anti-automation stage가 섞이면 decoded stage를 실행하지 말고 문자열/OCR/고정 syscall 결과를 파싱해서 ret 값을 직접 전송한다.
+- 커버리지는 `bytearray`로 추적하고, 겹치는 chunk는 conflict 검증한다. PNG/JPEG처럼 헤더/크기 검증 stage(`fstat`, `qword/dword cmp`)도 작은 chunk로 병합하면 앞부분 복원이 빨라진다.
+
 ### Z3 플래그 역산
 ```python
 from z3 import *
