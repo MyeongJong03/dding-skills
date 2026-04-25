@@ -4,6 +4,28 @@
 
 ---
 
+## Forensics/Misc 특수 사례
+
+### CoreXY plotter traffic + microphone side-channel
+
+CoreXY 펜 플로터 로그가 `OP|SQ|DT|AM|BM` 같은 모션 필드만 주고 pen up/down을 숨기는 경우:
+
+1. 먼저 모터 델타를 표준 CoreXY로 복원한다.
+   - `dx = (AM + BM) / 2`
+   - `dy = (AM - BM) / 2`
+   - 큰 음수 `dx` + `dy=1`은 다음 래스터 행으로 돌아가는 scanline 구분자인 경우가 많다.
+2. setup/config 패킷에 있는 작은 정수들을 치수로 의심한다.
+   - 예: `0x003b, 0x0008, 0x0006` -> 59글자, 8/6 픽셀 글꼴 단서.
+3. 각 scanline을 6px 고정폭 cell로 나누고, 알려진 flag prefix로 glyph fingerprint를 매핑한다.
+   - 부분 feature만으로는 `c/o`처럼 같은 fingerprint가 충돌할 수 있으니 prefix와 반복 문자 일관성으로 해소한다.
+   - unknown 부분은 같은 cell fingerprint가 같은 문자여야 한다는 제약을 먼저 적용한 뒤 자연어/문제 문맥으로 보정한다.
+4. 오디오는 move type 후보를 검증하는 보조 신호로 사용한다.
+   - command window별 FFT/RMS를 뽑아 `DT`/move pattern별 평균을 제거하면 pen contact 후보가 보인다.
+   - 완전한 OCR보다 `known prefix -> cell fingerprint -> 반복 문자`가 더 빠를 수 있다.
+
+HackTheon 2026 plottergeist에서는 setup 값 `59,8,6`과 6px cell fingerprint를 이용해
+`hacktheon2026{the_plotter_reveals_its_secret_through_sound}`를 복원했다.
+
 ## Pwn 특수 사례
 
 ### Hidden `modprobe_path` + direct-map alias 복구
