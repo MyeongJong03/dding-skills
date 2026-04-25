@@ -28,6 +28,23 @@ HackTheon 2026 plottergeist에서는 setup 값 `59,8,6`과 6px cell fingerprint�
 
 ## Pwn 특수 사례
 
+### HackTheon 2026 afterimage — preview history UAF + stdout FSOP
+
+구조:
+1. 서비스는 한 연결 안에서 preview history 4개를 유지한다.
+2. 업로드 처리 중 먼저 가장 유사한 previous record를 고르고, 이후 history가 꽉 찼으면 oldest record를 free한다.
+3. `A,B,C,D,A` 순서로 넣으면 마지막 `A`에서 previous와 eviction 대상이 첫 번째 `A`로 같아져 UAF가 발생한다.
+4. 작은 record는 `0x220` tcache chunk이고, freed chunk metadata가 download PNG 하단 row에 섞인다.
+5. current 이미지 첫 8픽셀이 post-UAF `memmove`로 freed previous chunk fd를 덮어 tcache poisoning이 된다.
+
+실전 포인트:
+- `row254[:8]`이 `chunk >> 12`로 보이면 heap safe-linking key leak이다.
+- libc leak은 large record를 previous로 선택시키되 current는 small로 둬서 unsorted-bin fd/bk를 post-UAF write로 깨지 않게 한다. 이 문제에서는 heap leak 이후 small warm-up 1개 뒤 `L,B,C,D,S`가 안정적이었다.
+- leak 값이 `0x4c4c4c4c...`, `0x47474747...`, `0x212121...`이면 libc pointer가 아니라 이미지 prefix/payload이므로 FSOP로 넘어가지 않는다.
+- 최종은 `target = _IO_2_1_stdout_`, `encoded_fd = target ^ (poison_chunk >> 12)`로 0x220 tcache poisoning을 만든 뒤 fake FILE을 stdout에 복사했다.
+- glibc 2.39 기준 `_IO_wfile_jumps` House-of-Apple2 경로에서 fake FILE 시작 문자열을 `true;cat flag\x00`로 두면 `puts("upload ok")` 시점에 `system(fp)`가 호출되어 flag가 먼저 출력된다.
+- poison chunk offset과 final current record offset은 같다고 가정하지 않는다. 이번 exploit에서는 heap page 기준 `poison-off=-0x1f40`, `fake-off=0x3250`, trigger previous slot 2 고정이 원격에서 맞았다.
+
 ### Hidden `modprobe_path` + direct-map alias 복구
 
 커널 pwn에서 `modprobe_path` 심볼이 `/proc/kallsyms`에 안 보이고, `free_modprobe_argv` 같은 근처 심볼만 보일 때는 둘 중 하나로 빠르게 복구한다.

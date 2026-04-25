@@ -247,6 +247,13 @@ payload = pickle.dumps(Exploit())
 - exit handler는 pointer mangling(`rol((fn ^ guard), 0x11)`)을 쓰므로, `environ -> auxv -> AT_RANDOM` 또는 동등 경로로 guard를 먼저 확보해야 한다.
 - stack leak이 없으면 `setcontext`를 exit handler로 걸고 heap 위 `ucontext_t` + ROP를 준비해 ORW로 마무리하는 경로를 우선 검토한다.
 
+### history/cache eviction UAF -> stdout FSOP
+- 이미지/미디어 preview 서비스가 최근 N개 history를 유지하면, "similar previous 선택"과 "oldest eviction" 순서를 먼저 본다. `A,B,C,D,A`처럼 같은 입력을 다시 넣었을 때 previous와 eviction 대상이 같아지면 UAF가 난다.
+- freed tcache chunk가 preview/download 이미지에 섞여 나오면 첫 qword는 safe-linking key(`chunk >> 12`)일 수 있다. 반대로 current 이미지 첫 픽셀이 post-UAF `memmove`로 previous chunk에 들어가면 tcache fd overwrite primitive가 된다.
+- large record leak은 UAF write가 unsorted fd/bk를 깨지 않게 small current로 previous large를 선택하게 만든다. leak 위치가 payload 문자(`0x4c4c...`, `0x4747...`)면 PNG 전체 row를 스캔하고 warm-up 수를 바꿔 backward consolidation을 피한다.
+- glibc 2.39 + Full RELRO에서는 poisoned `malloc(0x220)`을 `_IO_2_1_stdout_`으로 보내 fake FILE을 복사하고, `_IO_wfile_jumps` 기반 House-of-Apple2 경로로 `system("true;cat flag")`를 호출하는 루트가 짧다.
+- tcache poison과 fake FILE에는 heap page 기준 offset이 따로 필요할 수 있다. poison source chunk와 final current record 주소를 trace로 분리해서 잡고, trigger가 선택하는 history slot도 고정하면 원격 성공률이 올라간다.
+
 ---
 
 ## Crypto 패턴
