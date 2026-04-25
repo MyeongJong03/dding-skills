@@ -315,6 +315,18 @@ if s.check() == sat:
 - 오디오: Audacity 스펙트로그램, SSTV
 - 파일: binwalk 추출, foremost
 
+### 숨은 싱크가 있는 mod-3 선형 격자 퍼즐
+
+격자 셀 값이 `. ~ *`처럼 3상태이고 명령이 `ring -> [a+b,a+2b]`, `hush -> [2a+2b,2a+b]` 형태면 `.`을 0, `~/*`를 `±1`로 두고 각 셀의 bonded neighbor를 먼저 복원한다.
+
+실전 절차:
+- 각 셀에서 `ring` 1회 후 인접 칸 변화가 있으면 그 칸이 parent이고 `hush`로 복구한다.
+- 변화가 없으면 `ring`을 한 번 더 눌러 비교한다. 인접 칸이 변하면 visible parent이며 `ring` 2회 추가로 복구한다.
+- 그래도 인접 칸 변화가 없으면 hidden sink/altar parent다. 이 경우 hidden 값은 `a_after_ring - a_before`이고, hidden은 상태가 바뀌지 않는 상수일 수 있으므로 `ring` 총 3회가 원상복구다.
+- parent 그래프가 hidden sink를 루트로 하는 트리면, 각 subtree를 `(node_value, parent_value, processed_children_mask)` 상태의 작은 Dijkstra/DP로 정리한다. visible parent edge는 두 값을 모두 갱신하고, hidden parent edge는 child 값만 갱신한다.
+
+검증 포인트: solver가 만든 명령열은 로컬 시뮬레이션으로 모든 visible cell이 0이 되는지 먼저 확인하고, 원격 실행 중에는 현재 십자 시야의 non-`?` 값이 시뮬레이션과 일치하는지 몇 step마다 비교한다.
+
 ---
 
 ## Forensics 패턴
