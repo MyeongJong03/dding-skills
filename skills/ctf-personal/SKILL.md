@@ -96,6 +96,27 @@ payload 작성 체크리스트:
 3. bore.pub 콜백 수신 (VPS 불필요)
 4. 리다이렉트 루프 우회 (HTTPS-only, 빈 응답 주의)
 
+### PromQL Namespace Post-Filter Blind Label Exfil
+
+대시보드가 Prometheus 쿼리 결과를 받은 뒤 `metric.namespace == session.namespace`로 후처리 필터링하면,
+직접 `namespace="system"` 결과를 볼 수 없어도 set operator로 **조건이 참일 때만 현재 namespace series를 반환**하게 만들어
+라벨 값을 blind로 뽑을 수 있다.
+
+전제:
+- `agg` 같은 파라미터가 PromQL prefix로 삽입됨: `<agg>(<current_metric>{namespace="nsNNNN"})`
+- `or(<fallback_metric>{namespace="nsNNNN"})`를 붙일 수 있음
+- 현재 namespace에 값이 큰 metric(`user_active`)과 fallback 값이 작은 metric(`app_uptime=1`)이 있음
+
+오라클 형태:
+```text
+agg = user_active and on() secret_config{flag=~"^PREFIX.*"} or
+metric = app_uptime
+```
+
+`secret_config{flag=~"^PREFIX.*"}`가 존재하면 `user_active`가 반환되고, 아니면 `app_uptime`이 반환된다.
+Prometheus regex는 PromQL 문자열 escape가 까다로우므로 `{`, `}`, `_`, 영숫자는 `[x]` char class로 표현하면 안정적이고,
+`system` 같은 blacklist 단어도 `[s][y][s][t][e][m]` 형태로 피할 수 있다.
+
 ### Absolute-Form Request Target으로 Edge Path Filter 우회
 
 프록시가 `GET /internal/...` 같은 origin-form path만 필터링하고, 업스트림 Fastify/Node가 absolute-form request target의 path를 다시 라우팅하면:
