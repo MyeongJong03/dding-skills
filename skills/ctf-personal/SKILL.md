@@ -96,6 +96,21 @@ payload 작성 체크리스트:
 3. bore.pub 콜백 수신 (VPS 불필요)
 4. 리다이렉트 루프 우회 (HTTPS-only, 빈 응답 주의)
 
+### Absolute-Form Request Target으로 Edge Path Filter 우회
+
+프록시가 `GET /internal/...` 같은 origin-form path만 필터링하고, 업스트림 Fastify/Node가 absolute-form request target의 path를 다시 라우팅하면:
+
+```http
+POST http://x/internal/policy-seed HTTP/1.1
+Host: target:8080
+```
+
+처럼 보내서 edge의 `/internal` 차단을 우회할 수 있다. 확인 순서:
+- raw socket 또는 `curl --path-as-is --request-target` 계열로 absolute-form을 직접 전송한다.
+- `GET http://x/internal/admin-console.json`이 edge 403 대신 앱 레벨 401/403을 주면 업스트림까지 도달한 것이다.
+- 내부 seed/JWKS 계열 엔드포인트가 열리면, 업로드 가능한 PEM/키 자료와 조합해 verifier key를 주입한다.
+- PEM 앞에 audit banner 개행이 붙으면 RSA PEM 감지가 깨져 HS256 대칭키처럼 처리되는지 같이 확인한다.
+
 ### Validation Before Decoding Mismatch
 
 입력 검사가 **percent-encoded 원문**에 걸리고, 실제 sink에 넣기 직전에 `QueryUnescape` 같은 디코딩이 한 번 더 수행되면 금지 문자를 되살릴 수 있다.
