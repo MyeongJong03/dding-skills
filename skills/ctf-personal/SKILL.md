@@ -132,6 +132,32 @@ Host: target:8080
 - 내부 seed/JWKS 계열 엔드포인트가 열리면, 업로드 가능한 PEM/키 자료와 조합해 verifier key를 주입한다.
 - PEM 앞에 audit banner 개행이 붙으면 RSA PEM 감지가 깨져 HS256 대칭키처럼 처리되는지 같이 확인한다.
 
+### Single-Read Pipeline Smuggling Through Edge Proxy
+
+커스텀 프록시가 `httparse` 등으로 **첫 request-line만 검사/라우팅**하고, backend에는 같은 read buffer 전체를 그대로 쓰면,
+첫 요청은 허용 경로로 두고 두 번째 요청에 내부 엔드포인트를 붙여 side effect를 만들 수 있다.
+
+확인 포인트:
+- 첫 요청에 `Content-Length`를 넣지 않아 proxy가 `header_end + body_len`으로 자르지 않게 만든다.
+- 두 요청을 한 번의 `sendall()`로 이어 보내 TCP read buffer에 같이 들어가게 한다.
+- edge가 첫 응답만 relay하고 연결을 닫아도, backend가 두 번째 요청을 이미 처리하면 Redis/DB 같은 side effect로 결과를 회수할 수 있다.
+- 내부 API가 서명/HMAC/상태 헤더를 요구하면, smuggled 요청에 실제 backend path 기준으로 모두 맞춰 넣는다.
+
+형태:
+```http
+GET /health/policy-engine HTTP/1.1
+Host: target
+Connection: keep-alive
+
+POST /internal/admin/policy-override HTTP/1.1
+Host: policy-engine
+Authorization: Bearer ...
+X-Internal-HMAC: ...
+Content-Length: ...
+
+...
+```
+
 ### Validation Before Decoding Mismatch
 
 입력 검사가 **percent-encoded 원문**에 걸리고, 실제 sink에 넣기 직전에 `QueryUnescape` 같은 디코딩이 한 번 더 수행되면 금지 문자를 되살릴 수 있다.
