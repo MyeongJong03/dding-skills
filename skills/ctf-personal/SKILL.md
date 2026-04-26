@@ -282,6 +282,13 @@ p[76:80] = b".txt"
 - `append(length)`가 `global_ptr + global_len + i`에 raw byte를 쓰면, compose 때 `global_len`을 0x70~0x80 근처로 맞춰 canary 직전부터 덮는다. payload는 `pad -> leaked canary -> saved rbp -> ret alignment -> pop rdi -> "/bin/sh" -> system` 순서가 안정적이다.
 - 로컬 Apple Silicon Docker/Rosetta에서는 `/proc/<pid>/maps`나 libc return offset이 실제 amd64 원격과 다를 수 있다. 원격 leak의 하위 12비트와 page-aligned base 검증을 우선하고, local offset을 맹신하지 않는다.
 
+### Unicorn secure-world context UAF -> monitor auth
+- Native 바이너리가 Unicorn으로 secure world를 돌리고 `shm/peek` 같은 shared-memory 디버그 명령을 제공하면, guest fault가 나도 native 명령 루프와 shared memory가 살아 있는지 먼저 확인한다. Fault 후 `peek`이 가능하면 guest 안에서 shared memory로 leak하고 native에서 회수하는 경로가 열린다.
+- Custom allocator UAF에서 freed object chunk와 continuation/context chunk가 같은 size class면, object data write가 context의 `sp/x19/x20/x30` 복원 필드와 겹칠 수 있다. Magic/cookie가 context 앞쪽에 있으면 UAF가 `+0x10`부터 쓰는지 확인해 원본 guard를 보존한다.
+- AArch64 guest에서 `ldp x8, x30, [sp], #0x10; ret` + `mov x0, x19; mov x1, x20; br x8` 조합은 fake stack 한 쌍으로 `target(x19, x20, leftover_x2)`를 만들 수 있다. 호출 후 LR이 꼬여 fault가 나더라도, target이 shared memory에 값을 복사했다면 leak primitive로 충분하다.
+- Session 주소가 작은 후보군이면 `candidate + token_offset`을 guest append/memcpy 함수로 fake session in shared memory에 복사하고, 뒤따르는 고정 포인터/flag 값으로 올바른 후보를 식별한다. 틀린 후보 뒤에는 `reset`이 context pointer를 정리하는지 확인해 같은 연결에서 계속 brute-force한다.
+- Auth/monitor gadget이 있으면 leak한 token으로 같은 context hijack을 다시 사용해 `x0=session, x1=token`을 넣고 monitor auth를 호출한다. 성공 시 context pointer를 0으로 지우는 gadget이면 이후 정상 명령(`cat /flag`, `read`)으로 마무리할 수 있다.
+
 ---
 
 ## Crypto 패턴
