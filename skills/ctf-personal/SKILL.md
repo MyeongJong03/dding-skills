@@ -262,6 +262,13 @@ p[76:80] = b".txt"
 - exit handler는 pointer mangling(`rol((fn ^ guard), 0x11)`)을 쓰므로, `environ -> auxv -> AT_RANDOM` 또는 동등 경로로 guard를 먼저 확보해야 한다.
 - stack leak이 없으면 `setcontext`를 exit handler로 걸고 heap 위 `ucontext_t` + ROP를 준비해 ORW로 마무리하는 경로를 우선 검토한다.
 
+### 1-byte refcount wrap UAF -> exit context overlap
+- `clone/copy`가 heap object header의 1바이트 참조 카운트를 `++`만 하고 width 검사를 안 하면, 원본 1에서 255회 clone으로 `0x00` wrap을 만들 수 있다.
+- `delete`가 `refcnt == 0` 또는 `--refcnt == 0`에서 `free(buf)`를 호출하고 다른 alias slot을 지우지 않으면, 남은 alias로 dangling show/edit이 된다.
+- 큰 chunk alias를 먼저 free해서 unsorted bin fd/bk를 leak하고, 같은 size class의 작은 chunk를 free한 뒤 프로그램 내부 context 객체(`exit`, `commit`, `rollback` root 등) 할당으로 겹치게 만든다.
+- context 객체에 magic/guard 검사가 있으면 leak한 원본 값을 그대로 보존하고, `rsp/rip/rdi/rsi/rdx` 같은 call context 필드만 바꾼다.
+- fake stack을 같은 object 안에 두면 callee의 `push`/`call`이 command string이나 fake fields를 덮을 수 있다. PIE leak이 있으면 `.bss` 높은 주소를 synthetic stack으로 쓰는 편이 안정적이다.
+
 ### history/cache eviction UAF -> stdout FSOP
 - 이미지/미디어 preview 서비스가 최근 N개 history를 유지하면, "similar previous 선택"과 "oldest eviction" 순서를 먼저 본다. `A,B,C,D,A`처럼 같은 입력을 다시 넣었을 때 previous와 eviction 대상이 같아지면 UAF가 난다.
 - freed tcache chunk가 preview/download 이미지에 섞여 나오면 첫 qword는 safe-linking key(`chunk >> 12`)일 수 있다. 반대로 current 이미지 첫 픽셀이 post-UAF `memmove`로 previous chunk에 들어가면 tcache fd overwrite primitive가 된다.
