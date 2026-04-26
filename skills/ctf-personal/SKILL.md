@@ -269,6 +269,12 @@ p[76:80] = b".txt"
 - glibc 2.39 + Full RELRO에서는 poisoned `malloc(0x220)`을 `_IO_2_1_stdout_`으로 보내 fake FILE을 복사하고, `_IO_wfile_jumps` 기반 House-of-Apple2 경로로 `system("true;cat flag")`를 호출하는 루트가 짧다.
 - tcache poison과 fake FILE에는 heap page 기준 offset이 따로 필요할 수 있다. poison source chunk와 final current record 주소를 trace로 분리해서 잡고, trigger가 선택하는 history slot도 고정하면 원격 성공률이 올라간다.
 
+### stack use-after-return note pointer -> current frame ROP
+- note/compose 함수가 stack local buffer 주소를 global pointer로 저장하고 반환하면, 다음 menu handler의 같은 크기 stack frame이 그 주소를 재사용한다. handler 시작부의 `memset(local, 0, N)` 때문에 원본 note는 사라져도, global pointer는 현재 handler frame의 canary/saved RBP/return address 기준점이 된다.
+- `peek(offset, length)`가 `global_ptr + signed_offset`를 bounds 없이 출력하면 `buffer+0x88` 부근에서 canary, `buffer+0x98`에서 PIE return, 상위 caller frame에서 libc return을 한 번에 leak한다. glibc 2.39에서는 main을 호출한 뒤 저장된 return address가 `libc_base + 0x2a1ca`인 형태를 먼저 확인한다.
+- `append(length)`가 `global_ptr + global_len + i`에 raw byte를 쓰면, compose 때 `global_len`을 0x70~0x80 근처로 맞춰 canary 직전부터 덮는다. payload는 `pad -> leaked canary -> saved rbp -> ret alignment -> pop rdi -> "/bin/sh" -> system` 순서가 안정적이다.
+- 로컬 Apple Silicon Docker/Rosetta에서는 `/proc/<pid>/maps`나 libc return offset이 실제 amd64 원격과 다를 수 있다. 원격 leak의 하위 12비트와 page-aligned base 검증을 우선하고, local offset을 맹신하지 않는다.
+
 ---
 
 ## Crypto 패턴
