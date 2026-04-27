@@ -4,6 +4,33 @@
 
 ---
 
+## Crypto 특수 사례
+
+### Dreamhack singlerand — Python MT19937 seed preimage under 4300 decimal digits
+
+`random.Random(int(input()))`처럼 seed가 정수이고 Python 3.11+ 기본 `int` 변환 제한(4300 decimal digits)이 걸리면,
+MT state 전체 624-word seed를 그대로 넣지 말고 446개의 32-bit word seed를 목표로 잡는다.
+
+핵심 포인트:
+- 첫 396개 `getrandbits(32)`의 합이 0이면 각 출력이 모두 0이어야 한다.
+- twist 후 `T[0..395]=0`이 되도록 seed 직후 state `S`를 구성한다.
+  - `S[228..395]=0`
+  - `S[227]` MSB = 0
+  - `S[396]` low 31 bits = 0
+  - `S[397+i]=twist_mix(S[i], S[i+1])`
+- CPython `init_by_array()` 두 번째 루프를 역산할 때 `B[2]`는 `S[1]`이 아니라 이미 복구한 `B[1]`을 참조한다.
+  ```python
+  B[1] = (S[1] + 1) ^ G2(S[623])
+  B[2] = (S[2] + 2) ^ G2(B[1])
+  B[i] = (S[i] + i) ^ G2(S[i-1])  # i >= 3
+  ```
+- 446-word seed에서는 first-loop에서 key `0..177` 일부가 재사용되므로 중복 key 식이 일치해야 한다.
+- 자유 변수로 `S[2..52]`를 잡고 `S[53..227]`을 구성하면 마지막 32-bit residual 하나만 남는다. 이 residual을 랜덤/로컬 탐색으로 0으로 만들면 4300자리 제한 안의 seed를 얻을 수 있다.
+
+실전 결과:
+- 446-word seed의 10진수 길이: 4297자리
+- 검증: `random.Random(seed)`의 첫 396개 `getrandbits(32)` 합이 0
+
 ## Forensics/Misc 특수 사례
 
 ### CoreXY plotter traffic + microphone side-channel
