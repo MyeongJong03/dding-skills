@@ -323,6 +323,7 @@ from Crypto.Util.number import *
 # Common modulus: gcd(e1,e2)=1 → 확장 유클리드
 # Hastad's broadcast: 같은 m을 여러 n,e로 암호화 → CRT
 ```
+- 구조화된 `q = a*p^k + small(p)` 형태의 RSA는 `n = p*q ≈ a*p^(k+1)`로 보고 먼저 정수근을 확인한다. 예를 들어 `q = 2*p^3 + 2*isqrt(p) + 1`이면 `p = floor((n//2)^(1/4))`이고, 복구한 `p`로 `q`를 재계산해 `p*q == n`을 검증한 뒤 복호화한다.
 
 ### AES
 - ECB mode: 블록 경계 활용, chosen plaintext
