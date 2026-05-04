@@ -29,6 +29,19 @@ description: >
 time.sleep(8)
 ```
 
+### Chrome Extension Review Bot — Duplicate manifest ZIP Pivot
+
+확장프로그램 ZIP을 업로드하고 서버가 `manifest.json`만 검증한 뒤 봇이 다시 압축을 풀어 Chrome에 로드하는 구조면,
+중복 ZIP 엔트리 해석 차이를 먼저 확인한다.
+
+체크리스트:
+- 서버 검증 코드가 `entries.find(... === 'manifest.json')`처럼 첫 번째 manifest만 읽는지 확인한다.
+- 봇은 같은 ZIP을 `extractAllTo()`/`unzip`으로 풀고, 파일시스템의 최종 `manifest.json`을 Chrome에 넘기는지 확인한다.
+- ZIP에 benign `manifest.json`을 먼저 넣고, `sw.js`/`content.js` 뒤에 malicious `manifest.json`을 다시 넣어 overwrite되는지 로컬로 검증한다.
+- benign manifest에는 허용 host만 두고, malicious manifest에는 `background.service_worker`, `content_scripts`, 필요한 `host_permissions`를 넣는다.
+- loopback-only API는 content script가 대상 origin에서 `fetch('/api/...')`로 읽고, background service worker가 `chrome.runtime.onMessage`로 받아 외부 또는 같은 앱 storage에 저장한다.
+- 외부 콜백이 필요 없으면 봇 내부 `localhost`에서 같은 웹앱 계정으로 로그인한 뒤 paste/note 같은 저장 기능에 flag를 남긴다.
+
 ### url-parse Hostname Allowlist + javascript:// XSS
 
 서버가 `url-parse` 같은 라이브러리의 `hostname`만 allowlist로 검사한 뒤, 브라우저에는 검증된 `href`를 그대로 `location.href`에 넣으면

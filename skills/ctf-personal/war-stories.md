@@ -107,6 +107,21 @@ HackTheon 2026 plottergeist에서는 setup 값 `59,8,6`과 6px cell fingerprint�
 
 ## Web 특수 사례
 
+### Dreamhack Panel-Jacker — Duplicate manifest ZIP + extension bot loopback read
+
+구조:
+1. `web`는 업로드된 Chrome extension ZIP에서 `entries.find()`로 첫 번째 `manifest.json`을 파싱하고, `background.service_worker`와 `content_scripts`를 금지한다.
+2. `bot`는 같은 ZIP을 `AdmZip.extractAllTo()`로 디렉터리에 풀고 `--load-extension=<dir>`로 Chrome에 로드한다.
+3. ZIP 안에 `manifest.json`을 두 번 넣으면 검증 시에는 첫 번째 benign manifest가 쓰이고, 압축 해제 후 파일시스템에는 마지막 malicious manifest가 남는다.
+4. malicious manifest에 `content_scripts`와 `background.service_worker`를 넣어 `http://localhost:3000/ai-app`에서 실행한다.
+5. content script는 loopback-only `/ai-app/api/read-file`에 `runtime/secrets/current-flag.txt`를 요청하고, background는 `http://localhost:8080`의 같은 웹앱 계정으로 로그인해 paste에 저장한다.
+
+핵심 포인트:
+- `AdmZip` 기준으로 `getEntries()` 순서와 `extractAllTo()` overwrite 결과를 로컬에서 먼저 확인한다.
+- 외부 webhook 없이도 타깃 앱 자체의 저장 기능을 회수 채널로 쓸 수 있다.
+- background fetch에는 `credentials: 'include'`를 넣어 봇 브라우저 프로필의 `localhost:8080` 세션 쿠키를 설정/전송한다.
+- Dreamhack Panel-Jacker 원격에서는 `web`이 `:14635`, `ai-panel-app`이 `:15556`에 노출됐고, 봇 내부에서는 각각 `localhost:8080`, `localhost:3000`이었다.
+
 ### Dreamhack Anyone can cook — CSP meta refresh token leak + CSPT JSON XSS
 
 구조:
