@@ -29,6 +29,18 @@ description: >
 time.sleep(8)
 ```
 
+### url-parse Hostname Allowlist + javascript:// XSS
+
+서버가 `url-parse` 같은 라이브러리의 `hostname`만 allowlist로 검사한 뒤, 브라우저에는 검증된 `href`를 그대로 `location.href`에 넣으면
+`javascript://allowed.host/%0aPAYLOAD` 형태를 먼저 시도한다.
+
+체크리스트:
+- `url-parse('javascript://web-noob.kr/%0aalert(1)').hostname === 'web-noob.kr'`처럼 hostname 검사를 통과하는지 확인한다.
+- 브라우저에서는 `javascript:` scheme이 실행되고, `//web-noob.kr/`는 JS 주석, `%0a` 뒤가 실제 payload가 된다.
+- payload가 report bot의 query parameter로 한 번 더 전달되면 `%0a`를 `%250a`로 넣어 최종 라우트에서 `%0a`가 되게 한다.
+- EJS `<%= ... %>` 안에서 `>`가 `&gt;`로 escape될 수 있으니 arrow function 대신 `function(r){return/**/r.text()}` 형태를 쓴다.
+- raw query에 `+`가 있으면 space로 바뀔 수 있으므로 template literal `${...}` 또는 path segment 전송으로 회수한다.
+
 ### CSP meta refresh dangling token leak
 
 `script-src 'nonce-...'` / `default-src 'self'`로 inline JS와 외부 resource가 막혀도 `navigate-to`가 없으면
