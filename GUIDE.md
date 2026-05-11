@@ -456,6 +456,32 @@ reva-* skill은 Ghidra가 실행 중일 때만 추가 로드한다.
 | `ctf-writeup` | ljagiello/ctf-skills | 풀이 후 writeup 생성 |
 | `reva-*` | ReVa | Ghidra MCP 활용 패턴 |
 
+### Skills 설치 위치 정책
+
+`ctf-personal`은 이 repo가 관리하는 personal skill이다. 기본 설치에서 `~/.agents/skills/ctf-personal`이 `~/ctf-solver/skills/ctf-personal`을 가리키도록 배포한다.
+
+`ljagiello/ctf-skills`는 optional external skills다. 설치하면 카테고리별 공격 패턴과 writeup helper가 추가되어 성능 향상에 도움이 될 수 있지만, 외부 skill은 full agent permissions로 실행될 수 있다. 설치 전 내용을 검토하고, 검증되지 않은 skill을 무조건 설치하지 않는다.
+
+Codex를 실전에서 `~/CTF`에서 실행한다면 skill은 다음 위치 중 하나에 있어야 한다:
+
+- `~/.agents/skills` — 권장 universal global 위치
+- `~/CTF/.agents/skills` — CTF workspace project 위치
+
+`~/ctf-solver/.agents/skills`는 repo-local/project scope다. Codex를 `~/CTF`에서 실행하면 이 위치의 external skills가 보이지 않을 수 있으므로 기본 설치 위치로 쓰지 않는다.
+
+External skills를 설치하려면 명시적으로 실행한다:
+
+```bash
+cd ~/ctf-solver
+bash install.sh --with-external-skills
+```
+
+내부적으로 권장하는 noninteractive 명령은 다음과 같다:
+
+```bash
+npx --yes skills add ljagiello/ctf-skills --global --all --copy
+```
+
 ---
 
 ## 8. 풀이 후 업데이트 및 동기화

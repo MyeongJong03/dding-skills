@@ -55,7 +55,7 @@ python3 scripts/dump_mcp_tools.py --write docs/tools.md
 - Reason: this server supports general CTF automation, not only Dreamhack.
 - Dreamhack-specific helper tools such as `dreamhack_vm` remain unchanged.
 - Codex-first users do not need Claude MCP registration unless they still use Claude Code.
-- Global config files are not modified by this repo patch.
+- Default install does not modify global Claude/Codex config files. `--with-claude-mcp` is the explicit legacy compatibility path.
 
 Legacy Claude Code users only:
 
@@ -66,9 +66,17 @@ Legacy Claude Code users only:
 
 별도로 설치 필요한 것들입니다.
 
-- **CTF Skills**: [ljagiello/ctf-skills](https://github.com/ljagiello/ctf-skills) — 카테고리별 풀이 플레이북
+- **CTF Skills**: [ljagiello/ctf-skills](https://github.com/ljagiello/ctf-skills) — optional external 카테고리별 풀이 플레이북
 - **ReVa**: [cyberkaida/reverse-engineering-assistant](https://github.com/cyberkaida/reverse-engineering-assistant) — Ghidra MCP 연동 스킬
 - **Ghidra**: 리버싱 프레임워크 (ReVa 사용 시)
+
+### Skills 설치 정책
+
+- `ctf-personal`은 이 repo가 관리하는 personal skill이며, 기본 설치에서 `~/.agents/skills/ctf-personal`로 배포됩니다.
+- `ljagiello/ctf-skills`는 optional external skills입니다. 성능과 커버리지 향상에 도움이 될 수 있지만, 외부 skill은 full agent permissions로 실행될 수 있으므로 설치 전에 내용을 검토해야 합니다.
+- Codex를 실전에서 `~/CTF`에서 실행한다면 skills는 `~/.agents/skills` 또는 `~/CTF/.agents/skills`에 있어야 합니다.
+- `~/ctf-solver/.agents/skills`는 repo-local/project scope라서, Codex를 `~/CTF`에서 실행하면 보이지 않을 수 있습니다.
+- 이 repo의 기본 external skills 설치 위치는 universal global `~/.agents/skills`입니다. repo-local `.agents/skills`는 기본값으로 쓰지 않습니다.
 
 ## 설치
 
@@ -77,8 +85,20 @@ Legacy Claude Code users only:
 ```bash
 git clone https://github.com/MyeongJong03/dding-skills.git ~/ctf-solver
 cd ~/ctf-solver
-bash install.sh mac      # macOS
+bash install.sh          # macOS 기본값
 bash install.sh windows  # Windows WSL2
+```
+
+기본 설치는 `config/deploy.sh` 실행, `~/CTF/CLAUDE.md` 생성, `~/CTF/AGENTS.md` 동기화, `ctf-personal` skill 설치, Docker 이미지 준비만 수행합니다.
+Claude MCP 등록과 external skills 설치는 자동으로 실행하지 않습니다.
+
+Optional:
+
+```bash
+bash install.sh --with-claude-mcp
+bash install.sh --with-external-skills
+bash install.sh --all
+bash install.sh --help
 ```
 
 ### 수동 설치
@@ -121,11 +141,13 @@ claude mcp add --scope user ctf_solver \
 
 Codex에서 MCP가 직접 붙지 않는 경우에도 같은 `server.py`와 `tools/*.py`를 CLI/Python helper로 사용할 수 있습니다.
 
-#### 4. CTF Skills 설치
+#### 4. CTF Skills 설치 (optional external)
 
 ```bash
-npx skills install ljagiello/ctf-skills
+npx --yes skills add ljagiello/ctf-skills --global --all --copy
 ```
+
+권장 설치 위치는 `~/.agents/skills`입니다. `~/ctf-solver/.agents/skills`에만 설치하면 `~/CTF`에서 실행한 Codex가 skill을 보지 못할 수 있습니다.
 
 #### 5. ReVa 설치 (리버싱 필요 시, optional)
 

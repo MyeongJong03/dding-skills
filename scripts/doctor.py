@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Minimal P0 consistency doctor for the ctf-solver repo."""
+"""Consistency doctor for the ctf-solver repo."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -10,8 +11,23 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
+HOME = Path.home()
+CTF_DIR = HOME / "CTF"
 CANONICAL_MCP_NAME = "ctf_solver"
 LEGACY_MCP_NAME = "".join(("dreamhack", "_solver"))
+EXTERNAL_SKILL_NAMES = {
+    "ctf-ai-ml",
+    "ctf-crypto",
+    "ctf-forensics",
+    "ctf-malware",
+    "ctf-misc",
+    "ctf-osint",
+    "ctf-pwn",
+    "ctf-reverse",
+    "ctf-web",
+    "ctf-writeup",
+    "solve-challenge",
+}
 
 
 class Doctor:
@@ -25,6 +41,9 @@ class Doctor:
     def warn(self, message: str) -> None:
         self.warnings.append(message)
         print(f"[WARN] {message}")
+
+    def info(self, message: str) -> None:
+        print(f"[INFO] {message}")
 
     def fail(self, message: str) -> None:
         self.failures.append(message)
@@ -110,6 +129,117 @@ class Doctor:
         else:
             self.fail("AGENTS.md generation prerequisites are incomplete")
 
+    def check_ctf_workspace(self) -> None:
+        claude_md = CTF_DIR / "CLAUDE.md"
+        agents_md = CTF_DIR / "AGENTS.md"
+
+        if claude_md.is_file():
+            self.ok(f"{claude_md} exists")
+        else:
+            self.fail(f"{claude_md} missing; run bash install.sh")
+
+        if not agents_md.exists():
+            self.fail(f"{agents_md} missing; Codex launched from ~/CTF will not load project instructions")
+            return
+
+        self.ok(f"{agents_md} exists")
+        if agents_md.is_symlink():
+            target = agents_md.resolve()
+            if target == claude_md.resolve():
+                self.ok("~/CTF/AGENTS.md is a symlink to ~/CTF/CLAUDE.md")
+            else:
+                self.warn(f"~/CTF/AGENTS.md symlink points to {target}, not ~/CTF/CLAUDE.md")
+            return
+
+        if claude_md.is_file() and agents_md.is_file():
+            if agents_md.read_bytes() == claude_md.read_bytes():
+                self.ok("~/CTF/AGENTS.md content is synchronized with ~/CTF/CLAUDE.md")
+            else:
+                self.warn("~/CTF/AGENTS.md exists but is not synchronized with ~/CTF/CLAUDE.md")
+
+    def check_personal_skill(self) -> None:
+        skill = HOME / ".agents" / "skills" / "ctf-personal"
+        skill_file = skill / "SKILL.md"
+        if skill_file.is_file():
+            self.ok("~/.agents/skills/ctf-personal exists")
+        else:
+            self.fail("~/.agents/skills/ctf-personal missing; run bash install.sh")
+
+    def _external_skills_under(self, base: Path) -> set[str]:
+        found: set[str] = set()
+        for name in sorted(EXTERNAL_SKILL_NAMES):
+            if (base / name / "SKILL.md").is_file():
+                found.add(name)
+        return found
+
+    def check_external_skills(self) -> None:
+        locations = {
+            "~/.agents/skills": HOME / ".agents" / "skills",
+            "~/CTF/.agents/skills": CTF_DIR / ".agents" / "skills",
+            "~/ctf-solver/.agents/skills": ROOT / ".agents" / "skills",
+        }
+        found_by_label: dict[str, set[str]] = {}
+        for label, base in locations.items():
+            found = self._external_skills_under(base)
+            found_by_label[label] = found
+            if found:
+                self.info(f"external CTF skills detected under {label}: {len(found)} skills")
+            else:
+                self.info(f"external CTF skills not detected under {label}")
+
+        global_or_workspace = found_by_label["~/.agents/skills"] | found_by_label["~/CTF/.agents/skills"]
+        repo_local = found_by_label["~/ctf-solver/.agents/skills"]
+        repo_local_only = repo_local and not global_or_workspace
+        if repo_local_only:
+            self.warn(
+                "External CTF skills are installed only under repo-local .agents; "
+                "Codex launched from ~/CTF may not see them."
+            )
+        elif repo_local:
+            repo_only = repo_local - global_or_workspace
+            if repo_only:
+                self.warn(
+                    "Some external CTF skills are present only under repo-local .agents; "
+                    "Codex launched from ~/CTF may not see: " + ", ".join(sorted(repo_only))
+                )
+
+    def _collect_mcp_server_names(self, node: object) -> set[str]:
+        names: set[str] = set()
+        if isinstance(node, dict):
+            servers = node.get("mcpServers")
+            if isinstance(servers, dict):
+                names.update(str(name) for name in servers.keys())
+            for value in node.values():
+                names.update(self._collect_mcp_server_names(value))
+        elif isinstance(node, list):
+            for item in node:
+                names.update(self._collect_mcp_server_names(item))
+        return names
+
+    def check_claude_mcp_registration(self) -> None:
+        config = HOME / ".claude.json"
+        if not config.is_file():
+            self.info("Claude config not found; Claude MCP registration is optional")
+            return
+
+        try:
+            data = json.loads(config.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            self.warn(f"Could not inspect Claude MCP registration safely: {exc}")
+            return
+
+        names = self._collect_mcp_server_names(data)
+        if CANONICAL_MCP_NAME in names:
+            self.info(f"Claude MCP {CANONICAL_MCP_NAME} appears registered (optional)")
+        else:
+            self.info(f"Claude MCP {CANONICAL_MCP_NAME} not registered (optional)")
+
+        if LEGACY_MCP_NAME in names:
+            self.warn(
+                f"legacy Claude MCP {LEGACY_MCP_NAME} appears registered; "
+                f"prefer {CANONICAL_MCP_NAME} after manual migration review"
+            )
+
     def check_mcp_names(self) -> None:
         server = (ROOT / "server.py").read_text(encoding="utf-8")
         if f'FastMCP("{CANONICAL_MCP_NAME}")' in server:
@@ -118,9 +248,6 @@ class Doctor:
             self.fail(f"server.py MCP name is not {CANONICAL_MCP_NAME}")
 
         checked_paths = [
-            ROOT / "README.md",
-            ROOT / "GUIDE.md",
-            ROOT / "install.sh",
             ROOT / "server.py",
             ROOT / "config" / "CLAUDE.base.md",
         ]
@@ -134,11 +261,11 @@ class Doctor:
                 stale.append(str(path.relative_to(ROOT)))
         if stale:
             self.warn(
-                f"legacy MCP server name {LEGACY_MCP_NAME} detected; "
+                f"legacy MCP server name {LEGACY_MCP_NAME} detected in runtime docs/config; "
                 f"prefer {CANONICAL_MCP_NAME}: " + ", ".join(stale)
             )
         else:
-            self.ok("MCP server-name strings are consistent")
+            self.ok("runtime MCP server-name strings are consistent")
 
     def summary(self) -> int:
         print("")
@@ -169,9 +296,13 @@ def main() -> int:
     doctor.run_syntax("install.sh")
     doctor.run_syntax("config/deploy.sh")
     doctor.check_tools()
+    doctor.check_ctf_workspace()
+    doctor.check_personal_skill()
+    doctor.check_external_skills()
     doctor.docker_status()
     doctor.command_version("codex", optional=True)
     doctor.command_version("claude", optional=True)
+    doctor.check_claude_mcp_registration()
     doctor.check_mcp_names()
 
     return doctor.summary()
