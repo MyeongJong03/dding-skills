@@ -541,6 +541,17 @@ python3 scripts/queue_history.py --tail 20
 python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCON --all-for-run
 ```
 
+### Regression tests and secret scan
+
+P1 persistent session 변경 전에는 lifecycle/resource/metrics regression tests와 secret scan을 먼저 실행한다.
+
+```bash
+python3 -m pytest tests
+python3 scripts/secret_scan.py --strict
+```
+
+테스트는 temp env roots를 사용하며 실제 HOME의 `~/.ctf-solver`, `~/SolvedWriteUp`, `~/.agents`, `~/.claude`, `~/.codex`를 건드리지 않는다. `~/.claude.json`, `~/.codex/config.toml`, browser storage state, cookies, tokens 원문은 paste하거나 commit하지 않는다.
+
 ### 자동 업데이트 원칙
 
 플래그 획득 즉시 Claude Code/Codex가 자동으로:
@@ -829,6 +840,7 @@ ctf
 
 - **토큰을 채팅이나 터미널 결과에 붙여넣기 금지** → 노출 시 즉시 Revoke
 - **audit pack 공유 전 redaction 필수** → `python3 scripts/redact_sensitive.py input.txt > output.redacted.txt`
+- **글로벌 설정 원문 commit 금지** → `~/.claude.json`, `~/.codex/config.toml`, browser storage state, cookies, tokens는 repo에 넣지 말고 `python3 scripts/secret_scan.py --strict`로 확인
 - **MALWARE 문제에서 로컬 실행 금지** → 반드시 `docker_exec`으로 격리 실행
 - **Claude Code 사용 시 `~/CTF` 밖에서 직접 실행 금지** → compatibility 설정을 쓰려면 `ctf` alias 사용
 - **풀이 완료 후 `~/CTF/` 하위 작업 폴더 미정리** → 저장공간 누적 원인

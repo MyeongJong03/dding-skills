@@ -171,6 +171,7 @@ class Doctor:
             "scripts/queue_next.py",
             "scripts/queue_update.py",
             "scripts/queue_history.py",
+            "scripts/secret_scan.py",
             "scripts/doctor.py",
         ]
         for relative in scripts:
@@ -236,6 +237,18 @@ class Doctor:
                 self.ok("public metrics safety check passed")
         else:
             self.ok("metrics/summary.jsonl absent; no public metrics to validate")
+
+        secret_scan = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "secret_scan.py"), "--strict"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if secret_scan.returncode == 0:
+            self.ok("secret scan passed")
+        else:
+            output = (secret_scan.stdout or secret_scan.stderr).strip()
+            self.fail(f"secret scan failed: {output}")
 
         writeup_root = solved_writeup_root()
         run_root = local_run_root()

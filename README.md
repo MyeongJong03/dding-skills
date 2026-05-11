@@ -246,12 +246,16 @@ python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCO
 ## 점검 및 공유 전 redaction
 
 ```bash
+python3 -m pytest tests
+python3 scripts/secret_scan.py --strict
 python3 scripts/doctor.py
 python3 scripts/redact_sensitive.py --self-test
 python3 scripts/redact_sensitive.py audit-pack.txt > audit-pack.redacted.txt
 ```
 
-audit pack이나 설정을 공유하기 전에는 API key뿐 아니라 email, account UUID, organization UUID, referral code, billing/subscription metadata도 redaction 대상입니다.
+Regression tests는 temp env roots를 사용하며 실제 HOME의 `~/.ctf-solver`, `~/SolvedWriteUp`, `~/.agents`, `~/.claude`, `~/.codex`를 건드리지 않습니다. P1 persistent session 변경 전에는 `python3 -m pytest tests`와 `python3 scripts/secret_scan.py --strict`를 먼저 실행합니다.
+
+audit pack이나 설정을 공유하기 전에는 API key뿐 아니라 email, account UUID, organization UUID, referral code, billing/subscription metadata도 redaction 대상입니다. `~/.claude.json`, `~/.codex/config.toml`, browser storage state, cookies, tokens 원문은 paste하거나 commit하지 않습니다.
 
 ## Credits
 

@@ -144,6 +144,25 @@ Public metrics are GitHub-friendly aggregate records. They may live in repo `met
 
 Run `python3 scripts/update_metrics.py --check` before git sync or release handoff.
 
+## Regression Tests And Secret Scan
+
+Run the regression suite before P1 persistent session MCP changes:
+
+```bash
+python3 -m pytest tests
+python3 scripts/secret_scan.py --strict
+```
+
+Tests set `CTF_WORK_ROOT`, `CTF_LOCAL_RUN_ROOT`, `CTF_LOCK_ROOT`,
+`CTF_SOLVED_WRITEUP_ROOT`, `CTF_LEASE_ROOT`, `CTF_QUEUE_ROOT`,
+`CTF_SOLVER_REPO_ROOT`, and `CTF_PLATFORM_CONFIG` to temp directories. They do
+not touch real HOME state such as `~/.ctf-solver`, `~/SolvedWriteUp`,
+`~/.agents`, `~/.claude`, or `~/.codex`.
+
+Never paste or commit `~/.claude.json`, `~/.codex/config.toml`, browser storage
+state, cookies, tokens, OAuth values, account metadata, writeups, exploits, raw
+transcripts, or flags.
+
 ## Git Sync Boundary
 
 `scripts/git_sync_metrics.py` may stage only public-safe ctf-solver repository paths: `metrics/`, `skills/`, `memory/`, `docs/`, `config/`, `scripts/`, `tools/`, `ctf_solver_core/`, and top-level repo docs/config files.

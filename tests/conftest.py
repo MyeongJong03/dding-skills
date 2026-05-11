@@ -1,0 +1,110 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+from types import SimpleNamespace
+
+import pytest
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _write_platform_config(path: Path, *, sharing: bool = False, max_active: int = 1) -> None:
+    allowed = "true" if sharing else "false"
+    max_workers = 3 if sharing else 1
+    path.write_text(
+        f"""platforms:
+  - platform: thcon
+    event: THCON
+    resources:
+      remote_server:
+        provisioning: true
+        max_active_leases: {max_active}
+        lease_scope: event
+        release_required_before_next: true
+        sharing:
+          allowed: {allowed}
+          max_workers: {max_workers}
+          mode: {"multi_client_read_only" if sharing else "exclusive"}
+          destructive_actions_require_primary: true
+""",
+        encoding="utf-8",
+    )
+
+
+@pytest.fixture()
+def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
+    home = tmp_path / "home"
+    work = tmp_path / "work"
+    runs = tmp_path / "runs"
+    locks = tmp_path / "locks"
+    writeups = tmp_path / "writeups"
+    leases = tmp_path / "leases"
+    queue = tmp_path / "queue"
+    solver_repo = tmp_path / "solver-repo"
+    policy = tmp_path / "platforms.yaml"
+
+    for path in (home, work, runs, locks, writeups, leases, queue, solver_repo / "metrics"):
+        path.mkdir(parents=True, exist_ok=True)
+    _write_platform_config(policy)
+
+    env_values = {
+        "HOME": str(home),
+        "CTF_WORK_ROOT": str(work),
+        "CTF_LOCAL_RUN_ROOT": str(runs),
+        "CTF_LOCK_ROOT": str(locks),
+        "CTF_SOLVED_WRITEUP_ROOT": str(writeups),
+        "CTF_LEASE_ROOT": str(leases),
+        "CTF_QUEUE_ROOT": str(queue),
+        "CTF_SOLVER_REPO_ROOT": str(solver_repo),
+        "CTF_PLATFORM_CONFIG": str(policy),
+        "CTF_METRICS_MODE": "public",
+    }
+    for key, value in env_values.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("CTF_AUTO_PUSH", raising=False)
+
+    return SimpleNamespace(
+        base=tmp_path,
+        home=home,
+        work=work,
+        runs=runs,
+        locks=locks,
+        writeups=writeups,
+        leases=leases,
+        queue=queue,
+        solver_repo=solver_repo,
+        policy=policy,
+        env={**os.environ, **env_values},
+        write_platform_config=lambda **kwargs: _write_platform_config(policy, **kwargs),
+    )
+
+
+@pytest.fixture()
+def run_cli(temp_ctf_env: SimpleNamespace):
+    def _run(args: list[str], *, check: bool = True, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+        command = [sys.executable, *args]
+        result = subprocess.run(
+            command,
+            cwd=cwd or REPO_ROOT,
+            env=temp_ctf_env.env,
+            text=True,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        if check and result.returncode != 0:
+            raise AssertionError(
+                f"command failed: {' '.join(command)}\nstdout={result.stdout}\nstderr={result.stderr}"
+            )
+        return result
+
+    return _run
+
+
+def parse_json_output(result: subprocess.CompletedProcess[str]) -> dict[str, object]:
+    return json.loads(result.stdout)
