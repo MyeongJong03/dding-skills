@@ -82,6 +82,18 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │   ├── docker_pwn.py
 │   ├── dreamhack_vm.py
 │   └── ...
+├── ctf_solver_core/              # lifecycle 경로/락/스키마 공통 모듈
+├── scripts/                      # doctor + lifecycle/finalization CLI
+│   ├── challenge_init.py
+│   ├── challenge_finalize.py
+│   ├── generate_writeup.py
+│   ├── cleanup_challenge.py
+│   ├── update_metrics.py
+│   └── git_sync_metrics.py
+├── metrics/                      # GitHub push 가능한 public-safe metrics
+├── docs/
+│   ├── lifecycle.md
+│   └── metrics.md
 ├── Dockerfile.ctf                # Docker 이미지 정의
 ├── requirements.txt
 ├── install.sh
@@ -482,6 +494,21 @@ bash install.sh --with-external-skills
 
 ## 8. 풀이 후 업데이트 및 동기화
 
+### 문제 단위 lifecycle
+
+P1-0부터는 한 문제를 끝낼 때 `finalize`를 먼저 수행한다.
+
+```bash
+python3 scripts/challenge_init.py --platform dreamhack --event dreamhackWargame --challenge-name "Example" --category web
+python3 scripts/challenge_finalize.py --run-dir <run-dir> --status solved --generate-writeup --cleanup --update-metrics --git-sync --no-push
+```
+
+흐름은 `init -> solve -> finalize -> writeup -> cleanup -> metrics -> git sync -> next`다. 다음 문제로 넘어가기 전에 현재 run의 finalization이 성공해야 한다.
+
+Writeup은 `~/SolvedWriteUp` 또는 `CTF_SOLVED_WRITEUP_ROOT` 아래 local-only로 저장한다. Exploit 파일을 넘기면 writeup directory에 복사하고 `writeup.md` 안에 전체 코드를 넣는다. Writeup, exploit code, flag, raw transcript, private run log는 GitHub 자동 push 대상이 아니다.
+
+GitHub에 올릴 수 있는 것은 `metrics/summary.jsonl`, `metrics/dashboard.md` 같은 public-safe aggregate metrics뿐이다. 기본 metrics에는 challenge name도 넣지 않는다.
+
 ### 자동 업데이트 원칙
 
 플래그 획득 즉시 Claude Code/Codex가 자동으로:
@@ -866,6 +893,25 @@ PWN 문제야.
 ## 13. 동시 실행 주의사항
 
 Claude Code 또는 Codex 세션을 여러 개 열어 동시 풀이할 수 있다. 단, 조합에 주의.
+
+### Lifecycle 병렬 안전 정책
+
+- 각 문제는 `challenge_id`와 `run_id`로 분리한다.
+- global current challenge, current symlink 같은 전역 상태에 의존하지 않는다.
+- Finalize는 `challenge_id/run_id`별 lock을 잡는다.
+- Metrics update와 git sync는 global lock으로 직렬화한다.
+- Lock은 Windows 호환 atomic directory 방식이며 stale timeout을 둔다.
+- Path는 `Path.home()`과 env var override를 사용한다. macOS/Windows 모두 `/Users/...` 같은 hardcoded path를 쓰지 않는다.
+
+주요 override:
+
+```bash
+CTF_WORK_ROOT=<work-root>
+CTF_LOCAL_RUN_ROOT=<private-run-root>
+CTF_LOCK_ROOT=<lock-root>
+CTF_SOLVED_WRITEUP_ROOT=<local-writeup-root>
+CTF_AUTO_PUSH=1
+```
 
 ### 최대 동시 실행 수
 

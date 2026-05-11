@@ -9,6 +9,10 @@ CTF 문제 풀이를 위한 Codex-first, Claude-compatible AI 에이전트 세�
 dding-skills/
 ├── server.py              # MCP 서버 진입점
 ├── tools/                 # MCP 툴 15개
+├── ctf_solver_core/       # lifecycle path/lock/schema helpers
+├── scripts/               # doctor + lifecycle/finalization CLIs
+├── metrics/               # public-safe metrics and dashboard
+├── docs/                  # tools/lifecycle/metrics docs
 ├── Dockerfile.ctf         # CTF PWN/REV용 Docker 이미지
 ├── install.sh             # 자동 설치 스크립트
 ├── skills/
@@ -183,6 +187,29 @@ bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 | 변수 | 설명 | 기본값 |
 |---|---|---|
 | `SAGE_PATH` | SageMath 실행 파일 경로 | macOS 앱 번들 경로 |
+| `CTF_WORK_ROOT` | 문제 작업 루트 | `~/CTF/work` |
+| `CTF_LOCAL_RUN_ROOT` | private run log 루트 | `~/.ctf-solver/runs` |
+| `CTF_LOCK_ROOT` | lifecycle/git/metrics lock 루트 | `~/.ctf-solver/locks` |
+| `CTF_SOLVED_WRITEUP_ROOT` | local-only writeup 루트 | `~/SolvedWriteUp` |
+| `CTF_METRICS_MODE` | public metrics 업데이트 모드 | `public` |
+| `CTF_AUTO_PUSH` | `1`이면 git sync에서 push 허용 | unset |
+| `CTF_SOLVER_REPO_ROOT` | repo root override | script parent repo |
+
+## Challenge lifecycle (P1-0)
+
+Codex와 Claude를 동시에 쓰는 dual-agent setup에서도 문제 단위 lifecycle은 `challenge_id`와 `run_id`로 분리됩니다. 여러 터미널에서 동시에 finalize해도 challenge lock, metrics lock, git lock으로 직렬화합니다.
+
+기본 흐름:
+
+```bash
+python3 scripts/challenge_init.py --platform dreamhack --event dreamhackWargame --challenge-name "Example" --category web
+python3 scripts/challenge_finalize.py --run-dir <run-dir> --status solved --generate-writeup --cleanup --update-metrics --git-sync --no-push
+CTF_AUTO_PUSH=1 python3 scripts/git_sync_metrics.py --push
+```
+
+Writeup은 `~/SolvedWriteUp` 또는 `CTF_SOLVED_WRITEUP_ROOT` 아래에만 생성됩니다. Exploit 파일을 넘기면 writeup directory에 복사하고 `writeup.md` 안에 전체 코드를 삽입합니다. Writeup, exploit code, flag, raw transcript, private run log는 GitHub 자동 push 대상이 아닙니다.
+
+GitHub에 올릴 수 있는 것은 `metrics/summary.jsonl`과 `metrics/dashboard.md` 같은 public-safe aggregate metrics입니다. 기본 public metrics에는 challenge name도 넣지 않습니다. 자세한 정책은 [docs/lifecycle.md](docs/lifecycle.md)와 [docs/metrics.md](docs/metrics.md)를 봅니다.
 
 ## 점검 및 공유 전 redaction
 

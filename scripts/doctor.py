@@ -11,6 +11,19 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from ctf_solver_core.paths import (
+    display_path,
+    is_inside_repo,
+    local_run_root,
+    lock_root,
+    metrics_root,
+    solved_writeup_root,
+)
+from ctf_solver_core.schemas import read_jsonl, validate_public_record
+
 HOME = Path.home()
 CTF_DIR = HOME / "CTF"
 CANONICAL_MCP_NAME = "ctf_solver"
@@ -116,6 +129,61 @@ class Doctor:
             self.ok(f"tools/*.py present ({len(tools)} files)")
         else:
             self.fail("tools/*.py missing")
+
+    def check_lifecycle(self) -> None:
+        scripts = [
+            "scripts/challenge_init.py",
+            "scripts/challenge_finalize.py",
+            "scripts/generate_writeup.py",
+            "scripts/cleanup_challenge.py",
+            "scripts/update_metrics.py",
+            "scripts/git_sync_metrics.py",
+        ]
+        for relative in scripts:
+            self.require_file(relative)
+
+        if (ROOT / "ctf_solver_core" / "paths.py").is_file():
+            self.ok("ctf_solver_core path helpers exist")
+        else:
+            self.fail("ctf_solver_core path helpers missing")
+
+        metrics = metrics_root()
+        if metrics == ROOT / "metrics":
+            self.ok("metrics root is repo-local")
+        else:
+            self.warn(f"metrics root resolved outside repo default: {metrics}")
+        if metrics.is_dir():
+            self.ok("metrics directory exists")
+        else:
+            self.fail("metrics directory missing")
+        if (metrics / "dashboard.md").is_file():
+            self.ok("metrics/dashboard.md exists")
+        else:
+            self.warn("metrics/dashboard.md missing; update_metrics.py will generate it")
+        summary = metrics / "summary.jsonl"
+        metric_errors: list[str] = []
+        for index, record in enumerate(read_jsonl(summary), start=1):
+            metric_errors.extend(f"summary.jsonl:{index}: {error}" for error in validate_public_record(record))
+        if metric_errors:
+            for error in metric_errors:
+                self.fail(f"public metrics unsafe: {error}")
+        else:
+            self.ok("public metrics safety check passed")
+
+        writeup_root = solved_writeup_root()
+        run_root = local_run_root()
+        locks = lock_root()
+        self.info(f"writeup root: {display_path(writeup_root)}")
+        self.info(f"private run root: {display_path(run_root)}")
+        self.info(f"lock root: {display_path(locks)}")
+
+        if is_inside_repo(writeup_root):
+            self.warn("writeup root is inside repo; local-only writeups could be staged accidentally")
+        if is_inside_repo(run_root):
+            self.warn("private run root is inside repo; private logs could be staged accidentally")
+        if is_inside_repo(locks):
+            self.warn("lock root is inside repo; prefer ~/.ctf-solver/locks or CTF_LOCK_ROOT outside repo")
+        self.ok("metrics are repo-local public-safe targets; writeups/private runs are local-only targets")
 
     def check_agents_generation(self) -> None:
         required = [
@@ -294,6 +362,7 @@ def main() -> int:
     doctor.run_syntax("install.sh")
     doctor.run_syntax("config/deploy.sh")
     doctor.check_tools()
+    doctor.check_lifecycle()
     doctor.check_ctf_workspace()
     doctor.check_personal_skill()
     doctor.check_external_skills()

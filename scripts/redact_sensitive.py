@@ -12,6 +12,7 @@ import textwrap
 
 REDACTED = "<REDACTED>"
 PRIVATE_KEY_REDACTED = "<REDACTED_PRIVATE_KEY_BLOCK>"
+FLAG_REDACTED = "<REDACTED_CTF_FLAG>"
 
 ENV_KEYS = [
     "OPENAI_API_KEY",
@@ -80,6 +81,7 @@ def redact(text: str) -> str:
     out = re.sub(r"ghp_[A-Za-z0-9_]{10,}", REDACTED, out)
     out = re.sub(r"github_pat_[A-Za-z0-9_]{20,}", REDACTED, out)
     out = re.sub(r"xoxb-[A-Za-z0-9-]{10,}", REDACTED, out)
+    out = re.sub(r"\b(?:DH|FLAG|flag)\{[^}\n]{3,}\}", FLAG_REDACTED, out)
 
     env_pattern = "|".join(re.escape(key) for key in ENV_KEYS)
     out = re.sub(
@@ -132,12 +134,13 @@ def self_test() -> int:
         github=ghp_aaaaaaaaaaaaaaaaaaaa
         github_pat=github_pat_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         slack=xoxb-1111111111-2222222222-abcdefabcdef
+        flag={sample_flag}
         {"emailAddress":"person@example.com","organizationUuid":"org-123","accountUuid":"acct-456","displayName":"Private Name","billingStatus":"active","subscriptionId":"sub-123"}
         -----BEGIN PRIVATE KEY-----
         fake-private-key-body
         -----END PRIVATE KEY-----
         """
-    )
+    ).replace("{sample_flag}", "DH" + "{example_private_flag}")
     redacted = redact(sample)
     forbidden = [
         "sk-test",
@@ -153,6 +156,7 @@ def self_test() -> int:
         "ghp_",
         "github_pat_",
         "xoxb-",
+        "example_private_flag",
         "person@example.com",
         "org-123",
         "acct-456",

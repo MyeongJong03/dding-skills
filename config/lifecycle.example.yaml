@@ -1,0 +1,18 @@
+# Example lifecycle defaults. Scripts use environment variables directly; this
+# file documents recommended values for shell/profile setup.
+
+paths:
+  work_root: "${CTF_WORK_ROOT:-~/CTF/work}"
+  local_run_root: "${CTF_LOCAL_RUN_ROOT:-~/.ctf-solver/runs}"
+  lock_root: "${CTF_LOCK_ROOT:-~/.ctf-solver/locks}"
+  solved_writeup_root: "${CTF_SOLVED_WRITEUP_ROOT:-~/SolvedWriteUp}"
+  metrics_root: "<repo>/metrics"
+
+metrics:
+  mode: "${CTF_METRICS_MODE:-public}"
+  include_challenge_name: false
+
+git:
+  auto_push: "${CTF_AUTO_PUSH:-0}"
+  repo_root: "${CTF_SOLVER_REPO_ROOT:-<script parent repo>}"
+

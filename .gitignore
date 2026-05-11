@@ -8,3 +8,15 @@ __pycache__/
 .agents/
 skills-lock.json
 *.bak
+.runs/
+runs/private/
+private-runs/
+scratch/
+tmp/
+*.core
+core.*
+SolvedWriteUp/
+.ctf-solver/
+raw-transcripts/
+raw_transcripts/
+*.transcript
