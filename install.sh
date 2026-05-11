@@ -10,6 +10,19 @@ CANONICAL_MCP_NAME="ctf_solver"
 LEGACY_MCP_NAME="dreamhack_solver"
 CTF_DIR="${CTF_DIR:-$HOME/CTF}"
 EXTERNAL_SKILLS_DIR="$HOME/.agents/skills"
+EXPECTED_EXTERNAL_SKILLS=(
+    ctf-ai-ml
+    ctf-crypto
+    ctf-forensics
+    ctf-malware
+    ctf-misc
+    ctf-osint
+    ctf-pwn
+    ctf-reverse
+    ctf-web
+    ctf-writeup
+    solve-challenge
+)
 
 usage() {
     cat <<EOF
@@ -26,7 +39,7 @@ Default:
 
 Options:
   --with-claude-mcp       Register Claude Code MCP server ctf_solver when claude and uv exist.
-  --with-external-skills  Install optional ljagiello/ctf-skills globally under ~/.agents/skills.
+  --with-external-skills  Install optional ljagiello/ctf-skills only under ~/.agents/skills.
   --all                   Run both optional tasks above.
   --help, -h              Show this help.
 
@@ -79,6 +92,67 @@ claude_mcp_registered() {
     claude mcp list 2>/dev/null | grep -Eq "(^|[[:space:]])${CANONICAL_MCP_NAME}(:|[[:space:]]|$)"
 }
 
+is_expected_external_skill() {
+    local candidate="$1"
+    local skill
+    for skill in "${EXPECTED_EXTERNAL_SKILLS[@]}"; do
+        if [ "$candidate" = "$skill" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+find_external_skill_source() {
+    local clone_dir="$1"
+    local skill="$2"
+    local direct="$clone_dir/$skill"
+    local found
+
+    if [ -f "$direct/SKILL.md" ]; then
+        echo "$direct"
+        return 0
+    fi
+
+    found="$(find "$clone_dir" -type f -path "*/$skill/SKILL.md" -print -quit)"
+    if [ -n "$found" ]; then
+        dirname "$found"
+        return 0
+    fi
+
+    return 1
+}
+
+safe_replace_external_skill() {
+    local skill="$1"
+    local source_dir="$2"
+    local target="$EXTERNAL_SKILLS_DIR/$skill"
+    local external_parent
+    local target_parent
+
+    if ! is_expected_external_skill "$skill"; then
+        echo "[fail] Refusing to install unexpected external skill: $skill" >&2
+        return 1
+    fi
+
+    if [ ! -f "$source_dir/SKILL.md" ]; then
+        echo "[fail] Source skill is missing SKILL.md: $source_dir" >&2
+        return 1
+    fi
+
+    mkdir -p "$EXTERNAL_SKILLS_DIR"
+    external_parent="$(cd "$EXTERNAL_SKILLS_DIR" && pwd -P)"
+    target_parent="$(cd "$(dirname "$target")" && pwd -P)"
+
+    if [ "$target_parent" != "$external_parent" ] || [ "$(basename "$target")" != "$skill" ]; then
+        echo "[fail] Refusing unsafe external skill target: $target" >&2
+        return 1
+    fi
+
+    rm -rf "$target"
+    cp -a "$source_dir" "$target"
+}
+
 run_deploy() {
     echo "[deploy] config/deploy.sh $PLATFORM"
     bash "$REPO_DIR/config/deploy.sh" "$PLATFORM"
@@ -127,17 +201,45 @@ install_external_skills() {
         return
     fi
 
-    if ! command -v npx >/dev/null 2>&1; then
-        echo "[warn] npx not found; install manually after reviewing the source:"
-        echo "       npx --yes skills add ljagiello/ctf-skills --global --all --copy"
+    if ! command -v git >/dev/null 2>&1; then
+        echo "[warn] git not found; cannot clone ljagiello/ctf-skills"
         return
     fi
 
     echo "[warn] ljagiello/ctf-skills is an external skill package."
     echo "       Review before use; installed skills can run with full agent permissions."
-    echo "[info] Installing globally so Codex launched from $CTF_DIR can see them:"
+    echo "[info] Installing deterministic copies only under:"
     echo "       $EXTERNAL_SKILLS_DIR"
-    npx --yes skills add ljagiello/ctf-skills --global --all --copy
+
+    EXTERNAL_SKILLS_TMP_DIR="$(mktemp -d)"
+    trap 'rm -rf "${EXTERNAL_SKILLS_TMP_DIR:-}"' EXIT
+
+    local clone_dir="$EXTERNAL_SKILLS_TMP_DIR/ctf-skills"
+    local skill
+    local source_dir
+    local installed=()
+    local missing=()
+
+    git clone --depth 1 https://github.com/ljagiello/ctf-skills.git "$clone_dir"
+
+    for skill in "${EXPECTED_EXTERNAL_SKILLS[@]}"; do
+        if source_dir="$(find_external_skill_source "$clone_dir" "$skill")"; then
+            safe_replace_external_skill "$skill" "$source_dir"
+            installed+=("$skill")
+        else
+            missing+=("$skill")
+        fi
+    done
+
+    if [ "${#missing[@]}" -gt 0 ]; then
+        echo "[fail] Missing expected external skills: ${missing[*]}" >&2
+        return 1
+    fi
+
+    echo "[ok] External skills installed under $EXTERNAL_SKILLS_DIR:"
+    for skill in "${installed[@]}"; do
+        echo "       - $skill"
+    done
 }
 
 build_docker_image() {

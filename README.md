@@ -76,7 +76,8 @@ Legacy Claude Code users only:
 - `ljagiello/ctf-skills`는 optional external skills입니다. 성능과 커버리지 향상에 도움이 될 수 있지만, 외부 skill은 full agent permissions로 실행될 수 있으므로 설치 전에 내용을 검토해야 합니다.
 - Codex를 실전에서 `~/CTF`에서 실행한다면 skills는 `~/.agents/skills` 또는 `~/CTF/.agents/skills`에 있어야 합니다.
 - `~/ctf-solver/.agents/skills`는 repo-local/project scope라서, Codex를 `~/CTF`에서 실행하면 보이지 않을 수 있습니다.
-- 이 repo의 기본 external skills 설치 위치는 universal global `~/.agents/skills`입니다. repo-local `.agents/skills`는 기본값으로 쓰지 않습니다.
+- 이 repo의 external skills 설치 위치는 universal global `~/.agents/skills`입니다. `install.sh --with-external-skills`는 skills CLI의 all-agent 설치를 쓰지 않고, 임시 디렉터리에 clone한 뒤 고정된 11개 skill만 `~/.agents/skills`에 deterministic copy합니다.
+- skills CLI는 여러 agent-specific directory에 설치할 수 있으므로, repo-local `.agents/skills`는 기본값으로 쓰지 않고 `install.sh`가 새로 만들지 않습니다.
 
 ## 설치
 
@@ -144,10 +145,10 @@ Codex에서 MCP가 직접 붙지 않는 경우에도 같은 `server.py`와 `tool
 #### 4. CTF Skills 설치 (optional external)
 
 ```bash
-npx --yes skills add ljagiello/ctf-skills --global --all --copy
+bash ~/ctf-solver/install.sh --with-external-skills
 ```
 
-권장 설치 위치는 `~/.agents/skills`입니다. `~/ctf-solver/.agents/skills`에만 설치하면 `~/CTF`에서 실행한 Codex가 skill을 보지 못할 수 있습니다.
+설치 위치는 `~/.agents/skills`입니다. `install.sh`는 skills CLI의 all-agent 설치를 사용하지 않고, `ljagiello/ctf-skills`를 임시 디렉터리에 clone한 뒤 expected external skill 11개만 global 위치에 copy합니다. `~/ctf-solver/.agents/skills`에만 설치하면 `~/CTF`에서 실행한 Codex가 skill을 보지 못할 수 있습니다.
 
 #### 5. ReVa 설치 (리버싱 필요 시, optional)
 

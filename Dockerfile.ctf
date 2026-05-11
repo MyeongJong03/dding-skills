@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip3 install pwntools ROPgadget \
     z3-solver angr capstone unicorn \
     pycryptodome gmpy2 sympy \
-    requests flask-unsign
+    requests httpx flask-unsign
 
 RUN git clone https://github.com/pwndbg/pwndbg /opt/pwndbg && \
     cd /opt/pwndbg && ./setup.sh

@@ -187,21 +187,19 @@ class Doctor:
             else:
                 self.info(f"external CTF skills not detected under {label}")
 
-        global_or_workspace = found_by_label["~/.agents/skills"] | found_by_label["~/CTF/.agents/skills"]
+        global_skills = found_by_label["~/.agents/skills"]
         repo_local = found_by_label["~/ctf-solver/.agents/skills"]
-        repo_local_only = repo_local and not global_or_workspace
-        if repo_local_only:
+        missing_global = EXTERNAL_SKILL_NAMES - global_skills
+
+        if not missing_global:
+            self.ok("all optional external CTF skills are available under ~/.agents/skills")
+
+        repo_only = repo_local - global_skills
+        if repo_only:
             self.warn(
-                "External CTF skills are installed only under repo-local .agents; "
-                "Codex launched from ~/CTF may not see them."
+                "Some external CTF skills are present only under repo-local .agents; "
+                "Codex launched from ~/CTF may not see: " + ", ".join(sorted(repo_only))
             )
-        elif repo_local:
-            repo_only = repo_local - global_or_workspace
-            if repo_only:
-                self.warn(
-                    "Some external CTF skills are present only under repo-local .agents; "
-                    "Codex launched from ~/CTF may not see: " + ", ".join(sorted(repo_only))
-                )
 
     def _collect_mcp_server_names(self, node: object) -> set[str]:
         names: set[str] = set()
