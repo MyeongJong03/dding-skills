@@ -48,6 +48,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--local-prework-time-sec", type=int)
     parser.add_argument("--remote-lease-time-sec", type=int)
     parser.add_argument("--resource-blocked-count", type=int)
+    parser.add_argument("--lease-acquire-count", type=int)
+    parser.add_argument("--lease-release-count", type=int)
+    parser.add_argument("--stale-lease-reclaimed-count", type=int)
+    parser.add_argument("--remote-blocked-count", type=int)
+    parser.add_argument("--scheduler-wait-count", type=int)
+    parser.add_argument("--scheduler-local-work-count", type=int)
+    parser.add_argument("--scheduler-helper-join-count", type=int)
+    parser.add_argument("--total-remote-wait-time-sec", type=int)
+    parser.add_argument("--total-lease-held-sec", type=int)
     parser.add_argument("--shared-remote-used", action="store_true")
     parser.add_argument("--helper-workers-used", type=int)
     parser.add_argument("--local-ready-before-remote", action="store_true")
@@ -143,6 +152,15 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         "local_prework_time_sec": getattr(args, "local_prework_time_sec", None),
         "remote_lease_time_sec": getattr(args, "remote_lease_time_sec", None),
         "resource_blocked_count": getattr(args, "resource_blocked_count", None),
+        "lease_acquire_count": getattr(args, "lease_acquire_count", None),
+        "lease_release_count": getattr(args, "lease_release_count", None),
+        "stale_lease_reclaimed_count": getattr(args, "stale_lease_reclaimed_count", None),
+        "remote_blocked_count": getattr(args, "remote_blocked_count", None),
+        "scheduler_wait_count": getattr(args, "scheduler_wait_count", None),
+        "scheduler_local_work_count": getattr(args, "scheduler_local_work_count", None),
+        "scheduler_helper_join_count": getattr(args, "scheduler_helper_join_count", None),
+        "total_remote_wait_time_sec": getattr(args, "total_remote_wait_time_sec", None),
+        "total_lease_held_sec": getattr(args, "total_lease_held_sec", None),
         "helper_workers_used": getattr(args, "helper_workers_used", None),
     }
     for key, value in optional_ints.items():

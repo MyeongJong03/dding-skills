@@ -63,6 +63,12 @@
 - Destructive actions are primary-worker only.
 - Never submit flags, restart/release remote servers, or perform destructive state changes from helper role.
 - Always finalize and release leases before moving to the next challenge unless the user explicitly requests `--keep-lease`.
+- Long-running remote work should heartbeat the lease with `resource_heartbeat.py`.
+- If a worker dies or a terminal closes, stale leases may be reclaimed after `stale_after_sec`.
+- Before assuming remote capacity is unavailable forever, check stale leases.
+- Do not reclaim a lease that is still heartbeating.
+- Helper workers must stop if the primary lease becomes stale or released.
+- Use queue event history to understand why a worker is waiting, doing local work, joining as helper, or acquiring remote.
 
 ## 로컬 도구
 | 도구 | 용도 |

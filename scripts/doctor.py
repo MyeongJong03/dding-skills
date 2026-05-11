@@ -26,6 +26,7 @@ from ctf_solver_core.paths import (
     solved_writeup_root,
 )
 from ctf_solver_core.platforms import platform_config_path, validate_platform_config
+from ctf_solver_core.resources import detect_stale_leases, list_leases
 from ctf_solver_core.schemas import read_jsonl, validate_public_record
 
 HOME = Path.home()
@@ -164,9 +165,12 @@ class Doctor:
             "scripts/git_sync_metrics.py",
             "scripts/platform_config_init.py",
             "scripts/resource_acquire.py",
+            "scripts/resource_heartbeat.py",
             "scripts/resource_release.py",
+            "scripts/resource_reclaim_stale.py",
             "scripts/queue_next.py",
             "scripts/queue_update.py",
+            "scripts/queue_history.py",
             "scripts/doctor.py",
         ]
         for relative in scripts:
@@ -254,6 +258,19 @@ class Doctor:
             self.warn("lease root is inside repo; prefer ~/.ctf-solver/leases or CTF_LEASE_ROOT outside repo")
         if is_inside_repo(queue):
             self.warn("queue root is inside repo; prefer ~/.ctf-solver/queue or CTF_QUEUE_ROOT outside repo")
+        try:
+            active_leases = list_leases()
+            if active_leases:
+                self.info(f"active lease count: {len(active_leases)}")
+            else:
+                self.ok("active lease count: 0")
+            stale_leases = detect_stale_leases()
+            if stale_leases:
+                self.warn(f"stale lease count: {len(stale_leases)}")
+            else:
+                self.ok("stale lease count: 0")
+        except Exception as exc:
+            self.warn(f"could not inspect lease counts safely: {exc}")
         self.ok("metrics are repo-local public-safe targets; writeups/private runs are local-only targets")
 
     def check_agents_generation(self) -> None:

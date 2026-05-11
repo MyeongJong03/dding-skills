@@ -192,6 +192,8 @@ bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 | `CTF_LOCAL_RUN_ROOT` | private run log 루트 | `~/.ctf-solver/runs` |
 | `CTF_LOCK_ROOT` | lifecycle/git/metrics lock 루트 | `~/.ctf-solver/locks` |
 | `CTF_LEASE_ROOT` | remote resource lease 루트 | `~/.ctf-solver/leases` |
+| `CTF_LEASE_HEARTBEAT_INTERVAL_SEC` | lease heartbeat 권장 주기 | `30` |
+| `CTF_LEASE_STALE_AFTER_SEC` | heartbeat 중단 후 stale 판정 시간 | `180` |
 | `CTF_QUEUE_ROOT` | challenge queue 루트 | `~/.ctf-solver/queue` |
 | `CTF_PLATFORM_CONFIG` | repo 밖 platform policy YAML | unset (`config/platforms.example.yaml` for schema/example) |
 | `CTF_SOLVED_WRITEUP_ROOT` | local-only writeup 루트 | `~/SolvedWriteUp` |
@@ -225,6 +227,8 @@ Codex는 `~/CTF/AGENTS.md`, Claude는 `~/CTF/CLAUDE.md`를 읽으며 두 파일�
 
 여러 터미널/worker가 같은 대회 리소스를 공유할 때는 platform policy, queue, lease helper를 사용합니다. THCON처럼 한 세션에서 VM/server 1개만 가능한 플랫폼은 `max_active_leases: 1`로 표현하고, remote lease를 못 받은 worker는 idle하지 않고 local-capable 문제의 triage/analysis/exploit planning을 먼저 진행합니다. `local_exploit_ready=true` 문제는 remote capacity가 풀릴 때 우선순위를 받습니다.
 
+Long-running remote 작업은 lease heartbeat를 남기고, worker crash나 터미널 종료로 stale lease가 생기면 dry-run 확인 후 reclaim합니다. Queue history는 여러 터미널에서 scheduler decision과 lease lifecycle을 추적하는 기준입니다.
+
 Remote sharing이 안전하고 policy에서 허용된 경우에만 helper worker가 active remote challenge에 합류할 수 있습니다. Primary worker만 destructive action, submit, restart/release 권한을 가집니다. 자세한 운영 규칙은 [docs/platform-automation.md](docs/platform-automation.md)를 봅니다.
 
 ```bash
@@ -232,6 +236,10 @@ python3 scripts/platform_config_init.py --print-template
 python3 scripts/queue_update.py --platform thcon --event THCON --challenge-id A --category web --state downloaded --local-capable true --remote-required true --local-exploit-ready false --confidence 0.4 --destructive-risk 0.1
 python3 scripts/queue_next.py --platform thcon --event THCON --policy ~/.ctf-solver/platforms/thcon.yaml
 python3 scripts/resource_acquire.py --platform thcon --event THCON --challenge-id A --run-id RUN_A --resource remote_server --mode primary --policy ~/.ctf-solver/platforms/thcon.yaml
+python3 scripts/resource_heartbeat.py --lease-id <lease-id> --once
+python3 scripts/resource_reclaim_stale.py --dry-run
+python3 scripts/resource_reclaim_stale.py --apply
+python3 scripts/queue_history.py --tail 20
 python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCON --all-for-run
 ```
 

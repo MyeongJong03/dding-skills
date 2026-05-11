@@ -39,6 +39,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--confidence", type=float, default=0.0)
     parser.add_argument("--destructive-risk", type=float, default=0.0)
     parser.add_argument("--deadline")
+    parser.add_argument("--worker-id")
+    parser.add_argument("--reason")
     return parser
 
 
@@ -57,6 +59,8 @@ def main() -> int:
         confidence=args.confidence,
         destructive_risk=args.destructive_risk,
         deadline=args.deadline,
+        worker_id=args.worker_id,
+        reason=args.reason,
     )
     print(json_dumps({"ok": True, "item": item}), end="")
     return 0

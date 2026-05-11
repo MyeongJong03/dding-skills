@@ -90,8 +90,8 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │   ├── cleanup_challenge.py
 │   ├── update_metrics.py
 │   ├── git_sync_metrics.py
-│   ├── queue_next.py / queue_update.py
-│   └── resource_acquire.py / resource_release.py
+│   ├── queue_next.py / queue_update.py / queue_history.py
+│   └── resource_acquire.py / resource_heartbeat.py / resource_reclaim_stale.py / resource_release.py
 ├── metrics/                      # GitHub push 가능한 public-safe metrics
 ├── docs/
 │   ├── lifecycle.md
@@ -525,6 +525,8 @@ P1-0.6부터는 여러 터미널/worker가 같은 플랫폼 리소스를 안전�
 
 THCON처럼 한 세션에서 server/VM 하나만 가능한 대회는 `max_active_leases: 1`, `lease_scope: event`로 설정한다. Remote lease를 못 받은 worker는 idle하지 않고 `local_capable=true` 문제의 정찰, 정적 분석, exploit planning, local skeleton 작성을 진행한다. `local_exploit_ready=true` 문제는 remote lease 우선순위가 올라간다.
 
+Long-running remote 작업은 lease heartbeat를 남긴다. Worker crash나 터미널 종료로 heartbeat가 멈춘 stale lease는 dry-run으로 확인한 뒤 reclaim한다. Queue history는 여러 터미널에서 scheduler decision, wait 사유, lease lifecycle을 추적하는 기준이다.
+
 Remote sharing이 policy에서 허용되고 multi-client safe일 때만 helper worker가 active remote challenge에 합류한다. Primary worker만 destructive action, submit, restart/release 권한이 있고 helper는 read-only analysis와 non-destructive request만 수행한다. 자세한 내용은 `docs/platform-automation.md`를 기준으로 한다.
 
 ```bash
@@ -532,6 +534,10 @@ python3 scripts/platform_config_init.py --print-template
 python3 scripts/queue_update.py --platform thcon --event THCON --challenge-id A --category web --state downloaded --local-capable true --remote-required true --local-exploit-ready false --confidence 0.4 --destructive-risk 0.1
 python3 scripts/queue_next.py --platform thcon --event THCON --policy ~/.ctf-solver/platforms/thcon.yaml
 python3 scripts/resource_acquire.py --platform thcon --event THCON --challenge-id A --run-id RUN_A --resource remote_server --mode primary --policy ~/.ctf-solver/platforms/thcon.yaml
+python3 scripts/resource_heartbeat.py --lease-id <lease-id> --once
+python3 scripts/resource_reclaim_stale.py --dry-run
+python3 scripts/resource_reclaim_stale.py --apply
+python3 scripts/queue_history.py --tail 20
 python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCON --all-for-run
 ```
 

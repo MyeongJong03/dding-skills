@@ -17,8 +17,8 @@ if str(ROOT / "scripts") not in sys.path:
 
 from ctf_solver_core.locks import DirectoryLock
 from ctf_solver_core.paths import display_path, resolve_path, work_root
-from ctf_solver_core.queue import mark_finalized
-from ctf_solver_core.resources import release_lease
+from ctf_solver_core.queue import append_queue_event, mark_finalized
+from ctf_solver_core.resources import REMOTE_SERVER, detect_stale_leases, release_lease
 from ctf_solver_core.schemas import (
     CATEGORIES,
     STATUSES,
@@ -190,13 +190,73 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
 
         lease_release_result: dict[str, object] | None = None
         queue_result: dict[str, object] | None = None
+        resource_warnings: list[dict[str, object]] = []
+        stale_leases = detect_stale_leases(
+            platform=platform,
+            event=event,
+            resource_type=REMOTE_SERVER,
+            run_id=run_id,
+        )
+        if stale_leases:
+            resource_warnings.append(
+                {
+                    "type": "stale_leases_present",
+                    "count": len(stale_leases),
+                    "lease_ids": [item.get("lease_id") for item in stale_leases],
+                }
+            )
+            if not args.dry_run:
+                for stale in stale_leases:
+                    append_queue_event(
+                        event_type="lease_stale_detected",
+                        challenge_id=challenge_id,
+                        run_id=run_id,
+                        platform=platform,
+                        event=event,
+                        reason=str(stale.get("stale_reason") or "stale"),
+                        public_safe_metadata={
+                            "lease_id": stale.get("lease_id"),
+                            "resource_type": stale.get("resource_type"),
+                            "role": stale.get("role"),
+                        },
+                    )
         if getattr(args, "keep_lease", False):
             lease_release_result = {"ok": True, "reason": "kept_by_request", "released": []}
+            if not args.dry_run:
+                append_queue_event(
+                    event_type="keep_lease",
+                    challenge_id=challenge_id,
+                    run_id=run_id,
+                    platform=platform,
+                    event=event,
+                    reason=args.reason or "keep_lease_requested",
+                )
         elif args.dry_run:
             lease_release_result = {"ok": True, "reason": "dry_run", "released": []}
         else:
             try:
-                lease_release_result = release_lease(run_id=run_id, platform=platform, event=event)
+                lease_release_result = release_lease(
+                    run_id=run_id,
+                    platform=platform,
+                    event=event,
+                    release_reason="finalized",
+                )
+                for released in lease_release_result.get("released_records") or []:
+                    if isinstance(released, dict):
+                        append_queue_event(
+                            event_type="lease_released",
+                            challenge_id=str(released.get("challenge_id") or challenge_id),
+                            run_id=str(released.get("run_id") or run_id),
+                            platform=str(released.get("platform") or platform),
+                            event=str(released.get("event") or event),
+                            reason="finalized",
+                            public_safe_metadata={
+                                "lease_id": released.get("lease_id"),
+                                "resource_type": released.get("resource_type"),
+                                "role": released.get("role"),
+                                "held_sec": released.get("held_sec"),
+                            },
+                        )
             except Exception as exc:
                 lease_release_result = {"ok": False, "reason": "release_failed", "warning": str(exc), "released": []}
 
@@ -204,9 +264,28 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             queue_result = {"updated": False, "reason": "dry_run"}
         else:
             try:
-                queue_result = mark_finalized(challenge_id=challenge_id, run_id=run_id)
+                queue_result = mark_finalized(
+                    challenge_id=challenge_id,
+                    run_id=run_id,
+                    reason=args.reason or args.status,
+                )
+                if not queue_result.get("updated"):
+                    append_queue_event(
+                        event_type="finalized",
+                        challenge_id=challenge_id,
+                        run_id=run_id,
+                        platform=platform,
+                        event=event,
+                        reason=args.reason or args.status,
+                    )
             except Exception as exc:
                 queue_result = {"updated": False, "reason": "queue_update_failed", "warning": str(exc)}
+
+        resource_metrics = {
+            "lease_release_count": int((lease_release_result or {}).get("released_count") or 0),
+            "stale_lease_reclaimed_count": 0,
+            "total_lease_held_sec": int((lease_release_result or {}).get("total_lease_held_sec") or 0),
+        }
 
         final_record = {
             "schema_version": 1,
@@ -230,6 +309,8 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "exploit_included": bool(writeup_result and writeup_result.get("exploit_included")),
             "cleanup": cleanup_result or {},
             "resource_release": lease_release_result or {},
+            "resource_warnings": resource_warnings,
+            "resource_metrics": resource_metrics,
             "queue": queue_result or {},
             "forced": bool(args.force),
             "previous_status": existing_status if existing_finalized else "",
@@ -268,6 +349,15 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 local_prework_time_sec=None,
                 remote_lease_time_sec=None,
                 resource_blocked_count=None,
+                lease_acquire_count=None,
+                lease_release_count=resource_metrics["lease_release_count"],
+                stale_lease_reclaimed_count=resource_metrics["stale_lease_reclaimed_count"],
+                remote_blocked_count=None,
+                scheduler_wait_count=None,
+                scheduler_local_work_count=None,
+                scheduler_helper_join_count=None,
+                total_remote_wait_time_sec=None,
+                total_lease_held_sec=resource_metrics["total_lease_held_sec"],
                 shared_remote_used=False,
                 helper_workers_used=None,
                 local_ready_before_remote=False,
