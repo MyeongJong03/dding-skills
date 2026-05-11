@@ -51,6 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--update-metrics", action="store_true")
     parser.add_argument("--git-sync", action="store_true")
     parser.add_argument("--no-push", action="store_true")
+    parser.add_argument("--force", action="store_true", help="replace an existing finalization for this run")
     parser.add_argument("--dry-run", action="store_true")
     return parser
 
@@ -58,6 +59,17 @@ def build_parser() -> argparse.ArgumentParser:
 def _load_challenge(run_dir: Path) -> dict[str, object]:
     data = read_json(run_dir / "challenge.json", default={})
     return data if isinstance(data, dict) else {}
+
+
+def _load_finalization(run_dir: Path) -> dict[str, object]:
+    for name in ("finalization.json", "finalize.json"):
+        data = read_json(run_dir / name, default={})
+        if isinstance(data, dict) and data:
+            return data
+    run = read_json(run_dir / "run.json", default={})
+    if isinstance(run, dict) and isinstance(run.get("finalization"), dict):
+        return run["finalization"]
+    return {}
 
 
 def _duration(challenge: dict[str, object], finalized_at: str) -> int | None:
@@ -119,6 +131,31 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
     exploits = _collect_exploits(run_dir, args.exploit)
 
     with DirectoryLock(f"finalize-{challenge_id}-{run_id}", "challenge finalization", wait_seconds=120):
+        existing = _load_finalization(run_dir)
+        existing_finalized = bool(existing.get("finalized") or existing.get("finalized_at"))
+        existing_status = str(existing.get("status") or "")
+        if existing_finalized and existing_status != args.status and not args.force:
+            raise RuntimeError(
+                f"run already finalized as {existing_status!r}; "
+                f"use --force to replace it with {args.status!r}"
+            )
+        if existing_finalized and existing_status == args.status and not args.force:
+            return {
+                "challenge_id": challenge_id,
+                "run_id": run_id,
+                "status": args.status,
+                "already_finalized": True,
+                "finalized_at": existing.get("finalized_at"),
+                "display_run_dir": display_path(run_dir),
+                "display_workspace": display_path(workspace),
+                "archived_exploits": existing.get("archived_exploits") or [],
+                "writeup": existing.get("writeup") or {},
+                "cleanup": existing.get("cleanup") or {},
+                "metrics": {"duplicate_skipped": True, "reason": "already finalized"},
+                "git_sync": None,
+                "dry_run": args.dry_run,
+            }
+
         archived_exploits = _archive_exploits(run_dir, exploits, args.dry_run)
 
         writeup_result: dict[str, object] | None = None
@@ -149,6 +186,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
 
         final_record = {
             "schema_version": 1,
+            "finalized": True,
             "finalized_at": finalized_at,
             "challenge_id": challenge_id,
             "run_id": run_id,
@@ -167,14 +205,20 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "writeup_generated": bool(writeup_result and writeup_result.get("generated")),
             "exploit_included": bool(writeup_result and writeup_result.get("exploit_included")),
             "cleanup": cleanup_result or {},
+            "forced": bool(args.force),
+            "previous_status": existing_status if existing_finalized else "",
         }
         if not args.dry_run:
             run_dir.mkdir(parents=True, exist_ok=True)
             atomic_write_json(run_dir / "finalize.json", final_record)
+            atomic_write_json(run_dir / "finalization.json", final_record)
             atomic_write_json(
                 run_dir / "run.json",
                 {
+                    "schema_version": 1,
                     "updated_at": iso_now(),
+                    "finalized": True,
+                    "status": args.status,
                     "challenge": challenge,
                     "finalization": final_record,
                     "flag": args.flag,
@@ -197,6 +241,9 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 tool_call_counts_json=None,
                 model_tooling_summary=None,
                 include_challenge_name=False,
+                run_id=run_id,
+                force=args.force,
+                replace=args.force,
                 dry_run=args.dry_run,
             )
             metrics_result = update_metrics(metrics_args)
@@ -236,4 +283,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

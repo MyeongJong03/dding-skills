@@ -496,18 +496,24 @@ bash install.sh --with-external-skills
 
 ### 문제 단위 lifecycle
 
-P1-0부터는 한 문제를 끝낼 때 `finalize`를 먼저 수행한다.
+P1-0.5부터는 한 문제를 시작할 때 `init`, 끝낼 때 `finalize`를 반드시 수행한다.
 
 ```bash
 python3 scripts/challenge_init.py --platform dreamhack --event dreamhackWargame --challenge-name "Example" --category web
 python3 scripts/challenge_finalize.py --run-dir <run-dir> --status solved --generate-writeup --cleanup --update-metrics --git-sync --no-push
 ```
 
-흐름은 `init -> solve -> finalize -> writeup -> cleanup -> metrics -> git sync -> next`다. 다음 문제로 넘어가기 전에 현재 run의 finalization이 성공해야 한다.
+흐름은 `init -> solve -> finalize -> writeup -> cleanup -> metrics -> git sync -> next`다. 다음 문제로 넘어가기 전에 현재 run의 finalization이 성공해야 한다. Finalize 대상 상태는 `solved`, `abandoned`, `skipped`, `already_solved`, `timeout`, `budget_exhausted`, `manual_stop` 전체다.
+
+`challenge_init.py`가 반환한 `challenge_id`, `run_id`, `run_dir`를 터미널별로 보존한다. global current challenge, latest-run 추론, current symlink에 의존하지 않는다. 사용자가 기존 workspace나 `run_dir`를 주면 새 run을 만들지 않고 해당 run을 이어서 쓴다.
 
 Writeup은 `~/SolvedWriteUp` 또는 `CTF_SOLVED_WRITEUP_ROOT` 아래 local-only로 저장한다. Exploit 파일을 넘기면 writeup directory에 복사하고 `writeup.md` 안에 전체 코드를 넣는다. Writeup, exploit code, flag, raw transcript, private run log는 GitHub 자동 push 대상이 아니다.
 
-GitHub에 올릴 수 있는 것은 `metrics/summary.jsonl`, `metrics/dashboard.md` 같은 public-safe aggregate metrics뿐이다. 기본 metrics에는 challenge name도 넣지 않는다.
+GitHub에 올릴 수 있는 것은 `metrics/summary.jsonl`, `metrics/dashboard.md` 같은 public-safe aggregate metrics뿐이다. 기본 metrics에는 challenge name도 넣지 않는다. Metrics에는 `run_id`가 들어가며 같은 `run_id`는 중복 append하지 않는다. 교체가 필요할 때만 `--replace` 또는 `--force`를 쓴다.
+
+`challenge_finalize.py`는 이미 같은 status로 finalize된 run이면 no-op으로 끝나고 duplicate metrics를 만들지 않는다. 다른 status로 바꾸려면 `--force`가 필요하다.
+
+Codex는 `~/CTF/AGENTS.md`, Claude는 `~/CTF/CLAUDE.md`를 읽는다. 두 파일은 `config/deploy.sh`가 같은 generated lifecycle enforcement content로 동기화한다.
 
 ### 자동 업데이트 원칙
 
@@ -898,8 +904,11 @@ Claude Code 또는 Codex 세션을 여러 개 열어 동시 풀이할 수 있다
 
 - 각 문제는 `challenge_id`와 `run_id`로 분리한다.
 - global current challenge, current symlink 같은 전역 상태에 의존하지 않는다.
+- 각 터미널은 자신이 받은 `run_dir`만 사용하고, 다른 `run_id`의 exploit/notes/logs/cleanup 결과를 섞지 않는다.
+- 다음 문제로 넘어가기 전에 현재 `run_dir`의 `challenge_finalize.py`가 성공해야 한다.
 - Finalize는 `challenge_id/run_id`별 lock을 잡는다.
 - Metrics update와 git sync는 global lock으로 직렬화한다.
+- Metrics는 `run_id` 기준 duplicate prevention을 적용한다.
 - Lock은 Windows 호환 atomic directory 방식이며 stale timeout을 둔다.
 - Path는 `Path.home()`과 env var override를 사용한다. macOS/Windows 모두 `/Users/...` 같은 hardcoded path를 쓰지 않는다.
 

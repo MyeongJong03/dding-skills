@@ -32,6 +32,26 @@
   - docker_exec/docker_pwn은 persistent workspace(/workspace)를 공유함
   - sage_exec 기본 타임아웃 60초. LLL/Coppersmith 등 무거운 연산은 timeout_seconds 늘릴 것
 
+## Challenge Lifecycle Rules
+- When starting a new challenge, initialize a run with:
+  `python3 ~/ctf-solver/scripts/challenge_init.py ...`
+- Do not rely on a global current challenge.
+- Track `challenge_id` and `run_id` for every terminal/session.
+- Preserve the `run_dir` returned by `challenge_init.py`.
+- If the user gives an existing workspace or `run_dir`, use that instead of creating an unrelated run.
+- When a challenge ends for any reason, run `challenge_finalize.py`.
+- End reasons that require finalization: `solved`, `abandoned`, `skipped`, `already_solved`, `timeout`, `budget_exhausted`, `manual_stop`.
+- Never move to the next challenge until finalization succeeds.
+- Finalization must generate a local writeup when enough information exists.
+- If exploit files exist, the writeup must include the full exploit code.
+- Writeups are local-only under `CTF_SOLVED_WRITEUP_ROOT` or `~/SolvedWriteUp`.
+- Do not git push writeups.
+- Public metrics are allowed in repo `metrics/` and must not include flags, exploit code, raw transcripts, or private absolute paths.
+- Git sync may update only ctf-solver repo `metrics/`, `skills/`, `memory/`, `docs/`, `config/`, `scripts/`, `tools/`, and `ctf_solver_core/` plus top-level repo docs/config files.
+- In multi-terminal operation, do not mix artifacts from different `run_id` values.
+- If unsure whether a challenge is complete, ask the user, or finalize as `manual_stop`/`skipped` only when explicitly directed.
+- P1 persistent sessions, MCP persistent sessions, GDB sessions, and verifier full implementation are not part of this lifecycle step.
+
 ## 로컬 도구
 | 도구 | 용도 |
 |---|---|

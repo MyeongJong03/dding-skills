@@ -7,6 +7,7 @@
 ## Public Record Fields
 
 - `timestamp`
+- `run_id`
 - `platform`
 - `event`
 - `category`
@@ -19,6 +20,8 @@
 - optional `model_tooling_summary`
 
 Challenge names are excluded by default. Use `--include-challenge-name` only for private repos or events where challenge names are intentionally public.
+
+`run_id` is stored to prevent duplicate appends. Public metrics updates require `--run-dir` or `--run-id`. Re-running `scripts/update_metrics.py` for an existing `run_id` is skipped by default. Use `--replace` or `--force` only when the existing public-safe entry should be replaced.
 
 ## Forbidden Public Data
 
@@ -33,6 +36,8 @@ Do not put the following in public metrics:
 - detailed artifact paths
 
 `scripts/update_metrics.py --check` validates existing public metrics before git sync.
+
+Metrics writes use a global lock and atomic file replacement. Public records must remain free of private absolute paths even when generated from private run directories.
 
 ## Dashboard
 

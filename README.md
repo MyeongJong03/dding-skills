@@ -195,7 +195,7 @@ bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 | `CTF_AUTO_PUSH` | `1`이면 git sync에서 push 허용 | unset |
 | `CTF_SOLVER_REPO_ROOT` | repo root override | script parent repo |
 
-## Challenge lifecycle (P1-0)
+## Challenge lifecycle (P1-0.5)
 
 Codex와 Claude를 동시에 쓰는 dual-agent setup에서도 문제 단위 lifecycle은 `challenge_id`와 `run_id`로 분리됩니다. 여러 터미널에서 동시에 finalize해도 challenge lock, metrics lock, git lock으로 직렬화합니다.
 
@@ -207,9 +207,15 @@ python3 scripts/challenge_finalize.py --run-dir <run-dir> --status solved --gene
 CTF_AUTO_PUSH=1 python3 scripts/git_sync_metrics.py --push
 ```
 
+문제 시작 시 `challenge_init.py`가 반환한 `run_dir`를 보존하고, 같은 터미널의 모든 후속 작업은 그 `run_id`에 묶습니다. 전역 current challenge는 사용하지 않습니다. 기존 workspace나 `run_dir`를 받은 경우에는 새 run을 만들지 않고 그 경로를 이어서 사용합니다.
+
+다음 상태는 모두 finalize 대상입니다: `solved`, `abandoned`, `skipped`, `already_solved`, `timeout`, `budget_exhausted`, `manual_stop`. 다음 문제로 넘어가기 전 현재 run finalization이 성공해야 합니다.
+
 Writeup은 `~/SolvedWriteUp` 또는 `CTF_SOLVED_WRITEUP_ROOT` 아래에만 생성됩니다. Exploit 파일을 넘기면 writeup directory에 복사하고 `writeup.md` 안에 전체 코드를 삽입합니다. Writeup, exploit code, flag, raw transcript, private run log는 GitHub 자동 push 대상이 아닙니다.
 
-GitHub에 올릴 수 있는 것은 `metrics/summary.jsonl`과 `metrics/dashboard.md` 같은 public-safe aggregate metrics입니다. 기본 public metrics에는 challenge name도 넣지 않습니다. 자세한 정책은 [docs/lifecycle.md](docs/lifecycle.md)와 [docs/metrics.md](docs/metrics.md)를 봅니다.
+GitHub에 올릴 수 있는 것은 `metrics/summary.jsonl`과 `metrics/dashboard.md` 같은 public-safe aggregate metrics입니다. 기본 public metrics에는 challenge name도 넣지 않습니다. `challenge_finalize.py`는 같은 status로 재실행하면 no-op이고, 다른 status는 `--force` 없이는 거부합니다. `update_metrics.py`는 `run_id` 기준으로 duplicate append를 막고 `--replace`/`--force`에서만 기존 entry를 교체합니다. 자세한 정책은 [docs/lifecycle.md](docs/lifecycle.md)와 [docs/metrics.md](docs/metrics.md)를 봅니다.
+
+Codex는 `~/CTF/AGENTS.md`, Claude는 `~/CTF/CLAUDE.md`를 읽으며 두 파일은 `config/deploy.sh`가 같은 lifecycle enforcement content로 동기화합니다.
 
 ## 점검 및 공유 전 redaction
 

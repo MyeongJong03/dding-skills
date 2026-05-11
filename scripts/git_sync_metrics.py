@@ -48,6 +48,14 @@ BLOCKED_MARKERS = (
     "raw-transcript",
     "raw_transcript",
 )
+PRIVATE_REPO_PATHS = (
+    "SolvedWriteUp",
+    ".ctf-solver",
+    "private-runs",
+    "runs/private",
+    "raw-transcripts",
+    "raw_transcripts",
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -73,6 +81,25 @@ def _git(args: list[str], *, capture: bool = True) -> subprocess.CompletedProces
 def _existing_allowed_paths() -> list[str]:
     root = repo_root()
     return [path for path in ALLOWED_PATHS if (root / path).exists()]
+
+
+def _private_path_warnings() -> list[str]:
+    root = repo_root()
+    warnings: list[str] = []
+    for relative in PRIVATE_REPO_PATHS:
+        if (root / relative).exists():
+            warnings.append(f"private path exists inside repo and must not be staged: {relative}")
+    for relative in _existing_allowed_paths():
+        base = root / relative
+        if base.is_file():
+            candidates = [base]
+        else:
+            candidates = [path for path in base.rglob("*") if path.is_file() or path.is_dir()]
+        for path in candidates:
+            rel = path.relative_to(root).as_posix()
+            if any(marker in rel for marker in BLOCKED_MARKERS):
+                warnings.append(f"private-looking path exists under allowed tree: {rel}")
+    return sorted(set(warnings))
 
 
 def _status(paths: list[str]) -> str:
@@ -105,6 +132,7 @@ def git_sync(args: argparse.Namespace) -> dict[str, object]:
         result: dict[str, object] = {
             "dry_run": args.dry_run,
             "allowed_paths": paths,
+            "warnings": _private_path_warnings(),
             "status_before": status_before,
             "committed": False,
             "pushed": False,
@@ -126,7 +154,7 @@ def git_sync(args: argparse.Namespace) -> dict[str, object]:
             result["committed"] = True
             result["commit_output"] = commit.stdout.strip()
 
-        push_allowed = args.push or (os.environ.get("CTF_AUTO_PUSH") == "1" and not args.no_push)
+        push_allowed = (args.push or os.environ.get("CTF_AUTO_PUSH") == "1") and not args.no_push
         if push_allowed:
             push = _git(["push"])
             if push.returncode != 0:
@@ -144,4 +172,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

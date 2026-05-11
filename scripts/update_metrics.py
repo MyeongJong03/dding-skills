@@ -35,6 +35,7 @@ from ctf_solver_core.schemas import (
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", help="private run directory")
+    parser.add_argument("--run-id", help="run_id for duplicate prevention when --run-dir is unavailable")
     parser.add_argument("--status", choices=STATUSES)
     parser.add_argument("--platform", choices=PLATFORMS)
     parser.add_argument("--event")
@@ -49,6 +50,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--include-challenge-name", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--check", action="store_true", help="validate public metrics without updating")
+    parser.add_argument("--force", action="store_true", help="replace an existing public metrics entry for this run_id")
+    parser.add_argument("--replace", action="store_true", help="replace an existing public metrics entry for this run_id")
     return parser
 
 
@@ -79,9 +82,12 @@ def _bool_from_final(final: dict[str, object], key: str) -> bool:
 def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict[str, object], dict[str, object]]:
     challenge = _load_dict(run_dir / "challenge.json") if run_dir else {}
     final = _load_dict(run_dir / "finalize.json") if run_dir else {}
+    if run_dir and not final:
+        final = _load_dict(run_dir / "finalization.json")
     cleanup = _load_dict(run_dir / "cleanup.json") if run_dir else {}
 
     timestamp = str(final.get("finalized_at") or iso_now())
+    run_id = str(args.run_id or final.get("run_id") or challenge.get("run_id") or (run_dir.name if run_dir else ""))
     platform = str(args.platform or final.get("platform") or challenge.get("platform") or "unknown")
     event = str(args.event or final.get("event") or challenge.get("event") or "unknown")
     category = str(args.category or final.get("category") or challenge.get("category") or "unknown")
@@ -99,7 +105,9 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         exploit_included = exploit_included or bool(final["writeup"].get("exploit_included"))
 
     record: dict[str, object] = {
+        "schema_version": 1,
         "timestamp": timestamp,
+        "run_id": run_id,
         "platform": platform,
         "event": event,
         "category": category,
@@ -122,6 +130,10 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
 
     private = {
         "updated_at": iso_now(),
+        "finalized": bool(final.get("finalized") or final.get("finalized_at")),
+        "status": status,
+        "finalized_at": timestamp,
+        "run_id": run_id,
         "challenge": challenge,
         "finalization": final,
         "flag": args.flag or final.get("flag"),
@@ -210,12 +222,16 @@ def update_metrics(args: argparse.Namespace) -> dict[str, object]:
 
     mode = os.environ.get("CTF_METRICS_MODE", "public").strip().lower()
     public_enabled = mode not in {"off", "private-only", "private_only"}
+    if public_enabled and not str(record.get("run_id") or ""):
+        raise ValueError("public metrics updates require --run-dir or --run-id for duplicate prevention")
     result: dict[str, object] = {
         "public_enabled": public_enabled,
         "dry_run": args.dry_run,
         "record": record,
         "private_run_updated": False,
         "public_summary_updated": False,
+        "duplicate_skipped": False,
+        "replaced_existing": False,
     }
 
     if run_dir and not args.dry_run:
@@ -230,12 +246,26 @@ def update_metrics(args: argparse.Namespace) -> dict[str, object]:
         summary = root / "summary.jsonl"
         dashboard = root / "dashboard.md"
         records = read_jsonl(summary)
+        run_id = str(record.get("run_id") or "")
+        existing_count = sum(1 for item in records if run_id and item.get("run_id") == run_id)
+        replace = bool(args.replace or args.force)
+        if existing_count and not replace:
+            result["duplicate_skipped"] = True
+            result["public_summary_updated"] = False
+            result["existing_count"] = existing_count
+            result["summary_path"] = str(summary)
+            return result
+        if existing_count and replace:
+            records = [item for item in records if item.get("run_id") != run_id]
+            result["replaced_existing"] = True
+            result["existing_count"] = existing_count
         records.append(record)
         if not args.dry_run:
             root.mkdir(parents=True, exist_ok=True)
             atomic_write_jsonl(summary, records)
             atomic_write_text(dashboard, _render_dashboard(records))
             result["public_summary_updated"] = True
+        result["summary_path"] = str(summary)
     return result
 
 
@@ -255,4 +285,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

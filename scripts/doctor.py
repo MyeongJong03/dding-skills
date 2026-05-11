@@ -41,6 +41,7 @@ EXTERNAL_SKILL_NAMES = {
     "ctf-writeup",
     "solve-challenge",
 }
+LIFECYCLE_RULES_MARKER = "## Challenge Lifecycle Rules"
 
 
 class Doctor:
@@ -68,6 +69,25 @@ class Doctor:
             self.ok(f"{relative} exists")
             return True
         self.fail(f"{relative} missing")
+        return False
+
+    def require_contains(self, path: Path, needle: str, label: str, *, hard: bool = True) -> bool:
+        if not path.exists():
+            message = f"{label} missing"
+            if hard:
+                self.fail(message)
+            else:
+                self.warn(message)
+            return False
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if needle in text:
+            self.ok(f"{label} contains lifecycle enforcement rules")
+            return True
+        message = f"{label} missing lifecycle enforcement rules"
+        if hard:
+            self.fail(message)
+        else:
+            self.warn(message)
         return False
 
     def run_syntax(self, relative: str) -> None:
@@ -138,9 +158,17 @@ class Doctor:
             "scripts/cleanup_challenge.py",
             "scripts/update_metrics.py",
             "scripts/git_sync_metrics.py",
+            "scripts/doctor.py",
         ]
         for relative in scripts:
             self.require_file(relative)
+
+        self.require_contains(
+            ROOT / "config" / "CLAUDE.base.md",
+            LIFECYCLE_RULES_MARKER,
+            "config/CLAUDE.base.md",
+            hard=True,
+        )
 
         if (ROOT / "ctf_solver_core" / "paths.py").is_file():
             self.ok("ctf_solver_core path helpers exist")
@@ -161,14 +189,17 @@ class Doctor:
         else:
             self.warn("metrics/dashboard.md missing; update_metrics.py will generate it")
         summary = metrics / "summary.jsonl"
-        metric_errors: list[str] = []
-        for index, record in enumerate(read_jsonl(summary), start=1):
-            metric_errors.extend(f"summary.jsonl:{index}: {error}" for error in validate_public_record(record))
-        if metric_errors:
-            for error in metric_errors:
-                self.fail(f"public metrics unsafe: {error}")
+        if summary.exists():
+            metric_errors: list[str] = []
+            for index, record in enumerate(read_jsonl(summary), start=1):
+                metric_errors.extend(f"summary.jsonl:{index}: {error}" for error in validate_public_record(record))
+            if metric_errors:
+                for error in metric_errors:
+                    self.fail(f"public metrics unsafe: {error}")
+            else:
+                self.ok("public metrics safety check passed")
         else:
-            self.ok("public metrics safety check passed")
+            self.ok("metrics/summary.jsonl absent; no public metrics to validate")
 
         writeup_root = solved_writeup_root()
         run_root = local_run_root()
@@ -178,9 +209,9 @@ class Doctor:
         self.info(f"lock root: {display_path(locks)}")
 
         if is_inside_repo(writeup_root):
-            self.warn("writeup root is inside repo; local-only writeups could be staged accidentally")
+            self.fail("writeup root is inside repo; local-only writeups could be staged accidentally")
         if is_inside_repo(run_root):
-            self.warn("private run root is inside repo; private logs could be staged accidentally")
+            self.fail("private run root is inside repo; private logs could be staged accidentally")
         if is_inside_repo(locks):
             self.warn("lock root is inside repo; prefer ~/.ctf-solver/locks or CTF_LOCK_ROOT outside repo")
         self.ok("metrics are repo-local public-safe targets; writeups/private runs are local-only targets")
@@ -203,6 +234,7 @@ class Doctor:
 
         if claude_md.is_file():
             self.ok(f"{claude_md} exists")
+            self.require_contains(claude_md, LIFECYCLE_RULES_MARKER, "~/CTF/CLAUDE.md", hard=False)
         else:
             self.fail(f"{claude_md} missing; run bash install.sh")
 
@@ -211,6 +243,7 @@ class Doctor:
             return
 
         self.ok(f"{agents_md} exists")
+        self.require_contains(agents_md, LIFECYCLE_RULES_MARKER, "~/CTF/AGENTS.md", hard=False)
         if agents_md.is_symlink():
             target = agents_md.resolve()
             if target == claude_md.resolve():
