@@ -18,7 +18,6 @@ from ctf_solver_core.locks import DirectoryLock
 from ctf_solver_core.paths import metrics_root, resolve_path
 from ctf_solver_core.schemas import (
     CATEGORIES,
-    PLATFORMS,
     STATUSES,
     atomic_write_json,
     atomic_write_jsonl,
@@ -37,7 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-dir", help="private run directory")
     parser.add_argument("--run-id", help="run_id for duplicate prevention when --run-dir is unavailable")
     parser.add_argument("--status", choices=STATUSES)
-    parser.add_argument("--platform", choices=PLATFORMS)
+    parser.add_argument("--platform")
     parser.add_argument("--event")
     parser.add_argument("--challenge-name")
     parser.add_argument("--category", choices=CATEGORIES)
@@ -45,6 +44,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--writeup-generated", action="store_true")
     parser.add_argument("--exploit-included", action="store_true")
     parser.add_argument("--cleanup-bytes-saved", type=int)
+    parser.add_argument("--remote-wait-time-sec", type=int)
+    parser.add_argument("--local-prework-time-sec", type=int)
+    parser.add_argument("--remote-lease-time-sec", type=int)
+    parser.add_argument("--resource-blocked-count", type=int)
+    parser.add_argument("--shared-remote-used", action="store_true")
+    parser.add_argument("--helper-workers-used", type=int)
+    parser.add_argument("--local-ready-before-remote", action="store_true")
     parser.add_argument("--tool-call-counts-json")
     parser.add_argument("--model-tooling-summary")
     parser.add_argument("--include-challenge-name", action="store_true")
@@ -127,6 +133,32 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         record["model_tooling_summary"] = args.model_tooling_summary
     if args.include_challenge_name and challenge_name:
         record["challenge_name"] = challenge_name
+
+    resource_metrics = final.get("resource_metrics")
+    if not isinstance(resource_metrics, dict):
+        resource_metrics = {}
+
+    optional_ints = {
+        "remote_wait_time_sec": getattr(args, "remote_wait_time_sec", None),
+        "local_prework_time_sec": getattr(args, "local_prework_time_sec", None),
+        "remote_lease_time_sec": getattr(args, "remote_lease_time_sec", None),
+        "resource_blocked_count": getattr(args, "resource_blocked_count", None),
+        "helper_workers_used": getattr(args, "helper_workers_used", None),
+    }
+    for key, value in optional_ints.items():
+        if value is None and isinstance(resource_metrics.get(key), int):
+            value = int(resource_metrics[key])
+        if value is not None:
+            record[key] = max(0, int(value))
+
+    shared_remote_used = bool(getattr(args, "shared_remote_used", False) or resource_metrics.get("shared_remote_used"))
+    local_ready_before_remote = bool(
+        getattr(args, "local_ready_before_remote", False) or resource_metrics.get("local_ready_before_remote")
+    )
+    if shared_remote_used:
+        record["shared_remote_used"] = True
+    if local_ready_before_remote:
+        record["local_ready_before_remote"] = True
 
     private = {
         "updated_at": iso_now(),

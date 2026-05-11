@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -17,11 +18,14 @@ if str(ROOT) not in sys.path:
 from ctf_solver_core.paths import (
     display_path,
     is_inside_repo,
+    lease_root,
     local_run_root,
     lock_root,
     metrics_root,
+    queue_root,
     solved_writeup_root,
 )
+from ctf_solver_core.platforms import platform_config_path, validate_platform_config
 from ctf_solver_core.schemas import read_jsonl, validate_public_record
 
 HOME = Path.home()
@@ -158,6 +162,11 @@ class Doctor:
             "scripts/cleanup_challenge.py",
             "scripts/update_metrics.py",
             "scripts/git_sync_metrics.py",
+            "scripts/platform_config_init.py",
+            "scripts/resource_acquire.py",
+            "scripts/resource_release.py",
+            "scripts/queue_next.py",
+            "scripts/queue_update.py",
             "scripts/doctor.py",
         ]
         for relative in scripts:
@@ -174,6 +183,29 @@ class Doctor:
             self.ok("ctf_solver_core path helpers exist")
         else:
             self.fail("ctf_solver_core path helpers missing")
+        for relative in [
+            "ctf_solver_core/platforms.py",
+            "ctf_solver_core/resources.py",
+            "ctf_solver_core/queue.py",
+            "config/platforms.example.yaml",
+            "docs/platform-automation.md",
+        ]:
+            self.require_file(relative)
+
+        platform_errors = validate_platform_config(ROOT / "config" / "platforms.example.yaml")
+        if platform_errors:
+            for error in platform_errors:
+                self.fail(f"platform example invalid: {error}")
+        else:
+            self.ok("config/platforms.example.yaml loads successfully")
+        if os.environ.get("CTF_PLATFORM_CONFIG"):
+            env_config = platform_config_path()
+            env_errors = validate_platform_config(env_config)
+            if env_errors:
+                for error in env_errors:
+                    self.fail(f"CTF_PLATFORM_CONFIG invalid: {error}")
+            else:
+                self.ok(f"CTF_PLATFORM_CONFIG loads successfully: {display_path(env_config)}")
 
         metrics = metrics_root()
         if metrics == ROOT / "metrics":
@@ -204,9 +236,13 @@ class Doctor:
         writeup_root = solved_writeup_root()
         run_root = local_run_root()
         locks = lock_root()
+        leases = lease_root()
+        queue = queue_root()
         self.info(f"writeup root: {display_path(writeup_root)}")
         self.info(f"private run root: {display_path(run_root)}")
         self.info(f"lock root: {display_path(locks)}")
+        self.info(f"lease root: {display_path(leases)}")
+        self.info(f"queue root: {display_path(queue)}")
 
         if is_inside_repo(writeup_root):
             self.fail("writeup root is inside repo; local-only writeups could be staged accidentally")
@@ -214,6 +250,10 @@ class Doctor:
             self.fail("private run root is inside repo; private logs could be staged accidentally")
         if is_inside_repo(locks):
             self.warn("lock root is inside repo; prefer ~/.ctf-solver/locks or CTF_LOCK_ROOT outside repo")
+        if is_inside_repo(leases):
+            self.warn("lease root is inside repo; prefer ~/.ctf-solver/leases or CTF_LEASE_ROOT outside repo")
+        if is_inside_repo(queue):
+            self.warn("queue root is inside repo; prefer ~/.ctf-solver/queue or CTF_QUEUE_ROOT outside repo")
         self.ok("metrics are repo-local public-safe targets; writeups/private runs are local-only targets")
 
     def check_agents_generation(self) -> None:

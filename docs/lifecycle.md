@@ -31,6 +31,10 @@ python3 scripts/challenge_finalize.py --run-dir <run-dir> --status solved --gene
 
 Finalization should generate a local writeup whenever there is enough information to produce one. If exploit files exist, pass them with `--exploit <path>` or keep them under `<run_dir>/exploit/` so the writeup includes the full exploit code.
 
+By default finalization releases active remote leases for the run and marks a
+matching queue item as `finalized`. Use `--keep-lease` only for intentional
+handoff.
+
 ## Multi-Terminal Run ID Discipline
 
 There is no supported global "current challenge". Each terminal/session must keep its own `challenge_id`, `run_id`, and `run_dir`.
@@ -45,9 +49,24 @@ There is no supported global "current challenge". Each terminal/session must kee
 - `challenge_id` is derived from platform, event, category, and challenge name.
 - `run_id` is timestamp plus a short UUID, so simultaneous terminals create separate run directories.
 - Challenge finalization uses a per-`challenge_id`/`run_id` directory lock.
+- Remote server/VM coordination uses file-backed leases under `CTF_LEASE_ROOT` or `~/.ctf-solver/leases`.
+- Challenge queue coordination uses JSON records under `CTF_QUEUE_ROOT` or `~/.ctf-solver/queue`.
 - Metrics updates use a global metrics lock and atomic file replacement.
 - Git sync uses a global git lock so concurrent commits and pushes serialize.
 - Locks are atomic directories created with `Path.mkdir(exist_ok=False)` and include `owner.json` with pid, timestamp, purpose, and a stale timeout.
+
+## Resource-Aware Queue
+
+Platform policies describe remote server/VM limits, including THCON-like
+`max_active_leases: 1` event-scoped constraints. If a worker cannot acquire a
+remote lease, it should continue local-capable work instead of idling. Queue
+items marked `local_exploit_ready` receive remote priority when capacity is
+released.
+
+If sharing is allowed and safe, helper workers may join an active remote
+challenge. Helper workers are non-destructive only. Primary workers own submit,
+restart, release, and other destructive actions. See
+`docs/platform-automation.md` for commands and examples.
 
 ## Idempotent Finalization
 
@@ -64,6 +83,8 @@ Defaults are portable and may be overridden with environment variables:
 | Work root | `Path.home() / "CTF" / "work"` | `CTF_WORK_ROOT` |
 | Private run root | `Path.home() / ".ctf-solver" / "runs"` | `CTF_LOCAL_RUN_ROOT` |
 | Lock root | `Path.home() / ".ctf-solver" / "locks"` | `CTF_LOCK_ROOT` |
+| Lease root | `Path.home() / ".ctf-solver" / "leases"` | `CTF_LEASE_ROOT` |
+| Queue root | `Path.home() / ".ctf-solver" / "queue"` | `CTF_QUEUE_ROOT` |
 | Local writeup root | `Path.home() / "SolvedWriteUp"` | `CTF_SOLVED_WRITEUP_ROOT` |
 | Public metrics root | `repo_root / "metrics"` | `CTF_SOLVER_REPO_ROOT` for repo root |
 

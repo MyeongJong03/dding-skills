@@ -17,9 +17,10 @@ if str(ROOT / "scripts") not in sys.path:
 
 from ctf_solver_core.locks import DirectoryLock
 from ctf_solver_core.paths import display_path, resolve_path, work_root
+from ctf_solver_core.queue import mark_finalized
+from ctf_solver_core.resources import release_lease
 from ctf_solver_core.schemas import (
     CATEGORIES,
-    PLATFORMS,
     STATUSES,
     atomic_write_json,
     iso_now,
@@ -39,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-dir", required=True)
     parser.add_argument("--status", choices=STATUSES, required=True)
     parser.add_argument("--reason", default="")
-    parser.add_argument("--platform", choices=PLATFORMS)
+    parser.add_argument("--platform")
     parser.add_argument("--event")
     parser.add_argument("--challenge-name")
     parser.add_argument("--category", choices=CATEGORIES)
@@ -51,6 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--update-metrics", action="store_true")
     parser.add_argument("--git-sync", action="store_true")
     parser.add_argument("--no-push", action="store_true")
+    parser.add_argument("--keep-lease", action="store_true", help="do not release active resource leases for this run")
     parser.add_argument("--force", action="store_true", help="replace an existing finalization for this run")
     parser.add_argument("--dry-run", action="store_true")
     return parser
@@ -151,6 +153,8 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 "archived_exploits": existing.get("archived_exploits") or [],
                 "writeup": existing.get("writeup") or {},
                 "cleanup": existing.get("cleanup") or {},
+                "resource_release": existing.get("resource_release") or {},
+                "queue": existing.get("queue") or {},
                 "metrics": {"duplicate_skipped": True, "reason": "already finalized"},
                 "git_sync": None,
                 "dry_run": args.dry_run,
@@ -184,6 +188,26 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             )
             cleanup_result = cleanup(cleanup_args)
 
+        lease_release_result: dict[str, object] | None = None
+        queue_result: dict[str, object] | None = None
+        if getattr(args, "keep_lease", False):
+            lease_release_result = {"ok": True, "reason": "kept_by_request", "released": []}
+        elif args.dry_run:
+            lease_release_result = {"ok": True, "reason": "dry_run", "released": []}
+        else:
+            try:
+                lease_release_result = release_lease(run_id=run_id, platform=platform, event=event)
+            except Exception as exc:
+                lease_release_result = {"ok": False, "reason": "release_failed", "warning": str(exc), "released": []}
+
+        if args.dry_run:
+            queue_result = {"updated": False, "reason": "dry_run"}
+        else:
+            try:
+                queue_result = mark_finalized(challenge_id=challenge_id, run_id=run_id)
+            except Exception as exc:
+                queue_result = {"updated": False, "reason": "queue_update_failed", "warning": str(exc)}
+
         final_record = {
             "schema_version": 1,
             "finalized": True,
@@ -205,6 +229,8 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "writeup_generated": bool(writeup_result and writeup_result.get("generated")),
             "exploit_included": bool(writeup_result and writeup_result.get("exploit_included")),
             "cleanup": cleanup_result or {},
+            "resource_release": lease_release_result or {},
+            "queue": queue_result or {},
             "forced": bool(args.force),
             "previous_status": existing_status if existing_finalized else "",
         }
@@ -238,6 +264,13 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 writeup_generated=bool(writeup_result and writeup_result.get("generated")),
                 exploit_included=bool(writeup_result and writeup_result.get("exploit_included")),
                 cleanup_bytes_saved=int((cleanup_result or {}).get("bytes_deleted") or 0),
+                remote_wait_time_sec=None,
+                local_prework_time_sec=None,
+                remote_lease_time_sec=None,
+                resource_blocked_count=None,
+                shared_remote_used=False,
+                helper_workers_used=None,
+                local_ready_before_remote=False,
                 tool_call_counts_json=None,
                 model_tooling_summary=None,
                 include_challenge_name=False,
@@ -268,6 +301,8 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
         "archived_exploits": archived_exploits,
         "writeup": writeup_result,
         "cleanup": cleanup_result,
+        "resource_release": lease_release_result,
+        "queue": queue_result,
         "metrics": metrics_result,
         "git_sync": git_result,
         "dry_run": args.dry_run,

@@ -52,6 +52,18 @@
 - If unsure whether a challenge is complete, ask the user, or finalize as `manual_stop`/`skipped` only when explicitly directed.
 - P1 persistent sessions, MCP persistent sessions, GDB sessions, and verifier full implementation are not part of this lifecycle step.
 
+## Platform Resource Rules
+- Platform/server constraints are policy-driven. Use `CTF_PLATFORM_CONFIG` or `config/platforms.example.yaml` as the schema reference, and never store cookies, session tokens, passwords, OAuth data, account IDs, or private server URLs in the repo.
+- If a platform has `resources.remote_server.max_active_leases=1`, do not create multiple remote servers for that lease scope.
+- If remote acquisition fails, do not idle by default. Continue local triage, static analysis, exploit planning, and local exploit skeleton work on `local_capable=true` challenges.
+- `local_exploit_ready=true` challenges get remote lease priority when capacity becomes available.
+- If no local work exists and sharing is allowed/safe, helper workers may join the active remote challenge through helper lease policy.
+- Primary worker role: lease owner, destructive action authority, release authority, submit authority.
+- Helper worker role: read-only analysis, non-destructive requests, artifact analysis, and exploit idea generation only.
+- Destructive actions are primary-worker only.
+- Never submit flags, restart/release remote servers, or perform destructive state changes from helper role.
+- Always finalize and release leases before moving to the next challenge unless the user explicitly requests `--keep-lease`.
+
 ## 로컬 도구
 | 도구 | 용도 |
 |---|---|

@@ -12,13 +12,14 @@ dding-skills/
 ├── ctf_solver_core/       # lifecycle path/lock/schema helpers
 ├── scripts/               # doctor + lifecycle/finalization CLIs
 ├── metrics/               # public-safe metrics and dashboard
-├── docs/                  # tools/lifecycle/metrics docs
+├── docs/                  # tools/lifecycle/metrics/platform automation docs
 ├── Dockerfile.ctf         # CTF PWN/REV용 Docker 이미지
 ├── install.sh             # 자동 설치 스크립트
 ├── skills/
 │   └── ctf-personal/      # 개인 CTF 풀이 패턴 (자동 학습으로 지속 업데이트)
 └── config/
     ├── CLAUDE.base.md     # 공통 CTF workflow / rules
+    ├── platforms.example.yaml
     ├── deploy.sh          # env.md + CLAUDE.base.md 배포
     ├── mac/env.md         # macOS 환경 정보
     └── windows/env.md     # Windows WSL2 환경 정보
@@ -190,6 +191,9 @@ bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 | `CTF_WORK_ROOT` | 문제 작업 루트 | `~/CTF/work` |
 | `CTF_LOCAL_RUN_ROOT` | private run log 루트 | `~/.ctf-solver/runs` |
 | `CTF_LOCK_ROOT` | lifecycle/git/metrics lock 루트 | `~/.ctf-solver/locks` |
+| `CTF_LEASE_ROOT` | remote resource lease 루트 | `~/.ctf-solver/leases` |
+| `CTF_QUEUE_ROOT` | challenge queue 루트 | `~/.ctf-solver/queue` |
+| `CTF_PLATFORM_CONFIG` | repo 밖 platform policy YAML | unset (`config/platforms.example.yaml` for schema/example) |
 | `CTF_SOLVED_WRITEUP_ROOT` | local-only writeup 루트 | `~/SolvedWriteUp` |
 | `CTF_METRICS_MODE` | public metrics 업데이트 모드 | `public` |
 | `CTF_AUTO_PUSH` | `1`이면 git sync에서 push 허용 | unset |
@@ -216,6 +220,20 @@ Writeup은 `~/SolvedWriteUp` 또는 `CTF_SOLVED_WRITEUP_ROOT` 아래에만 생�
 GitHub에 올릴 수 있는 것은 `metrics/summary.jsonl`과 `metrics/dashboard.md` 같은 public-safe aggregate metrics입니다. 기본 public metrics에는 challenge name도 넣지 않습니다. `challenge_finalize.py`는 같은 status로 재실행하면 no-op이고, 다른 status는 `--force` 없이는 거부합니다. `update_metrics.py`는 `run_id` 기준으로 duplicate append를 막고 `--replace`/`--force`에서만 기존 entry를 교체합니다. 자세한 정책은 [docs/lifecycle.md](docs/lifecycle.md)와 [docs/metrics.md](docs/metrics.md)를 봅니다.
 
 Codex는 `~/CTF/AGENTS.md`, Claude는 `~/CTF/CLAUDE.md`를 읽으며 두 파일은 `config/deploy.sh`가 같은 lifecycle enforcement content로 동기화합니다.
+
+## Platform resource automation (P1-0.6)
+
+여러 터미널/worker가 같은 대회 리소스를 공유할 때는 platform policy, queue, lease helper를 사용합니다. THCON처럼 한 세션에서 VM/server 1개만 가능한 플랫폼은 `max_active_leases: 1`로 표현하고, remote lease를 못 받은 worker는 idle하지 않고 local-capable 문제의 triage/analysis/exploit planning을 먼저 진행합니다. `local_exploit_ready=true` 문제는 remote capacity가 풀릴 때 우선순위를 받습니다.
+
+Remote sharing이 안전하고 policy에서 허용된 경우에만 helper worker가 active remote challenge에 합류할 수 있습니다. Primary worker만 destructive action, submit, restart/release 권한을 가집니다. 자세한 운영 규칙은 [docs/platform-automation.md](docs/platform-automation.md)를 봅니다.
+
+```bash
+python3 scripts/platform_config_init.py --print-template
+python3 scripts/queue_update.py --platform thcon --event THCON --challenge-id A --category web --state downloaded --local-capable true --remote-required true --local-exploit-ready false --confidence 0.4 --destructive-risk 0.1
+python3 scripts/queue_next.py --platform thcon --event THCON --policy ~/.ctf-solver/platforms/thcon.yaml
+python3 scripts/resource_acquire.py --platform thcon --event THCON --challenge-id A --run-id RUN_A --resource remote_server --mode primary --policy ~/.ctf-solver/platforms/thcon.yaml
+python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCON --all-for-run
+```
 
 ## 점검 및 공유 전 redaction
 

@@ -31,6 +31,14 @@ def lock_root() -> Path:
     return _env_path("CTF_LOCK_ROOT", Path.home() / ".ctf-solver" / "locks")
 
 
+def lease_root() -> Path:
+    return _env_path("CTF_LEASE_ROOT", Path.home() / ".ctf-solver" / "leases")
+
+
+def queue_root() -> Path:
+    return _env_path("CTF_QUEUE_ROOT", Path.home() / ".ctf-solver" / "queue")
+
+
 def solved_writeup_root() -> Path:
     return _env_path("CTF_SOLVED_WRITEUP_ROOT", Path.home() / "SolvedWriteUp")
 
@@ -62,4 +70,3 @@ def display_path(path: Path) -> str:
         return str(Path("~") / resolved.relative_to(home))
     except ValueError:
         return str(resolved)
-

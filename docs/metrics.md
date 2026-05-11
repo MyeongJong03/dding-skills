@@ -17,6 +17,13 @@
 - `cleanup_bytes_saved`
 - `writeup_generated`
 - `exploit_included`
+- optional `remote_wait_time_sec`
+- optional `local_prework_time_sec`
+- optional `remote_lease_time_sec`
+- optional `resource_blocked_count`
+- optional `shared_remote_used`
+- optional `helper_workers_used`
+- optional `local_ready_before_remote`
 - optional `model_tooling_summary`
 
 Challenge names are excluded by default. Use `--include-challenge-name` only for private repos or events where challenge names are intentionally public.
@@ -34,6 +41,7 @@ Do not put the following in public metrics:
 - cookies, tokens, API keys, OAuth data, passwords, private keys
 - account email, account UUID, organization UUID
 - detailed artifact paths
+- private remote URLs or secret-bearing lease metadata
 
 `scripts/update_metrics.py --check` validates existing public metrics before git sync.
 

@@ -89,11 +89,14 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │   ├── generate_writeup.py
 │   ├── cleanup_challenge.py
 │   ├── update_metrics.py
-│   └── git_sync_metrics.py
+│   ├── git_sync_metrics.py
+│   ├── queue_next.py / queue_update.py
+│   └── resource_acquire.py / resource_release.py
 ├── metrics/                      # GitHub push 가능한 public-safe metrics
 ├── docs/
 │   ├── lifecycle.md
-│   └── metrics.md
+│   ├── metrics.md
+│   └── platform-automation.md
 ├── Dockerfile.ctf                # Docker 이미지 정의
 ├── requirements.txt
 ├── install.sh
@@ -106,6 +109,7 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │       └── platform-notes.md     # 플랫폼(Dreamhack 등) 특이사항
 └── config/
     ├── CLAUDE.base.md            # 공통 규칙 (워크플로우, 백트래킹, skill 로드 규칙 등)
+    ├── platforms.example.yaml    # platform resource policy 예시
     ├── deploy.sh                 # CLAUDE.md 생성 + 심링크 배포 스크립트
     ├── mac/
     │   └── env.md                # 맥북 환경 정보 (경로, 도구 위치)
@@ -514,6 +518,22 @@ GitHub에 올릴 수 있는 것은 `metrics/summary.jsonl`, `metrics/dashboard.m
 `challenge_finalize.py`는 이미 같은 status로 finalize된 run이면 no-op으로 끝나고 duplicate metrics를 만들지 않는다. 다른 status로 바꾸려면 `--force`가 필요하다.
 
 Codex는 `~/CTF/AGENTS.md`, Claude는 `~/CTF/CLAUDE.md`를 읽는다. 두 파일은 `config/deploy.sh`가 같은 generated lifecycle enforcement content로 동기화한다.
+
+### Platform resource automation
+
+P1-0.6부터는 여러 터미널/worker가 같은 플랫폼 리소스를 안전하게 공유하도록 policy, queue, lease scaffold를 사용한다. 실제 browser/session automation은 아직 구현하지 않고, login/session storage는 repo에 넣지 않는다.
+
+THCON처럼 한 세션에서 server/VM 하나만 가능한 대회는 `max_active_leases: 1`, `lease_scope: event`로 설정한다. Remote lease를 못 받은 worker는 idle하지 않고 `local_capable=true` 문제의 정찰, 정적 분석, exploit planning, local skeleton 작성을 진행한다. `local_exploit_ready=true` 문제는 remote lease 우선순위가 올라간다.
+
+Remote sharing이 policy에서 허용되고 multi-client safe일 때만 helper worker가 active remote challenge에 합류한다. Primary worker만 destructive action, submit, restart/release 권한이 있고 helper는 read-only analysis와 non-destructive request만 수행한다. 자세한 내용은 `docs/platform-automation.md`를 기준으로 한다.
+
+```bash
+python3 scripts/platform_config_init.py --print-template
+python3 scripts/queue_update.py --platform thcon --event THCON --challenge-id A --category web --state downloaded --local-capable true --remote-required true --local-exploit-ready false --confidence 0.4 --destructive-risk 0.1
+python3 scripts/queue_next.py --platform thcon --event THCON --policy ~/.ctf-solver/platforms/thcon.yaml
+python3 scripts/resource_acquire.py --platform thcon --event THCON --challenge-id A --run-id RUN_A --resource remote_server --mode primary --policy ~/.ctf-solver/platforms/thcon.yaml
+python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCON --all-for-run
+```
 
 ### 자동 업데이트 원칙
 

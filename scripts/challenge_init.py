@@ -16,7 +16,6 @@ from ctf_solver_core.locks import DirectoryLock
 from ctf_solver_core.paths import display_path, local_run_root, resolve_path, work_root
 from ctf_solver_core.schemas import (
     CATEGORIES,
-    PLATFORMS,
     atomic_write_json,
     atomic_write_text,
     iso_now,
@@ -28,7 +27,7 @@ from ctf_solver_core.schemas import (
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--platform", choices=PLATFORMS, default="unknown")
+    parser.add_argument("--platform", default="unknown")
     parser.add_argument("--event", default="unknown")
     parser.add_argument("--challenge-name", required=True)
     parser.add_argument("--category", choices=CATEGORIES, default="unknown")
@@ -108,4 +107,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

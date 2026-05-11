@@ -1,0 +1,70 @@
+# Public-safe platform policy examples.
+# Do not store cookies, tokens, passwords, OAuth data, account UUIDs,
+# organization UUIDs, session storage, or private server URLs here.
+
+platforms:
+  - platform: dreamhack
+    event: dreamhackWargame
+    auth:
+      mode: manual
+      session_profile: local-profile-placeholder
+    resources:
+      remote_server:
+        provisioning: false
+        max_active_leases: 4
+        lease_scope: event
+        release_required_before_next: false
+        sharing:
+          allowed: true
+          max_workers: 2
+          mode: multi_client_read_only
+          destructive_actions_require_primary: true
+    automation:
+      allow_problem_discovery: false
+      allow_file_download: true
+      allow_server_create: ask
+      allow_submission: ask
+
+  - platform: thcon
+    event: THCON
+    auth:
+      mode: browser_profile
+      session_profile: local-profile-placeholder
+    resources:
+      remote_server:
+        provisioning: true
+        max_active_leases: 1
+        lease_scope: event
+        release_required_before_next: true
+        sharing:
+          allowed: false
+          max_workers: 1
+          mode: exclusive
+          destructive_actions_require_primary: true
+    automation:
+      allow_problem_discovery: true
+      allow_file_download: true
+      allow_server_create: ask
+      allow_submission: ask
+
+  - platform: generic
+    event: "*"
+    auth:
+      mode: manual
+      session_profile: local-profile-placeholder
+    resources:
+      remote_server:
+        provisioning: true
+        max_active_leases: 2
+        lease_scope: event
+        release_required_before_next: true
+        sharing:
+          allowed: false
+          max_workers: 1
+          mode: exclusive
+          destructive_actions_require_primary: true
+    automation:
+      allow_problem_discovery: true
+      allow_file_download: true
+      allow_server_create: ask
+      allow_submission: ask
