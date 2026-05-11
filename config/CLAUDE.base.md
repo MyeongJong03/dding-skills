@@ -28,6 +28,7 @@
 - **ctf_solver**: python_exec, sage_exec, docker_pwn, docker_exec, netcat_interact,
   rsa_ctftool, binary_info, file_analysis, port_scan, hash_crack, http_request,
   cve_lookup, dns_lookup, trivy, dreamhack_vm
+  - Codex에서 MCP가 직접 연결되지 않는 환경이면 같은 `server.py`와 `tools/*.py`를 CLI/Python helper처럼 사용한다.
   - docker_exec/docker_pwn은 persistent workspace(/workspace)를 공유함
   - sage_exec 기본 타임아웃 60초. LLL/Coppersmith 등 무거운 연산은 timeout_seconds 늘릴 것
 
@@ -254,7 +255,7 @@ reva-* skill은 Ghidra가 실행 중일 때만 추가 로드한다.
      - /tmp 아래 관련 임시 파일 삭제
      - 실행 중인 background 프로세스(터널, 서버 등) 종료
      - Docker 컨테이너 정리
-     - CLAUDE.md, AGENTS.md 심링크는 절대 삭제 금지
+     - CLAUDE.md, AGENTS.md 설정 파일은 절대 삭제 금지
      - writeup으로 남길 파일은 사용자에게 확인 후 보존
      - "정리 완료" 명시적으로 보고
   3. 정리 완료 후 skill 업데이트 진행:

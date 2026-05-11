@@ -1,6 +1,7 @@
 # dding-skills
 
-CTF 문제 풀이를 위한 AI 에이전트(Claude Code) 세팅 모음입니다.
+CTF 문제 풀이를 위한 Codex-first, Claude-compatible AI 에이전트 세팅 모음입니다.
+현재 주력 실행 환경은 Codex이며, Claude Code 설정은 optional/legacy compatibility로 유지합니다.
 
 ## 구성
 
@@ -13,46 +14,53 @@ dding-skills/
 ├── skills/
 │   └── ctf-personal/      # 개인 CTF 풀이 패턴 (자동 학습으로 지속 업데이트)
 └── config/
-    ├── mac/CLAUDE.md      # macOS 환경 Claude Code 설정
-    └── windows/CLAUDE.md  # Windows WSL2 환경 Claude Code 설정
+    ├── CLAUDE.base.md     # 공통 CTF workflow / rules
+    ├── deploy.sh          # env.md + CLAUDE.base.md 배포
+    ├── mac/env.md         # macOS 환경 정보
+    └── windows/env.md     # Windows WSL2 환경 정보
 ```
 
 ### 동작 구조
 
 ```
-Claude Code
+Codex (primary)
   │
-  ├─ ~/CTF/CLAUDE.md  ──────────────────→  config/mac/CLAUDE.md  (심볼릭 링크)
+  ├─ ~/CTF/AGENTS.md  ──────────────────→  ~/CTF/CLAUDE.md
   │      └─ 스킬 로드 지시
   │             ├─ ctf-personal  ─────→  skills/ctf-personal/  (심볼릭 링크)
   │             ├─ ctf-pwn 등    ─────→  외부: ljagiello/ctf-skills
   │             └─ reva-*        ─────→  외부: cyberkaida/reverse-engineering-assistant
   │
-  └─ MCP 도구 호출
-         └─ dreamhack_solver  ────────→  server.py → tools/*.py
+  └─ MCP/CLI helper 호출
+         └─ ctf_solver (CTF Solver) ───→  server.py → tools/*.py
 ```
 
-`install.sh`가 `~/CTF/CLAUDE.md`와 `~/.agents/skills/ctf-personal/`을 저장소 파일로 심볼릭 링크하므로, 저장소를 업데이트하면 로컬에 즉시 반영됩니다.
+`~/CTF/CLAUDE.md`는 심볼릭 링크가 아니라 `config/deploy.sh`가 `config/{mac|windows}/env.md`와 `config/CLAUDE.base.md`를 합쳐 생성하는 실제 파일입니다.
+Codex는 `~/CTF/AGENTS.md`를 기본 설정 파일로 읽으며, deploy 단계에서 `CLAUDE.md`와 동기화됩니다.
+Claude Code는 설치되어 있으면 같은 생성물을 compatibility 용도로 사용할 수 있지만, Claude CLI 부재는 Codex workflow의 실패가 아닙니다.
 
 ## MCP 툴 목록
 
-| 툴 | 설명 |
-|---|---|
-| file_analysis | 소스코드/디렉토리 구조 분석 |
-| binary_info | ELF 바이너리 정보 (file + strings + checksec) |
-| docker_exec | ctf-pwn Docker 환경에서 bash/코드 실행 |
-| docker_pwn | ctf-pwn Docker 환경에서 pwntools 익스플로잇 실행 |
-| python_exec | Python 스크립트 실행 |
-| sage_exec | SageMath 수학 연산 |
-| netcat_interact | nc 서버 연결 및 페이로드 전송 |
-| http_request | 커스텀 HTTP 요청 |
-| port_scan | nmap 포트/서비스 스캔 |
-| dns_lookup | DNS 레코드 조회 및 서브도메인 열거 |
-| hash_crack | 해시 자동 식별 + hashcat 크랙 |
-| cve_lookup | CVE 상세 정보 + PoC 링크 조회 |
-| rsa_ctftool | RSA 취약점 자동 공격 |
-| trivy | 의존성 파일 CVE 스캔 |
-| dreamhack_vm | Dreamhack 워게임 서버 제어 (start/stop/restart) |
+MCP 서버명은 `ctf_solver`이고 표시명은 CTF Solver입니다. 실제 tool signature와 파라미터는 [docs/tools.md](docs/tools.md)를 기준으로 확인하세요.
+문서 drift를 줄이려면 다음 명령으로 현재 코드에서 다시 생성할 수 있습니다.
+
+```bash
+python3 scripts/dump_mcp_tools.py --write docs/tools.md
+```
+
+### MCP 서버명 migration
+
+- Old MCP server name: `dreamhack_solver`
+- New canonical MCP server name: `ctf_solver`
+- Reason: this server supports general CTF automation, not only Dreamhack.
+- Dreamhack-specific helper tools such as `dreamhack_vm` remain unchanged.
+- Codex-first users do not need Claude MCP registration unless they still use Claude Code.
+- Global config files are not modified by this repo patch.
+
+Legacy Claude Code users only:
+
+    claude mcp remove dreamhack_solver
+    claude mcp add ctf_solver -- <path-to-uv> run --with "mcp[cli]" --with requests --with httpx mcp run <path-to-repo>/server.py
 
 ## 외부 의존성
 
@@ -81,53 +89,66 @@ bash install.sh windows  # Windows WSL2
 git clone https://github.com/MyeongJong03/dding-skills.git ~/ctf-solver
 ```
 
-#### 2. Claude Code MCP 등록
+#### 2. Codex 설정 배포
+
+macOS:
+```bash
+bash ~/ctf-solver/config/deploy.sh mac
+```
+
+Windows WSL2:
+```bash
+bash ~/ctf-solver/config/deploy.sh windows
+```
+
+#### 3. Claude Code MCP 등록 (optional/legacy)
+
+Claude Code를 계속 쓰는 환경에서만 등록합니다.
 
 macOS:
 ```bash
 claude mcp add --scope user ctf_solver \
-  -- ~/.local/bin/uv run --with "mcp[cli]" --with requests --with httpx \
-  mcp run ~/ctf-solver/server.py
+  -- <path-to-uv> run --with "mcp[cli]" --with requests --with httpx \
+  mcp run $HOME/ctf-solver/server.py
 ```
 
 Windows WSL2:
 ```bash
 claude mcp add --scope user ctf_solver \
-  -- uv run --with "mcp[cli]" --with requests --with httpx \
-  mcp run ~/ctf-solver/server.py
+  -- <path-to-uv> run --with "mcp[cli]" --with requests --with httpx \
+  mcp run $HOME/ctf-solver/server.py
 ```
 
-#### 3. CTF Skills 설치
+Codex에서 MCP가 직접 붙지 않는 경우에도 같은 `server.py`와 `tools/*.py`를 CLI/Python helper로 사용할 수 있습니다.
+
+#### 4. CTF Skills 설치
 
 ```bash
 npx skills install ljagiello/ctf-skills
 ```
 
-#### 4. ReVa 설치 (리버싱 필요 시)
+#### 5. ReVa 설치 (리버싱 필요 시, optional)
 
 ```bash
 claude plugin marketplace add cyberkaida/reverse-engineering-assistant
 ```
 
-#### 5. Docker 이미지 빌드
+#### 6. Docker 이미지 빌드
 
 ```bash
 docker build --platform linux/amd64 -f Dockerfile.ctf -t ctf-pwn:latest .
 ```
 
-#### 6. 심볼릭 링크 설정
+#### 7. 설정 파일 생성/동기화
 
 ```bash
-# CLAUDE.md
-mkdir -p ~/CTF
-ln -sf ~/ctf-solver/config/mac/CLAUDE.md ~/CTF/CLAUDE.md
-
-# ctf-personal 스킬
-mkdir -p ~/.agents/skills
-ln -sf ~/ctf-solver/skills/ctf-personal ~/.agents/skills/ctf-personal
+bash ~/ctf-solver/config/deploy.sh mac      # macOS
+bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 ```
 
-#### 7. 환경 설정
+이 단계가 `~/CTF/CLAUDE.md`를 실제 파일로 생성하고, `~/CTF/AGENTS.md`를 Codex용으로 동기화하며, `ctf-personal` skill 심볼릭 링크를 갱신합니다.
+
+#### 8. 환경 설정
 
 `~/CTF/CLAUDE.md`에서 환경에 맞게 경로 수정:
 - `~/wordlists/rockyou.txt` — rockyou 워드리스트
@@ -139,6 +160,16 @@ ln -sf ~/ctf-solver/skills/ctf-personal ~/.agents/skills/ctf-personal
 | 변수 | 설명 | 기본값 |
 |---|---|---|
 | `SAGE_PATH` | SageMath 실행 파일 경로 | macOS 앱 번들 경로 |
+
+## 점검 및 공유 전 redaction
+
+```bash
+python3 scripts/doctor.py
+python3 scripts/redact_sensitive.py --self-test
+python3 scripts/redact_sensitive.py audit-pack.txt > audit-pack.redacted.txt
+```
+
+audit pack이나 설정을 공유하기 전에는 API key뿐 아니라 email, account UUID, organization UUID, referral code, billing/subscription metadata도 redaction 대상입니다.
 
 ## Credits
 

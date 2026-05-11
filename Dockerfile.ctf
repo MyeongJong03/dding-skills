@@ -4,21 +4,26 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Seoul
 
 RUN apt-get update && apt-get install -y \
-    python3 python3-pip \
+    binutils \
+    curl \
+    file \
     gdb \
-    netcat-openbsd \
-    wget curl git \
-    file binutils \
-    ltrace strace \
-    nasm \
-    patchelf \
-    socat \
-    libssl-dev \
-    libc6-dbg \
     gdbserver \
+    git \
+    libc6-dbg \
     libseccomp-dev \
-
-    ruby ruby-dev \
+    libssl-dev \
+    ltrace \
+    nasm \
+    netcat-openbsd \
+    patchelf \
+    python3 \
+    python3-pip \
+    ruby \
+    ruby-dev \
+    socat \
+    strace \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install pwntools ROPgadget \

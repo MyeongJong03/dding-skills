@@ -7,8 +7,8 @@ def register(mcp):
         """
         nmap으로 대상 호스트의 포트/서비스를 스캔합니다.
         target: IP 또는 도메인
-        ports: 포트 범위 (기본: 1-10000)
-        flags: nmap 추가 옵션 (기본: -sV 서비스 버전 탐지)
+        ports: 포트 범위 (기본: 1-1000)
+        flags: nmap 추가 옵션 (기본: -T4)
         """
         try:
             cmd = ["nmap", flags, "-p", ports, "--open", "-oX", "-", target]

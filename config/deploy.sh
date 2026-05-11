@@ -37,18 +37,35 @@ mkdir -p "$CTF_DIR"
 cat "$ENV_FILE" "$BASE_FILE" > "$CTF_DIR/CLAUDE.md"
 echo "✓ CLAUDE.md → $CTF_DIR/CLAUDE.md"
 
-# AGENTS.md 심링크 (CLAUDE.md와 동일 내용)
-if [ ! -L "$CTF_DIR/AGENTS.md" ] && [ ! -f "$CTF_DIR/AGENTS.md" ]; then
+# AGENTS.md는 Codex가 기본으로 읽는 파일이다. CLAUDE.md 생성물과 동기화한다.
+if [ -L "$CTF_DIR/AGENTS.md" ]; then
+    ln -sfn "$CTF_DIR/CLAUDE.md" "$CTF_DIR/AGENTS.md"
+    echo "✓ AGENTS.md → $CTF_DIR/CLAUDE.md (symlink)"
+elif [ -f "$CTF_DIR/AGENTS.md" ]; then
+    if ! cmp -s "$CTF_DIR/CLAUDE.md" "$CTF_DIR/AGENTS.md"; then
+        AGENTS_BACKUP="$CTF_DIR/AGENTS.md.bak.$(date +%Y%m%d%H%M%S)"
+        cp "$CTF_DIR/AGENTS.md" "$AGENTS_BACKUP"
+        echo "✓ AGENTS.md backup → $AGENTS_BACKUP"
+    fi
+    cp "$CTF_DIR/CLAUDE.md" "$CTF_DIR/AGENTS.md"
+    echo "✓ AGENTS.md → $CTF_DIR/AGENTS.md (copied from CLAUDE.md)"
+else
     ln -s "$CTF_DIR/CLAUDE.md" "$CTF_DIR/AGENTS.md"
-    echo "✓ AGENTS.md → $CTF_DIR/AGENTS.md (symlink)"
+    echo "✓ AGENTS.md → $CTF_DIR/CLAUDE.md (symlink)"
 fi
 
 # ctf-personal 스킬 심링크
 mkdir -p "$(dirname "$SKILL_DIR")"
+if [ -e "$SKILL_DIR" ] && [ ! -L "$SKILL_DIR" ]; then
+    SKILL_BACKUP="$SKILL_DIR.bak.$(date +%Y%m%d%H%M%S)"
+    mv "$SKILL_DIR" "$SKILL_BACKUP"
+    echo "✓ ctf-personal backup → $SKILL_BACKUP"
+fi
 ln -sfn "$REPO_DIR/skills/ctf-personal" "$SKILL_DIR"
 echo "✓ ctf-personal → $SKILL_DIR"
 
 echo ""
 echo "Deploy complete for $PLATFORM"
 echo "  CLAUDE.md: $CTF_DIR/CLAUDE.md"
+echo "  AGENTS.md: $CTF_DIR/AGENTS.md"
 echo "  Skills:    $SKILL_DIR"

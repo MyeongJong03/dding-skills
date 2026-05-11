@@ -29,21 +29,22 @@
 ```
 사용자
   ├── 맥북 (Apple Silicon M5, macOS)
-  │     ├── Claude Code (ctf 명령어)
-  │     └── Codex CLI (codex 명령어)
-  │           └── 둘 다 동일한 CLAUDE.md + AGENTS.md + Skills 공유
-  │                 ├── dreamhack_solver MCP (15개 툴)
+  │     ├── Codex CLI (codex 명령어, primary)
+  │     └── Claude Code (ctf 명령어, optional/legacy)
+  │           └── 둘 다 동일한 생성물(CLAUDE.md + AGENTS.md) + Skills 공유
+  │                 ├── ctf_solver MCP / CTF Solver (15개 툴)
   │                 └── ReVa MCP (Ghidra MCP, 로컬 Ghidra 연결)
   │
   └── 윈도우 (WSL2 Ubuntu 24.04, RTX 5060)
-        ├── Claude Code (ctf 명령어)
-        └── Codex CLI (codex 명령어)
-              └── 둘 다 동일한 CLAUDE.md + AGENTS.md + Skills 공유
-                    ├── dreamhack_solver MCP (15개 툴)
+        ├── Codex CLI (codex 명령어, primary)
+        └── Claude Code (ctf 명령어, optional/legacy)
+              └── 둘 다 동일한 생성물(CLAUDE.md + AGENTS.md) + Skills 공유
+                    ├── ctf_solver MCP / CTF Solver (15개 툴)
                     └── ReVa MCP (Ghidra Windows 네이티브)
 ```
 
-Claude Code와 Codex는 **역할 구분이 없다**. 동일한 세팅(CLAUDE.md = AGENTS.md, Skills, MCP 툴)을 공유하며, 아무 문제나 둘 중 편한 쪽으로 풀면 된다.
+현재 주력은 **Codex-first**다. Codex는 `~/CTF/AGENTS.md`를 기본으로 읽고, Claude Code는 설치된 경우 같은 내용을 `~/CTF/CLAUDE.md`로 읽는 compatibility 경로다.
+Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Codex workflow는 깨지지 않아야 한다.
 
 ### 맥북 특징
 
@@ -128,7 +129,8 @@ Claude Code와 Codex는 **역할 구분이 없다**. 동일한 세팅(CLAUDE.md 
 > `deploy.sh`가 `cat`으로 합쳐서 생성한다. 따라서 레포 내용을 바꿨다면
 > 반드시 `deploy.sh`를 재실행해야 `~/CTF/CLAUDE.md`에 반영된다.
 >
-> 반면 `AGENTS.md`, `.codex/AGENTS.md`, `ctf-personal`은 전부 심링크라 `git pull`만으로 자동 반영된다.
+> 반면 `ctf-personal`은 심링크라 `git pull`만으로 자동 반영된다.
+> `AGENTS.md`는 Codex가 읽는 파일이므로 `deploy.sh`가 `CLAUDE.md`와 동기화한다.
 
 ### deploy.sh 역할
 
@@ -195,7 +197,7 @@ bash ~/ctf-solver/config/deploy.sh windows
 
 ```bash
 claude mcp list
-# dreamhack_solver: ✓ Connected   → 정상
+# ctf_solver: ✓ Connected         → 정상
 # ReVa: ✓ Connected               → Ghidra 켜져있을 때 정상
 # ReVa: ✗ Failed                  → Ghidra 꺼져있으면 정상 (문제 없음)
 ```
@@ -203,26 +205,6 @@ claude mcp list
 ---
 
 ## 4. 기본 사용법
-
-### Claude Code로 문제 풀기
-
-```bash
-# 어디서든 실행 가능 (자동으로 ~/CTF로 이동)
-ctf
-```
-
-`ctf` alias는 대체로 다음과 같이 정의되어 있다:
-
-```bash
-alias ctf='cd ~/CTF && claude --dangerously-skip-permissions'
-```
-
-실행하면:
-
-1. 자동으로 `~/CTF` 디렉토리로 이동
-2. Claude Code 실행
-3. `CLAUDE.md` 자동 로드 (환경, MCP 툴, 워크플로우, 규칙)
-4. `ctf-personal` skill 자동 로드
 
 ### Codex CLI로 문제 풀기
 
@@ -243,20 +225,40 @@ alias codex='cd ~/CTF && command codex -a never -s danger-full-access'
 3. `AGENTS.md`(= `CLAUDE.md`와 동일 내용) 자동 로드
 4. Skills 자동 로드
 
+### Claude Code로 문제 풀기 (optional/legacy)
+
+```bash
+# Claude Code가 설치되어 있는 경우에만 사용
+ctf
+```
+
+`ctf` alias는 대체로 다음과 같이 정의되어 있다:
+
+```bash
+alias ctf='cd ~/CTF && claude --dangerously-skip-permissions'
+```
+
+실행하면:
+
+1. 자동으로 `~/CTF` 디렉토리로 이동
+2. Claude Code 실행
+3. `CLAUDE.md` 자동 로드
+4. `ctf-personal` skill 자동 로드
+
 ### Claude Code vs Codex 차이
 
-세팅이 완전히 동일하므로 **역할 구분은 없다**. 같은 CLAUDE.md(= AGENTS.md), 같은 skills, 같은 MCP 툴을 쓴다.
+Codex가 primary이고 Claude Code는 optional/legacy다. 두 경로 모두 같은 생성물(`CLAUDE.md`, `AGENTS.md`)과 skills를 공유한다.
 
 | 항목 | Claude Code | Codex |
 | --- | --- | --- |
 | 기본 모델 | Claude Opus/Sonnet | GPT-5.4 계열 |
 | 실행 명령어 | `ctf` | `codex` |
-| 설정 파일 | CLAUDE.md | AGENTS.md (심링크) |
-| MCP | 동일 | 동일 |
+| 설정 파일 | CLAUDE.md | AGENTS.md (동기화) |
+| MCP | `ctf_solver`, `ReVa` | 직접 MCP가 안 붙으면 `server.py`/`tools/*.py` helper 사용 |
 | Skills | 동일 | 동일 |
-| 장기 연속 실행 | 안정적 | CLAUDE.md의 "Codex 전용 규칙"이 필요 |
+| 설치 실패 정책 | CLI 없음은 optional | primary |
 
-**어떤 문제든 둘 중 아무거나 써도 된다.** 토큰 상황이나 모델 취향에 따라 고르면 된다.
+Claude CLI가 없거나 구독이 없어도 전체 설치 실패로 보지 않는다.
 
 ### Codex config.toml 설정 (`~/.codex/config.toml`)
 
@@ -273,10 +275,10 @@ service_tier = "fast"
 [shell_environment_policy]
 inherit = "all"                    # 로컬 환경변수 전체 상속 (PATH, 도커 소켓 등)
 
-[mcp_servers.dreamhack_solver]
-command = "/Users/myeongjong/.local/bin/uv"
+[mcp_servers.ctf_solver]
+command = "<path-to-uv>"
 args = ["run", "--with", "mcp[cli]", "--with", "requests", "--with", "httpx",
-        "mcp", "run", "/Users/myeongjong/ctf-solver/server.py"]
+        "mcp", "run", "<path-to-repo>/server.py"]
 
 [mcp_servers.ReVa]
 url = "http://localhost:18080/mcp/message"
@@ -336,27 +338,33 @@ url = "http://localhost:18080/mcp/message"
 
 ## 6. MCP 툴 목록 및 사용법
 
-Claude Code와 Codex 모두 동일한 MCP 툴을 사용한다.
+MCP 서버명은 `ctf_solver`이고 표시명은 CTF Solver다. 실제 파라미터는 코드에서 생성한 [docs/tools.md](docs/tools.md)를 기준으로 삼고, README/GUIDE에는 긴 schema를 중복 유지하지 않는다.
 
-### dreamhack_solver 툴 (15개)
+### ctf_solver 툴 (15개)
 
 | # | 툴 | 용도 | 주요 파라미터 |
 | --- | --- | --- | --- |
-| 1 | `file_analysis` | 소스코드/디렉토리 구조 분석 | `path` |
-| 2 | `binary_info` | file + strings + checksec 한 번에 | `binary_path` |
+| 1 | `file_analysis` | 소스코드/디렉토리 구조 분석 | `file_path` |
+| 2 | `binary_info` | file + strings + checksec 한 번에 | `file_path` |
 | 3 | `docker_exec` | Docker에서 bash/코드 실행 | `code`, `binary_path`, `timeout_seconds` |
-| 4 | `docker_pwn` | Docker에서 pwntools 익스플로잇 | `pwntools_script`, `binary_path`, `host`, `port` |
-| 5 | `python_exec` | 로컬 Python 스크립트 실행 | `code` |
+| 4 | `docker_pwn` | Docker에서 pwntools 익스플로잇 | `pwntools_script`, `binary_path`, `timeout_seconds` |
+| 5 | `python_exec` | 로컬 Python 스크립트 실행 | `code`, `timeout_seconds` |
 | 6 | `sage_exec` | SageMath 연산 | `code`, `timeout_seconds` (기본 60) |
-| 7 | `netcat_interact` | nc 서버 연결 (단순 송수신) | `host`, `port`, `input_data` |
-| 8 | `http_request` | 커스텀 HTTP 요청 | `url`, `method`, `headers`, `data` |
-| 9 | `port_scan` | nmap 포트 스캔 | `target`, `ports` |
-| 10 | `dns_lookup` | DNS 조회 (서브도메인 열거 포함) | `domain` |
-| 11 | `hash_crack` | 해시 자동식별 + hashcat | `hash_value` |
+| 7 | `netcat_interact` | nc 서버 연결 (단순 송수신) | `host`, `port`, `payload`, `timeout` |
+| 8 | `http_request` | 커스텀 HTTP 요청 | `url`, `method`, `headers`, `cookies`, `body`, `body_hex` |
+| 9 | `port_scan` | nmap 포트 스캔 | `target`, `ports`, `flags` |
+| 10 | `dns_lookup` | DNS 조회 (서브도메인 열거 포함) | `domain`, `record_type`, `subdomain_wordlist` |
+| 11 | `hash_crack` | 해시 자동식별 + hashcat | `hash_value`, `wordlist_path`, `hashcat_mode`, `extra_flags` |
 | 12 | `cve_lookup` | CVE 정보 + PoC | `cve_id` |
-| 13 | `rsa_ctftool` | RSA 자동 공격 (RsaCtfTool) | `publickey`, `cipherfile` |
-| 14 | `trivy` | 의존성 CVE 스캔 | `path` |
+| 13 | `rsa_ctftool` | RSA 자동 공격 (RsaCtfTool) | `n`, `e`, `ciphertext`, `publickey_path`, `attack`, `extra_flags` |
+| 14 | `trivy` | 의존성 CVE 스캔 | `file_path` |
 | 15 | `dreamhack_vm` | Dreamhack 서버 제어 | `challenge_id`, `action`, `session_id`, `csrf_token` |
+
+최신 schema 재생성:
+
+```bash
+python3 scripts/dump_mcp_tools.py --write docs/tools.md
+```
 
 ### 주의사항
 
@@ -527,7 +535,7 @@ bash config/deploy.sh mac          # 혹은 windows
    - `/tmp` 아래 관련 임시 파일 삭제
    - 실행 중인 background 프로세스(터널, 서버 등) 종료
    - Docker 컨테이너 정리
-   - `CLAUDE.md`, `AGENTS.md` 심링크는 절대 삭제 금지
+   - `CLAUDE.md`, `AGENTS.md` 설정 파일은 절대 삭제 금지
    - writeup으로 남길 파일은 사용자에게 확인 후 보존
    - **"정리 완료"를 명시적으로 보고**
 3. 정리 완료 후 skill 업데이트 진행 (위 자동 업데이트 원칙)
@@ -685,8 +693,8 @@ codex exec "PWN 문제 풀어줘. 바이너리: ~/CTF/문제폴더/binary"
 ### ctf-personal 업데이트가 반영 안 될 때
 
 ```bash
-# 1. ctf 명령어로 ~/CTF에서 실행했는지 확인 (claude 직접 실행은 CLAUDE.md 로드 안 됨)
-ctf
+# 1. Codex를 ~/CTF에서 실행했는지 확인 (AGENTS.md 로드 경로)
+codex
 
 # 2. git pull 후 deploy.sh 실행을 빼먹지 않았는지 확인
 cd ~/ctf-solver && git pull && bash config/deploy.sh mac
@@ -739,8 +747,9 @@ ctf
 ### 절대 하면 안 되는 것
 
 - **토큰을 채팅이나 터미널 결과에 붙여넣기 금지** → 노출 시 즉시 Revoke
+- **audit pack 공유 전 redaction 필수** → `python3 scripts/redact_sensitive.py input.txt > output.redacted.txt`
 - **MALWARE 문제에서 로컬 실행 금지** → 반드시 `docker_exec`으로 격리 실행
-- **`claude` 명령어 직접 실행 금지** → CLAUDE.md가 로드 안 됨, 반드시 `ctf` 사용
+- **Claude Code 사용 시 `~/CTF` 밖에서 직접 실행 금지** → compatibility 설정을 쓰려면 `ctf` alias 사용
 - **풀이 완료 후 `~/CTF/` 하위 작업 폴더 미정리** → 저장공간 누적 원인
 - **`~/CTF/CLAUDE.md`, `~/CTF/AGENTS.md` 삭제 금지**
 
@@ -762,7 +771,7 @@ ctf
 
 - 장시간 작업 시 중간에 보고하며 멈출 수 있음
 - CLAUDE.md의 "Codex 전용 규칙"으로 억제하지만 완벽하지 않음
-- Claude Code보다 장기 연속 실행이 상대적으로 불안정
+- 장기 작업은 중간 산출물과 상태 파일을 남기는 방식으로 운용
 
 ---
 
@@ -928,7 +937,7 @@ sudo fstrim -av
 `~/CTF` 바로 아래에 **영구적으로** 남기는 것:
 
 - `CLAUDE.md` (실제 파일, deploy.sh가 재생성 가능)
-- `AGENTS.md` (심링크)
+- `AGENTS.md` (Codex용 동기화 파일 또는 심링크)
 - 절대 삭제 금지
 
 풀이 후 **정리하는 것**:
@@ -960,13 +969,13 @@ du -sh /var/lib/docker/         # Docker 전체
 ## 15. 자주 묻는 질문
 
 **Q: `claude`와 `ctf` 명령어의 차이가 뭔가요?**
-A: `ctf`는 `cd ~/CTF && claude --dangerously-skip-permissions`의 alias입니다. `~/CTF`에서 실행해야 CLAUDE.md가 자동 로드되고 권한 요청 없이 동작합니다. **반드시 `ctf`**를 사용하세요.
+A: `ctf`는 Claude Code compatibility alias입니다. Claude CLI가 설치된 경우 `cd ~/CTF && claude --dangerously-skip-permissions`로 실행해 `CLAUDE.md`를 로드합니다. 현재 primary는 Codex입니다.
 
 **Q: `codex`와 `ctf` 명령어의 차이가 뭔가요?**
-A: `codex`는 `cd ~/CTF && command codex -a never -s danger-full-access`의 alias입니다. `~/CTF`에서 실행해 AGENTS.md(= CLAUDE.md 심링크)를 로드하고 승인 없이 동작합니다.
+A: `codex`는 `cd ~/CTF && command codex -a never -s danger-full-access`의 alias입니다. `~/CTF`에서 실행해 `AGENTS.md`를 로드하고 승인 없이 동작합니다. `AGENTS.md`는 deploy 단계에서 `CLAUDE.md`와 동기화됩니다.
 
 **Q: Claude Code와 Codex 중 뭘 써야 하나요?**
-A: 세팅이 동일하므로 차이 없습니다. 토큰 상황, 모델 취향에 따라 편한 쪽으로. 장기 연속 실행은 Claude Code가 약간 안정적입니다.
+A: 현재 권장은 Codex입니다. Claude Code는 optional/legacy compatibility로 유지되며, Claude CLI가 없어도 설치와 Codex workflow가 실패로 처리되지 않아야 합니다.
 
 **Q: Ghidra 없어도 PWN/REV 풀 수 있나요?**
 A: 가능합니다. CLAUDE.md에 폴백이 있어서 Ghidra 없으면 `docker_exec`에서 `r2 -A` 또는 `objdump -d`로 자동 전환합니다.
