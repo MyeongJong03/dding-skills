@@ -15,7 +15,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from ctf_solver_core.locks import DirectoryLock
-from ctf_solver_core.paths import metrics_root, resolve_path
+from ctf_solver_core.paths import metrics_root, private_metrics_root, resolve_path
+from ctf_solver_core.performance import validate_public_metrics_files
 from ctf_solver_core.schemas import (
     CATEGORIES,
     STATUSES,
@@ -45,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--writeup-generated", action="store_true")
     parser.add_argument("--exploit-included", action="store_true")
     parser.add_argument("--cleanup-bytes-saved", type=int)
+    parser.add_argument("--time-to-flag-sec", type=float)
     parser.add_argument("--remote-wait-time-sec", type=int)
     parser.add_argument("--local-prework-time-sec", type=int)
     parser.add_argument("--remote-lease-time-sec", type=int)
@@ -106,6 +108,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--verifier-duration-sec", type=float)
     parser.add_argument("--tool-call-counts-json")
     parser.add_argument("--model-tooling-summary")
+    parser.add_argument("--ai-usage-id")
+    parser.add_argument("--ai-provider")
+    parser.add_argument("--ai-model")
+    parser.add_argument("--ai-input-tokens", type=int)
+    parser.add_argument("--ai-output-tokens", type=int)
+    parser.add_argument("--ai-cache-read-tokens", type=int)
+    parser.add_argument("--ai-cache-creation-tokens", type=int)
+    parser.add_argument("--ai-cost-usd", type=float)
     parser.add_argument("--include-challenge-name", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--check", action="store_true", help="validate public metrics without updating")
@@ -188,6 +198,36 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         record["tool_call_counts"] = parsed if isinstance(parsed, dict) else {}
     if args.model_tooling_summary:
         record["model_tooling_summary"] = args.model_tooling_summary
+    time_to_flag = getattr(args, "time_to_flag_sec", None)
+    if time_to_flag is None and isinstance(final.get("time_to_flag_sec"), (int, float)):
+        time_to_flag = float(final["time_to_flag_sec"])
+    if time_to_flag is not None:
+        record["time_to_flag_sec"] = max(0.0, round(float(time_to_flag), 3))
+    ai_usage_id = str(getattr(args, "ai_usage_id", "") or final.get("ai_usage_id") or "")
+    if ai_usage_id:
+        record["ai_usage_id"] = ai_usage_id
+    ai_provider = str(getattr(args, "ai_provider", "") or final.get("ai_provider") or "")
+    if ai_provider:
+        record["ai_provider"] = ai_provider
+    ai_model = str(getattr(args, "ai_model", "") or final.get("ai_model") or "")
+    if ai_model:
+        record["ai_model"] = ai_model
+    ai_numeric_fields = {
+        "ai_input_tokens": getattr(args, "ai_input_tokens", None),
+        "ai_output_tokens": getattr(args, "ai_output_tokens", None),
+        "ai_cache_read_tokens": getattr(args, "ai_cache_read_tokens", None),
+        "ai_cache_creation_tokens": getattr(args, "ai_cache_creation_tokens", None),
+    }
+    for key, value in ai_numeric_fields.items():
+        if value is None and isinstance(final.get(key), int):
+            value = int(final[key])
+        if value is not None:
+            record[key] = max(0, int(value))
+    ai_cost = getattr(args, "ai_cost_usd", None)
+    if ai_cost is None and isinstance(final.get("ai_cost_usd"), (int, float)):
+        ai_cost = float(final["ai_cost_usd"])
+    if ai_cost is not None:
+        record["ai_cost_usd"] = max(0.0, round(float(ai_cost), 6))
     if args.include_challenge_name and challenge_name:
         record["challenge_name"] = challenge_name
 
@@ -439,11 +479,7 @@ def _render_dashboard(records: list[dict[str, object]]) -> str:
 
 
 def check_public_metrics() -> list[str]:
-    summary = metrics_root() / "summary.jsonl"
-    errors: list[str] = []
-    for index, record in enumerate(read_jsonl(summary), start=1):
-        errors.extend(f"summary.jsonl:{index}: {error}" for error in validate_public_record(record))
-    return errors
+    return validate_public_metrics_files(metrics_root())
 
 
 def update_metrics(args: argparse.Namespace) -> dict[str, object]:
@@ -462,6 +498,7 @@ def update_metrics(args: argparse.Namespace) -> dict[str, object]:
         "dry_run": args.dry_run,
         "record": record,
         "private_run_updated": False,
+        "private_metrics_updated": False,
         "public_summary_updated": False,
         "duplicate_skipped": False,
         "replaced_existing": False,
@@ -470,6 +507,14 @@ def update_metrics(args: argparse.Namespace) -> dict[str, object]:
     if run_dir and not args.dry_run:
         atomic_write_json(run_dir / "run.json", private)
         result["private_run_updated"] = True
+
+    private_run_id = str(record.get("run_id") or "")
+    if private_run_id and not args.dry_run:
+        private_path = private_metrics_root() / f"{private_run_id}.json"
+        with DirectoryLock("private-metrics-update", "private metrics update"):
+            atomic_write_json(private_path, private)
+        result["private_metrics_updated"] = True
+        result["private_metrics_path"] = str(private_path)
 
     if not public_enabled:
         return result

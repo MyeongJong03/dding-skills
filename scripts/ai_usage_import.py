@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Import AI usage from an explicit redacted JSON file."""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from ctf_solver_core.ai_usage import PROVIDERS, import_ai_usage
+from ctf_solver_core.schemas import json_dumps
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", required=True, help="explicit JSON input path")
+    parser.add_argument("--source", choices=("claude-json", "manual-json"), required=True)
+    parser.add_argument("--provider", choices=sorted(PROVIDERS), default="")
+    parser.add_argument("--run-id", default="")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--json", action="store_true")
+    return parser
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    result = import_ai_usage(
+        input_path=args.input,
+        source=args.source,
+        provider=args.provider,
+        run_id=args.run_id,
+        dry_run=args.dry_run,
+    )
+    if args.json:
+        print(json_dumps(result), end="")
+    else:
+        print(f"imported {result['imported_count']} usage records")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

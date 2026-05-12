@@ -150,6 +150,16 @@
 - Browser automation live external use is explicit/manual, not regression test.
 - Real site adapters, live browser login automation, live smoke tests, full browser solver, full exploit solver, and GDB-specific automation are explicit/manual future steps, not regression tests.
 
+## Performance / Benchmark Rules
+- After each challenge finalization, record public-safe metrics when enough data exists.
+- If `benchmark_id` is known, record a benchmark result with `scripts/benchmark_record_result.py` or pass `--benchmark-id` to `challenge_finalize.py`.
+- If AI usage is known, record it with `scripts/ai_usage_record.py`; imports must use an explicit redacted JSON input path.
+- Public metrics may include aggregate status, duration, time to flag, verifier booleans, target class, tool/session/browser/callback counters, cleanup bytes, remote wait/local prework, provider/model names, tokens, and cost totals.
+- Never put flags, exploit code, raw transcripts, cookies/tokens, private paths, private URLs, browser artifacts, raw verifier output, prompts, or provider account metadata in public metrics.
+- Use `scripts/benchmark_report.py`, `scripts/ai_usage_report.py`, and `scripts/performance_report.py` to evaluate changes before adding more solver features.
+- Continue the finalize-before-next rule; benchmark reporting does not replace finalization.
+- Benchmark tests must not invoke live AI providers, external CTF sites, Docker, Playwright, GDB, or full solver runs.
+
 ## Queue Runner Rules
 - Multiple terminals must claim queue items with `worker_next.py` or `worker_run_once.py` before working.
 - Do not work on a challenge already claimed by another active worker unless helper mode is selected.

@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
 
+from ctf_solver_core.benchmarks import build_benchmark_result, record_benchmark_result
 from ctf_solver_core.locks import DirectoryLock
 from ctf_solver_core.paths import display_path, resolve_path, work_root
 from ctf_solver_core.platform_automation import release_local_server_records_for_run
@@ -78,6 +79,9 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="fail solved finalization unless <run_dir>/verifier.json is successful",
     )
+    parser.add_argument("--benchmark-id", help="record a benchmark result after finalization")
+    parser.add_argument("--attempt-index", type=int, default=1, help="benchmark attempt index")
+    parser.add_argument("--ai-usage-id", help="associate an AI usage record with metrics")
     parser.add_argument("--force", action="store_true", help="replace an existing finalization for this run")
     parser.add_argument("--auto-finalize-used", action="store_true", help="record worker auto-finalize usage in metrics")
     parser.add_argument("--dry-run", action="store_true")
@@ -589,6 +593,9 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "status": args.status,
             "reason": args.reason,
             "flag": args.flag,
+            "benchmark_id": args.benchmark_id or "",
+            "attempt_index": int(args.attempt_index or 1),
+            "ai_usage_id": args.ai_usage_id or "",
             "duration_sec": _duration(challenge, finalized_at),
             "workspace": str(workspace),
             "run_dir": str(run_dir),
@@ -665,6 +672,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 writeup_generated=bool(writeup_result and writeup_result.get("generated")),
                 exploit_included=bool(writeup_result and writeup_result.get("exploit_included")),
                 cleanup_bytes_saved=int((cleanup_result or {}).get("bytes_deleted") or 0),
+                time_to_flag_sec=None,
                 remote_wait_time_sec=None,
                 local_prework_time_sec=None,
                 remote_lease_time_sec=None,
@@ -710,6 +718,14 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 require_verifier_used=bool(getattr(args, "require_verifier", False)),
                 tool_call_counts_json=None,
                 model_tooling_summary=None,
+                ai_usage_id=args.ai_usage_id,
+                ai_provider=None,
+                ai_model=None,
+                ai_input_tokens=None,
+                ai_output_tokens=None,
+                ai_cache_read_tokens=None,
+                ai_cache_creation_tokens=None,
+                ai_cost_usd=None,
                 include_challenge_name=False,
                 run_id=run_id,
                 force=args.force,
@@ -717,6 +733,33 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 dry_run=args.dry_run,
             )
             metrics_result = update_metrics(metrics_args)
+
+        benchmark_result: dict[str, object] | None = None
+        if args.benchmark_id:
+            benchmark_status = args.status
+            if benchmark_status == "already_solved":
+                benchmark_status = "solved"
+            elif benchmark_status == "budget_exhausted":
+                benchmark_status = "timeout"
+            benchmark_record = build_benchmark_result(
+                benchmark_id=args.benchmark_id,
+                run_id=run_id,
+                attempt_index=int(args.attempt_index or 1),
+                status=benchmark_status,
+                run_dir=run_dir,
+                category=category,
+                platform=platform,
+                event=event,
+                duration_sec=_duration(challenge, finalized_at),
+                verifier_success=verifier_success,
+                verifier_flag_found=bool(verifier_info.get("flag_found")),
+                ai_usage_id=args.ai_usage_id or "",
+            )
+            benchmark_result = record_benchmark_result(
+                benchmark_record,
+                replace=bool(args.force),
+                dry_run=bool(args.dry_run),
+            )
 
         git_result: dict[str, object] | None = None
         if args.git_sync:
@@ -749,6 +792,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
         "queue": queue_result,
         "worker_claim_release": worker_claim_release,
         "metrics": metrics_result,
+        "benchmark": benchmark_result,
         "git_sync": git_result,
         "dry_run": args.dry_run,
     }

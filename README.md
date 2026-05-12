@@ -336,6 +336,27 @@ Regression tests는 temp env roots를 사용하며 실제 HOME의 `~/.ctf-solver
 
 audit pack이나 설정을 공유하기 전에는 API key뿐 아니라 email, account UUID, organization UUID, referral code, billing/subscription metadata도 redaction 대상입니다. `~/.claude.json`, `~/.codex/config.toml`, browser storage state, cookies, tokens 원문은 paste하거나 commit하지 않습니다.
 
+## Benchmark and AI usage metrics (P2-0)
+
+Benchmark/performance scaffolds measure whether automation changes actually
+improve outcomes without running live CTFs or invoking AI providers.
+
+```bash
+python3 scripts/benchmark_init.py --benchmark-id demo-web-001 --platform dreamhack --event dreamhackWargame --category web --local-capable true --remote-required true --timeout-sec 1800
+python3 scripts/benchmark_record_result.py --benchmark-id demo-web-001 --run-id RUN-DEMO-1 --status solved --attempt-index 1 --duration-sec 420 --time-to-flag-sec 390 --verifier-success true --verifier-flag-found true
+python3 scripts/ai_usage_record.py --run-id RUN-DEMO-1 --provider codex --model gpt-example --input-tokens 12000 --output-tokens 2400 --cost-usd 0.42
+python3 scripts/benchmark_report.py
+python3 scripts/ai_usage_report.py
+python3 scripts/performance_report.py
+```
+
+Public outputs stay under `metrics/` and contain only aggregate status,
+timing, verifier, tool/session/browser/callback, cleanup, remote wait, token,
+and cost counters. Private detailed AI usage stays under `CTF_AI_USAGE_ROOT`
+or `~/.ctf-solver/ai-usage`. See
+[docs/benchmarking.md](docs/benchmarking.md) and
+[docs/ai-usage-metrics.md](docs/ai-usage-metrics.md).
+
 ## Credits
 
 - [ljagiello/ctf-skills](https://github.com/ljagiello/ctf-skills) (MIT) — CTF 카테고리별 플레이북 구조 참고

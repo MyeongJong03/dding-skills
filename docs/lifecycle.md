@@ -58,6 +58,12 @@ By default finalization also collects redacted web workflow evidence and closes
 web workflows associated with the run. Use `--keep-web-workflows` only for
 explicit handoff.
 
+If the run belongs to a benchmark, pass `--benchmark-id` and optionally
+`--attempt-index`. Finalization records the normal public metrics and appends a
+deduplicated public-safe benchmark result. If a manual AI usage record is known,
+pass `--ai-usage-id` so the run and benchmark result can be correlated without
+storing prompts or transcripts.
+
 ## Multi-Terminal Run ID Discipline
 
 There is no supported global "current challenge". Each terminal/session must keep its own `challenge_id`, `run_id`, and `run_dir`.
@@ -152,6 +158,9 @@ Defaults are portable and may be overridden with environment variables:
 | Download root | `Path.home() / "CTF" / "downloads"` | `CTF_DOWNLOAD_ROOT` |
 | Local writeup root | `Path.home() / "SolvedWriteUp"` | `CTF_SOLVED_WRITEUP_ROOT` |
 | Public metrics root | `repo_root / "metrics"` | `CTF_SOLVER_REPO_ROOT` for repo root |
+| Private metrics root | `Path.home() / ".ctf-solver" / "metrics-private"` | `CTF_PRIVATE_METRICS_ROOT` |
+| AI usage root | `Path.home() / ".ctf-solver" / "ai-usage"` | `CTF_AI_USAGE_ROOT` |
+| Private benchmark root | `Path.home() / ".ctf-solver" / "benchmarks"` | `CTF_BENCHMARK_ROOT` |
 
 All lifecycle scripts use `pathlib.Path`; do not add OS-specific hardcoded paths.
 
@@ -198,6 +207,9 @@ Public-safe aggregate metrics live in:
 ```text
 metrics/summary.jsonl
 metrics/dashboard.md
+metrics/benchmark_summary.jsonl
+metrics/ai_usage_summary.jsonl
+metrics/performance_summary.json
 ```
 
 Public metrics may include timestamp, platform, event, category, status, duration, tool counts, cleanup bytes, writeup boolean, and exploit-included boolean. Public metrics must not include flags, exploit code, raw transcripts, cookies, tokens, account metadata, or private absolute paths.
@@ -227,6 +239,12 @@ worker action/wait counts, claim reclaim count, `auto_finalize_used`, and
 hashed.
 
 Each public metrics entry includes a `run_id` so `scripts/update_metrics.py` can prevent duplicate appends. Re-running metrics update for the same `run_id` is skipped by default; use `--replace` or `--force` to replace the existing entry.
+
+Benchmark results are deduplicated by `(benchmark_id, run_id, attempt_index)`.
+AI usage is stored as private detailed JSONL plus public aggregate token/cost
+rows by provider, model, date, category, platform, and event. Neither path
+stores prompts, transcripts, account metadata, flags, exploit code, private
+paths, or raw provider output in repo metrics.
 
 ## Public-Safe Metrics Policy
 

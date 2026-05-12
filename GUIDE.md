@@ -1187,6 +1187,34 @@ du -sh /var/lib/docker/         # Docker 전체
 
 ---
 
+## 14.5. Benchmark / AI usage metrics
+
+P2-0부터는 solver 기능을 더 붙이기 전에 public-safe 성능 지표를 먼저 남긴다. 이 단계는 scaffold이며 Codex/Claude 자동 호출, 실제 CTF 접속, Docker/GDB/browser 실행을 benchmark runner에 넣지 않는다.
+
+주요 파일:
+
+- `metrics/benchmark_summary.jsonl`
+- `metrics/ai_usage_summary.jsonl`
+- `metrics/performance_summary.json`
+- `metrics/benchmark_dashboard.md`
+- `metrics/ai_usage_dashboard.md`
+- `metrics/performance_dashboard.md`
+
+대표 명령:
+
+```bash
+python3 scripts/benchmark_init.py --benchmark-id demo-web-001 --platform dreamhack --event dreamhackWargame --category web --local-capable true --remote-required true --timeout-sec 1800
+python3 scripts/benchmark_record_result.py --benchmark-id demo-web-001 --run-id RUN-DEMO-1 --status solved --attempt-index 1 --duration-sec 420 --time-to-flag-sec 390 --verifier-success true --verifier-flag-found true
+python3 scripts/ai_usage_record.py --run-id RUN-DEMO-1 --provider codex --model gpt-example --input-tokens 12000 --output-tokens 2400 --cost-usd 0.42
+python3 scripts/performance_report.py
+```
+
+Private detailed AI usage는 `CTF_AI_USAGE_ROOT` 또는 `~/.ctf-solver/ai-usage` 아래에만 저장한다. Public metrics에는 flag, exploit code, raw transcript, private path, cookies/tokens, private URL, browser artifact path를 넣지 않는다.
+
+자세한 내용은 `docs/benchmarking.md`, `docs/ai-usage-metrics.md`, `docs/metrics.md`를 기준으로 한다.
+
+---
+
 ## 15. 자주 묻는 질문
 
 **Q: `claude`와 `ctf` 명령어의 차이가 뭔가요?**

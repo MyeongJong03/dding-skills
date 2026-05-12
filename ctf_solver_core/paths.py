@@ -75,6 +75,18 @@ def web_workflow_root() -> Path:
     return _env_path("CTF_WEB_WORKFLOW_ROOT", Path.home() / ".ctf-solver" / "web-workflows")
 
 
+def private_metrics_root() -> Path:
+    return _env_path("CTF_PRIVATE_METRICS_ROOT", Path.home() / ".ctf-solver" / "metrics-private")
+
+
+def ai_usage_root() -> Path:
+    return _env_path("CTF_AI_USAGE_ROOT", Path.home() / ".ctf-solver" / "ai-usage")
+
+
+def private_benchmark_root() -> Path:
+    return _env_path("CTF_BENCHMARK_ROOT", Path.home() / ".ctf-solver" / "benchmarks")
+
+
 def platform_automation_root() -> Path:
     return _env_path("CTF_PLATFORM_AUTOMATION_ROOT", Path.home() / ".ctf-solver" / "platforms")
 
@@ -89,6 +101,10 @@ def solved_writeup_root() -> Path:
 
 def metrics_root() -> Path:
     return repo_root() / "metrics"
+
+
+def public_benchmark_root() -> Path:
+    return repo_root() / "config" / "benchmarks"
 
 
 def resolve_path(value: str | Path) -> Path:

@@ -57,6 +57,10 @@ PATH_RULES = [
         ),
     ),
     Rule("browser_auth_directory", re.compile(r"(^|/)\.auth/")),
+    Rule(
+        "raw_ai_usage_import_file",
+        re.compile(r"(^|/)(ai[-_]?usage[-_]?raw|claude[-_]?usage[-_]?raw|codex[-_]?usage[-_]?raw).*\.(json|jsonl)$", re.IGNORECASE),
+    ),
 ]
 
 

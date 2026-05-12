@@ -105,6 +105,9 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
     callbacks = tmp_path / "callbacks"
     callbackd = tmp_path / "callbackd"
     web_workflows = tmp_path / "web-workflows"
+    private_metrics = tmp_path / "metrics-private"
+    ai_usage = tmp_path / "ai-usage"
+    private_benchmarks = tmp_path / "benchmarks-private"
     platform_auto = tmp_path / "platforms"
     downloads = tmp_path / "downloads"
     solver_repo = tmp_path / "solver-repo"
@@ -127,6 +130,9 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         callbacks,
         callbackd,
         web_workflows,
+        private_metrics,
+        ai_usage,
+        private_benchmarks,
         platform_auto,
         downloads,
         solver_repo / "metrics",
@@ -151,6 +157,9 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         "CTF_CALLBACK_ROOT": str(callbacks),
         "CTF_CALLBACKD_ROOT": str(callbackd),
         "CTF_WEB_WORKFLOW_ROOT": str(web_workflows),
+        "CTF_PRIVATE_METRICS_ROOT": str(private_metrics),
+        "CTF_AI_USAGE_ROOT": str(ai_usage),
+        "CTF_BENCHMARK_ROOT": str(private_benchmarks),
         "CTF_PLATFORM_AUTOMATION_ROOT": str(platform_auto),
         "CTF_DOWNLOAD_ROOT": str(downloads),
         "CTF_SOLVER_REPO_ROOT": str(solver_repo),
@@ -182,6 +191,9 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         callbacks=callbacks,
         callbackd=callbackd,
         web_workflows=web_workflows,
+        private_metrics=private_metrics,
+        ai_usage=ai_usage,
+        private_benchmarks=private_benchmarks,
         platform_auto=platform_auto,
         downloads=downloads,
         solver_repo=solver_repo,

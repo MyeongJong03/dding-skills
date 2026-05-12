@@ -116,3 +116,33 @@ boolean and must never be replaced with the flag text.
 - exploit inclusion count
 - cleanup bytes saved total
 - last updated
+
+## Benchmark and AI Usage Metrics
+
+P2-0 adds three additional public-safe files:
+
+- `metrics/benchmark_summary.jsonl`
+- `metrics/ai_usage_summary.jsonl`
+- `metrics/performance_summary.json`
+
+The generated dashboards are:
+
+- `metrics/benchmark_dashboard.md`
+- `metrics/ai_usage_dashboard.md`
+- `metrics/performance_dashboard.md`
+
+Use `scripts/benchmark_report.py`, `scripts/ai_usage_report.py`, and
+`scripts/performance_report.py` to refresh them. These reports are aggregate
+only: pass@1/pass@3, solve and abandon rates, verifier success, time to flag,
+tool/session/browser/callback counters, remote wait time, cleanup bytes, and AI
+token/cost totals.
+
+`scripts/update_metrics.py` also accepts optional AI aggregate fields:
+`--ai-usage-id`, `--ai-provider`, `--ai-model`, `--ai-input-tokens`,
+`--ai-output-tokens`, `--ai-cache-read-tokens`,
+`--ai-cache-creation-tokens`, and `--ai-cost-usd`.
+
+Private detailed AI usage lives under `CTF_AI_USAGE_ROOT` or
+`Path.home() / ".ctf-solver" / "ai-usage"`. Private detailed metrics live under
+`CTF_PRIVATE_METRICS_ROOT` or `Path.home() / ".ctf-solver" /
+"metrics-private"`. These roots must not be inside the repo.

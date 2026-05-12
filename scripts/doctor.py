@@ -23,11 +23,13 @@ from ctf_solver_core.paths import (
     callbackd_root,
     download_root,
     display_path,
+    ai_usage_root,
     is_inside_repo,
     lease_root,
     local_run_root,
     lock_root,
     metrics_root,
+    private_metrics_root,
     platform_automation_root,
     queue_root,
     session_root,
@@ -45,7 +47,7 @@ from ctf_solver_core.platform_automation import download_metadata_count, platfor
 from ctf_solver_core.platform_adapters import get_adapter
 from ctf_solver_core.platforms import platform_config_path, validate_platform_config
 from ctf_solver_core.resources import detect_stale_leases, list_leases
-from ctf_solver_core.schemas import read_jsonl, validate_public_record
+from ctf_solver_core.performance import validate_public_metrics_files
 from ctf_solver_core.session_client import status as session_daemon_status
 from ctf_solver_core.web_workflow import active_web_workflow_count
 from ctf_solver_core.worker import detect_stale_claims, list_claims
@@ -310,6 +312,13 @@ class Doctor:
             "scripts/platform_server_status.py",
             "scripts/platform_submit.py",
             "scripts/platform_smoke_test.py",
+            "scripts/benchmark_init.py",
+            "scripts/benchmark_record_result.py",
+            "scripts/benchmark_report.py",
+            "scripts/performance_report.py",
+            "scripts/ai_usage_record.py",
+            "scripts/ai_usage_import.py",
+            "scripts/ai_usage_report.py",
         ]
         for relative in scripts:
             self.require_file(relative)
@@ -342,6 +351,9 @@ class Doctor:
             "ctf_solver_core/callback_daemon.py",
             "ctf_solver_core/web_workflow.py",
             "ctf_solver_core/web_payloads.py",
+            "ctf_solver_core/benchmarks.py",
+            "ctf_solver_core/performance.py",
+            "ctf_solver_core/ai_usage.py",
             "ctf_solver_core/browser_state.py",
             "ctf_solver_core/platform_automation.py",
             "ctf_solver_core/platform_adapters.py",
@@ -356,6 +368,8 @@ class Doctor:
             "docs/worker-runner.md",
             "docs/sessions.md",
             "docs/verifier.md",
+            "docs/benchmarking.md",
+            "docs/ai-usage-metrics.md",
         ]:
             self.require_file(relative)
 
@@ -402,18 +416,12 @@ class Doctor:
             self.ok("metrics/dashboard.md exists")
         else:
             self.warn("metrics/dashboard.md missing; update_metrics.py will generate it")
-        summary = metrics / "summary.jsonl"
-        if summary.exists():
-            metric_errors: list[str] = []
-            for index, record in enumerate(read_jsonl(summary), start=1):
-                metric_errors.extend(f"summary.jsonl:{index}: {error}" for error in validate_public_record(record))
-            if metric_errors:
-                for error in metric_errors:
-                    self.fail(f"public metrics unsafe: {error}")
-            else:
-                self.ok("public metrics safety check passed")
+        metric_errors = validate_public_metrics_files(metrics)
+        if metric_errors:
+            for error in metric_errors:
+                self.fail(f"public metrics unsafe: {error}")
         else:
-            self.ok("metrics/summary.jsonl absent; no public metrics to validate")
+            self.ok("public metrics safety check passed")
 
         secret_scan = subprocess.run(
             [sys.executable, str(ROOT / "scripts" / "secret_scan.py"), "--strict"],
@@ -429,6 +437,8 @@ class Doctor:
 
         writeup_root = solved_writeup_root()
         run_root = local_run_root()
+        private_metrics = private_metrics_root()
+        ai_usage = ai_usage_root()
         locks = lock_root()
         leases = lease_root()
         queue = queue_root()
@@ -445,6 +455,8 @@ class Doctor:
         downloads = download_root()
         self.info(f"writeup root: {display_path(writeup_root)}")
         self.info(f"private run root: {display_path(run_root)}")
+        self.info(f"private metrics root: {display_path(private_metrics)}")
+        self.info(f"AI usage root: {display_path(ai_usage)}")
         self.info(f"lock root: {display_path(locks)}")
         self.info(f"lease root: {display_path(leases)}")
         self.info(f"queue root: {display_path(queue)}")
@@ -464,6 +476,10 @@ class Doctor:
             self.fail("writeup root is inside repo; local-only writeups could be staged accidentally")
         if is_inside_repo(run_root):
             self.fail("private run root is inside repo; private logs could be staged accidentally")
+        if is_inside_repo(private_metrics):
+            self.warn("private metrics root is inside repo; prefer ~/.ctf-solver/metrics-private or CTF_PRIVATE_METRICS_ROOT outside repo")
+        if is_inside_repo(ai_usage):
+            self.warn("AI usage root is inside repo; prefer ~/.ctf-solver/ai-usage or CTF_AI_USAGE_ROOT outside repo")
         if is_inside_repo(locks):
             self.warn("lock root is inside repo; prefer ~/.ctf-solver/locks or CTF_LOCK_ROOT outside repo")
         if is_inside_repo(leases):
@@ -504,6 +520,7 @@ class Doctor:
         except Exception as exc:
             self.warn(f"could not inspect session daemon safely: {exc}")
         self.check_playwright_runtime()
+        self.info("live AI provider credentials are not required for benchmark or AI usage metrics scaffolds")
         try:
             daemon = browser_daemon_status()
             if daemon.get("running"):
