@@ -51,6 +51,14 @@ def sessiond_root() -> Path:
     return _env_path("CTF_SESSIOND_ROOT", Path.home() / ".ctf-solver" / "sessiond")
 
 
+def gdb_root() -> Path:
+    return _env_path("CTF_GDB_ROOT", Path.home() / ".ctf-solver" / "gdb")
+
+
+def gdb_artifact_root() -> Path:
+    return _env_path("CTF_GDB_ARTIFACT_ROOT", Path.home() / ".ctf-solver" / "gdb-artifacts")
+
+
 def browser_root() -> Path:
     return _env_path("CTF_BROWSER_ROOT", Path.home() / ".ctf-solver" / "browser")
 

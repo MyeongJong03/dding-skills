@@ -23,6 +23,8 @@ from ctf_solver_core.paths import (
     callbackd_root,
     download_root,
     display_path,
+    gdb_artifact_root,
+    gdb_root,
     ai_usage_root,
     is_inside_repo,
     lease_root,
@@ -45,6 +47,7 @@ from ctf_solver_core.browser_client import status as browser_daemon_status
 from ctf_solver_core.browser_state import browser_profile_count
 from ctf_solver_core.callback_client import status as callback_daemon_status
 from ctf_solver_core.callbacks import active_listener_count
+from ctf_solver_core.gdb_session import active_gdb_session_count
 from ctf_solver_core.platform_automation import download_metadata_count, platform_server_record_count
 from ctf_solver_core.platform_adapters import get_adapter
 from ctf_solver_core.platforms import platform_config_path, validate_platform_config
@@ -276,6 +279,16 @@ class Doctor:
             "scripts/session_expect.py",
             "scripts/session_close.py",
             "scripts/session_list.py",
+            "scripts/gdb_start.py",
+            "scripts/gdb_cmd.py",
+            "scripts/gdb_continue.py",
+            "scripts/gdb_wait_crash.py",
+            "scripts/gdb_registers.py",
+            "scripts/gdb_backtrace.py",
+            "scripts/gdb_vmmap.py",
+            "scripts/gdb_telescope.py",
+            "scripts/gdb_close.py",
+            "scripts/gdb_list.py",
             "scripts/verify_run.py",
             "scripts/browser_daemon.py",
             "scripts/browser_start.py",
@@ -348,6 +361,9 @@ class Doctor:
             "ctf_solver_core/sessions.py",
             "ctf_solver_core/session_daemon.py",
             "ctf_solver_core/session_client.py",
+            "ctf_solver_core/gdb_session.py",
+            "ctf_solver_core/gdb_client.py",
+            "ctf_solver_core/gdb_parsers.py",
             "ctf_solver_core/verifier.py",
             "ctf_solver_core/browser_actions.py",
             "ctf_solver_core/browser_client.py",
@@ -373,6 +389,7 @@ class Doctor:
             "docs/ctfd-adapter.md",
             "docs/worker-runner.md",
             "docs/sessions.md",
+            "docs/gdb-session.md",
             "docs/verifier.md",
             "docs/benchmarking.md",
             "docs/private-benchmarks.md",
@@ -454,6 +471,8 @@ class Doctor:
         workers = worker_root()
         sessions = session_root()
         sessiond = sessiond_root()
+        gdb = gdb_root()
+        gdb_artifacts = gdb_artifact_root()
         browser = browser_root()
         browser_artifacts = browser_artifact_root()
         browser_states = browser_state_root()
@@ -474,6 +493,8 @@ class Doctor:
         self.info(f"worker root: {display_path(workers)}")
         self.info(f"session root: {display_path(sessions)}")
         self.info(f"session daemon root: {display_path(sessiond)}")
+        self.info(f"GDB root: {display_path(gdb)}")
+        self.info(f"GDB artifact root: {display_path(gdb_artifacts)}")
         self.info(f"browser root: {display_path(browser)}")
         self.info(f"browser artifact root: {display_path(browser_artifacts)}")
         self.info(f"browser state root: {display_path(browser_states)}")
@@ -510,6 +531,13 @@ class Doctor:
             self.warn("session root is inside repo; prefer ~/.ctf-solver/sessions or CTF_SESSION_ROOT outside repo")
         if is_inside_repo(sessiond):
             self.warn("session daemon root is inside repo; prefer ~/.ctf-solver/sessiond or CTF_SESSIOND_ROOT outside repo")
+        if is_inside_repo(gdb):
+            self.warn("GDB root is inside repo; prefer ~/.ctf-solver/gdb or CTF_GDB_ROOT outside repo")
+        if is_inside_repo(gdb_artifacts):
+            self.warn(
+                "GDB artifact root is inside repo; prefer ~/.ctf-solver/gdb-artifacts "
+                "or CTF_GDB_ARTIFACT_ROOT outside repo"
+            )
         if is_inside_repo(browser):
             self.warn("browser root is inside repo; prefer ~/.ctf-solver/browser or CTF_BROWSER_ROOT outside repo")
         if is_inside_repo(browser_artifacts):
@@ -537,6 +565,23 @@ class Doctor:
                 self.info("session daemon not running (optional)")
         except Exception as exc:
             self.warn(f"could not inspect session daemon safely: {exc}")
+        try:
+            self.info(f"active GDB session metadata count: {active_gdb_session_count()}")
+        except Exception as exc:
+            self.warn(f"could not inspect GDB sessions safely: {exc}")
+        self.command_version("gdb", optional=True)
+        docker = shutil.which("docker")
+        if docker:
+            image = subprocess.run(
+                [docker, "image", "inspect", "ctf-pwn:latest"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if image.returncode == 0:
+                self.ok("ctf-pwn:latest Docker image is available")
+            else:
+                self.info("ctf-pwn:latest Docker image not found (optional GDB Docker mode)")
         self.check_playwright_runtime()
         self.info("live AI provider credentials are not required for benchmark or AI usage metrics scaffolds")
         try:

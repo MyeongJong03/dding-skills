@@ -12,7 +12,7 @@ dding-skills/
 ├── ctf_solver_core/       # lifecycle path/lock/schema/session/browser/callback/platform helpers
 ├── scripts/               # doctor + lifecycle/finalization CLIs
 ├── metrics/               # public-safe metrics and dashboard
-├── docs/                  # tools/lifecycle/metrics/platform/browser/callback/web workflow docs
+├── docs/                  # tools/lifecycle/metrics/GDB/platform/browser/callback/web workflow docs
 ├── Dockerfile.ctf         # CTF PWN/REV용 Docker 이미지
 ├── install.sh             # 자동 설치 스크립트
 ├── skills/
@@ -39,6 +39,7 @@ Codex (primary)
   └─ MCP/CLI helper 호출
          └─ ctf_solver (CTF Solver) ───→  server.py → tools/*.py
                                       ├─ persistent session daemon (127.0.0.1)
+                                      ├─ GDB pwn debug sessions (local/Docker/mock)
                                       ├─ web callback listener daemon (127.0.0.1)
                                       └─ web exploit workflow scaffold
 ```
@@ -203,6 +204,8 @@ bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 | `CTF_SESSIOND_ROOT` | session daemon state 루트 | `~/.ctf-solver/sessiond` |
 | `CTF_SESSIOND_HOST` | session daemon bind host | `127.0.0.1` |
 | `CTF_SESSIOND_PORT` | session daemon bind port | `0` 자동 할당 |
+| `CTF_GDB_ROOT` | GDB debug session metadata/log 루트 | `~/.ctf-solver/gdb` |
+| `CTF_GDB_ARTIFACT_ROOT` | GDB core/memory artifact 루트 | `~/.ctf-solver/gdb-artifacts` |
 | `CTF_BROWSER_ROOT` | browser action session/daemon metadata 루트 | `~/.ctf-solver/browser` |
 | `CTF_BROWSER_ARTIFACT_ROOT` | browser action screenshot/artifact 루트 | `~/.ctf-solver/browser-artifacts` |
 | `CTF_BROWSER_STATE_ROOT` | browser/session profile metadata 루트 | `~/.ctf-solver/browser-states` |

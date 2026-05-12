@@ -33,6 +33,16 @@ MCP server name: `ctf_solver`
 | `docker_pwn` | `tools/docker_exec.py` | `docker_pwn(pwntools_script: str, binary_path: str = None, timeout_seconds: int = 60) -> str` | Docker Linux 환경에서 pwntools 익스플로잇을 실행합니다. PWN 챌린지 전용. 바이너리를 실제 Linux에서 실행하고 익스플로잇합니다. 완전한 pwntools 스크립트를 작성해 주세요 (from pwn import * 포함). /workspace 디렉토리는 호출 간 파일이 유지됩니다. |
 | `dreamhack_vm` | `tools/dreamhack_vm.py` | `dreamhack_vm(challenge_id: int, action: str = 'start', session_id: str = '', csrf_token: str = '') -> str` | Dreamhack 워게임 서버를 제어합니다. action: start(서버 생성), stop(서버 종료), restart(재시작), status(상태 확인) session_id: 브라우저 쿠키의 sessionid 값 csrf_token: 브라우저 쿠키의 csrf_token 값 |
 | `file_analysis` | `tools/file_analysis.py` | `file_analysis(file_path: str) -> str` | CTF 문제의 소스코드/설정 파일을 분석합니다. 디렉토리를 지정하면 내부의 텍스트 파일을 읽어 반환합니다. (venv, __pycache__, node_modules 등 불필요한 디렉토리 자동 제외) |
+| `gdb_backtrace` | `tools/gdb_tools.py` | `gdb_backtrace(gdb_session_id: str, timeout_ms: int = 2000, max_bytes: int = 8000) -> str` | Run bt and return a bounded public-safe backtrace summary. |
+| `gdb_close` | `tools/gdb_tools.py` | `gdb_close(gdb_session_id: str, reason: str = 'closed') -> str` | Close one GDB session and terminate the backing process/container. |
+| `gdb_cmd` | `tools/gdb_tools.py` | `gdb_cmd(gdb_session_id: str, cmd: str, timeout_ms: int = 2000, max_bytes: int = 8000) -> str` | Run one bounded GDB command and return redacted output. Do not use this to dump large memory regions. |
+| `gdb_continue` | `tools/gdb_tools.py` | `gdb_continue(gdb_session_id: str, timeout_ms: int = 2000, max_bytes: int = 8000) -> str` | Continue execution in a GDB session and parse crash status if present. |
+| `gdb_list` | `tools/gdb_tools.py` | `gdb_list(run_id: str = None, challenge_id: str = None, include_closed: bool = False) -> str` | List GDB sessions without raw logs, transcripts, core dumps, or memory dumps. |
+| `gdb_registers` | `tools/gdb_tools.py` | `gdb_registers(gdb_session_id: str, timeout_ms: int = 2000, max_bytes: int = 8000) -> str` | Run info registers and parse register values into JSON where possible. |
+| `gdb_start` | `tools/gdb_tools.py` | `gdb_start(binary: str, mode: str = 'docker', workspace: str = None, run_id: str = None, challenge_id: str = None, worker_id: str = None, args: str = None, breakpoint: list[str] = None, image: str = 'ctf-pwn:latest', timeout_ms: int = 2000, max_bytes: int = 8000) -> str` | Start a local-only GDB debug session for a challenge binary. mode is docker, local, or mock; docker uses ctf-pwn:latest by default. |
+| `gdb_telescope` | `tools/gdb_tools.py` | `gdb_telescope(gdb_session_id: str, address: str, count: int = 8, timeout_ms: int = 2000, max_bytes: int = 8000) -> str` | Run pwndbg telescope or a bounded x/gx fallback at the requested address. |
+| `gdb_vmmap` | `tools/gdb_tools.py` | `gdb_vmmap(gdb_session_id: str, timeout_ms: int = 2000, max_bytes: int = 8000) -> str` | Run pwndbg vmmap with an info proc mappings fallback and parse mappings. |
+| `gdb_wait_crash` | `tools/gdb_tools.py` | `gdb_wait_crash(gdb_session_id: str, timeout_ms: int = 5000, max_bytes: int = 8000) -> str` | Continue execution and wait for SIGSEGV/SIGABRT-style crash output. |
 | `hash_crack` | `tools/hash_crack.py` | `hash_crack(hash_value: str, wordlist_path: str = os.path.expanduser('~/wordlists/rockyou.txt'), hashcat_mode: str = None, extra_flags: str = '') -> str` | 해시를 식별하고 hashcat으로 크랙을 시도합니다. hash_value: 크랙할 해시값 wordlist_path: 워드리스트 경로 (기본: rockyou.txt) hashcat_mode: hashcat 모드 번호 (미입력 시 자동 감지) |
 | `http_request` | `tools/http_request.py` | `http_request(url: str, method: str = 'GET', headers: dict = None, cookies: dict = None, body: str = None, body_hex: str = None, follow_redirects: bool = True, timeout: int = 30) -> str` | 커스텀 HTTP 요청을 보냅니다. CTF 웹 챌린지에서 커스텀 헤더, 쿠키, 바디를 자유롭게 설정할 때 사용합니다. body: UTF-8 텍스트 바디 body_hex: hex 인코딩된 바이너리 바디 (예: "4141420a"). body보다 우선. follow_redirects: False로 설정하면 리다이렉트를 따라가지 않음 (SSRF 등에 유용) |
 | `netcat_interact` | `tools/netcat_interact.py` | `netcat_interact(host: str, port: int, payload: str, timeout: int = 30) -> str` | CTF nc 서버에 단순 payload를 전송하고 응답을 받습니다. 복잡한 pwntools 상호작용은 docker_pwn을 사용하세요. payload: 전송할 문자열 (\n으로 줄바꿈) timeout: 응답 대기 시간 (초) |
@@ -333,6 +343,108 @@ csrf_token: 브라우저 쿠키의 csrf_token 값
 CTF 문제의 소스코드/설정 파일을 분석합니다.
 디렉토리를 지정하면 내부의 텍스트 파일을 읽어 반환합니다.
 (venv, __pycache__, node_modules 등 불필요한 디렉토리 자동 제외)
+```
+
+### `gdb_backtrace`
+
+- Module: `tools/gdb_tools.py`
+- Signature: `gdb_backtrace(gdb_session_id: str, timeout_ms: int = 2000, max_bytes: int = 8000) -> str`
+- Docstring:
+
+```text
+Run bt and return a bounded public-safe backtrace summary.
+```
+
+### `gdb_close`
+
+- Module: `tools/gdb_tools.py`
+- Signature: `gdb_close(gdb_session_id: str, reason: str = 'closed') -> str`
+- Docstring:
+
+```text
+Close one GDB session and terminate the backing process/container.
+```
+
+### `gdb_cmd`
+
+- Module: `tools/gdb_tools.py`
+- Signature: `gdb_cmd(gdb_session_id: str, cmd: str, timeout_ms: int = 2000, max_bytes: int = 8000) -> str`
+- Docstring:
+
+```text
+Run one bounded GDB command and return redacted output.
+Do not use this to dump large memory regions.
+```
+
+### `gdb_continue`
+
+- Module: `tools/gdb_tools.py`
+- Signature: `gdb_continue(gdb_session_id: str, timeout_ms: int = 2000, max_bytes: int = 8000) -> str`
+- Docstring:
+
+```text
+Continue execution in a GDB session and parse crash status if present.
+```
+
+### `gdb_list`
+
+- Module: `tools/gdb_tools.py`
+- Signature: `gdb_list(run_id: str = None, challenge_id: str = None, include_closed: bool = False) -> str`
+- Docstring:
+
+```text
+List GDB sessions without raw logs, transcripts, core dumps, or memory dumps.
+```
+
+### `gdb_registers`
+
+- Module: `tools/gdb_tools.py`
+- Signature: `gdb_registers(gdb_session_id: str, timeout_ms: int = 2000, max_bytes: int = 8000) -> str`
+- Docstring:
+
+```text
+Run info registers and parse register values into JSON where possible.
+```
+
+### `gdb_start`
+
+- Module: `tools/gdb_tools.py`
+- Signature: `gdb_start(binary: str, mode: str = 'docker', workspace: str = None, run_id: str = None, challenge_id: str = None, worker_id: str = None, args: str = None, breakpoint: list[str] = None, image: str = 'ctf-pwn:latest', timeout_ms: int = 2000, max_bytes: int = 8000) -> str`
+- Docstring:
+
+```text
+Start a local-only GDB debug session for a challenge binary.
+mode is docker, local, or mock; docker uses ctf-pwn:latest by default.
+```
+
+### `gdb_telescope`
+
+- Module: `tools/gdb_tools.py`
+- Signature: `gdb_telescope(gdb_session_id: str, address: str, count: int = 8, timeout_ms: int = 2000, max_bytes: int = 8000) -> str`
+- Docstring:
+
+```text
+Run pwndbg telescope or a bounded x/gx fallback at the requested address.
+```
+
+### `gdb_vmmap`
+
+- Module: `tools/gdb_tools.py`
+- Signature: `gdb_vmmap(gdb_session_id: str, timeout_ms: int = 2000, max_bytes: int = 8000) -> str`
+- Docstring:
+
+```text
+Run pwndbg vmmap with an info proc mappings fallback and parse mappings.
+```
+
+### `gdb_wait_crash`
+
+- Module: `tools/gdb_tools.py`
+- Signature: `gdb_wait_crash(gdb_session_id: str, timeout_ms: int = 5000, max_bytes: int = 8000) -> str`
+- Docstring:
+
+```text
+Continue execution and wait for SIGSEGV/SIGABRT-style crash output.
 ```
 
 ### `hash_crack`

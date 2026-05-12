@@ -19,7 +19,7 @@ Session metadata stores bounded process facts such as `session_id`, `run_id`, `c
 - `python`: `python3 -i` REPL.
 - `sage`: Sage REPL from `SAGE_PATH` or `sage`.
 - `nc`: interactive `nc <host> <port>` connection.
-- `docker-shell`: interactive `ctf-pwn:latest` shell with `/workspace` mounted.
+- `docker-shell`: interactive `ctf-pwn:latest` shell with `/workspace` mounted and ptrace-friendly Docker flags for local pwn debugging.
 
 Docker and Sage are optional runtime dependencies. If unavailable, the session start returns a clear error instead of failing the full test suite.
 
@@ -100,9 +100,12 @@ The daemon never binds to external interfaces. Do not set session roots inside t
 
 The child process environment is allowlisted by default: `PATH`, `TERM`, `LANG`, `LC_ALL`, and `SAGE_PATH`. Explicit environment values can be passed for a session, but sensitive-looking metadata is redacted. Avoid sending cookies, bearer tokens, API keys, OAuth values, passwords, or private keys through session commands.
 
+## Related Debug Sessions
+
+Pwn-specific GDB helpers live in [docs/gdb-session.md](gdb-session.md). They use the persistent session daemon for Docker/local process management, but keep separate GDB metadata and local-only logs under `CTF_GDB_ROOT`.
+
 ## Limitations
 
-- GDB-specific session helpers are future work.
 - Browser automation sessions are future work.
 - Full verifier implementation is future work.
 - Docker and Sage sessions depend on local Docker/Sage availability.

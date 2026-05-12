@@ -125,8 +125,12 @@ after `stale_after_sec`. Finalized queue items are never selected.
 Solved queue items are selected for `verify_solution` first when
 `--require-verifier` is enabled and no successful verifier exists. Only after
 verification passes does the worker select `finalize_challenge`. The worker
-does not invoke Codex, Claude, browser automation, GDB, Docker, Sage, or exploit
+does not invoke Codex, Claude, browser automation, Docker, Sage, or exploit
 commands by itself.
+
+GDB debug sessions associated with a `run_id` are closed by
+`challenge_finalize.py` by default. Pass `--keep-gdb-sessions` only when a
+debug session is being handed off intentionally.
 
 ## Idempotent Finalization
 

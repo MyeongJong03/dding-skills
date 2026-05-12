@@ -28,6 +28,7 @@ from tools.verify_run import register as register_verify_run
 from tools.browser_actions import register as register_browser_actions
 from tools.callbacks import register as register_callbacks
 from tools.web_workflow import register as register_web_workflow
+from tools.gdb_tools import register as register_gdb_tools
 
 register_file_analysis(mcp)
 register_trivy(mcp)
@@ -48,6 +49,7 @@ register_verify_run(mcp)
 register_browser_actions(mcp)
 register_callbacks(mcp)
 register_web_workflow(mcp)
+register_gdb_tools(mcp)
 
 if __name__ == "__main__":
     mcp.run()

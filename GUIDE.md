@@ -368,6 +368,8 @@ url = "http://localhost:18080/mcp/message"
 
 MCP 서버명은 `ctf_solver`이고 표시명은 CTF Solver다. 실제 파라미터는 코드에서 생성한 [docs/tools.md](docs/tools.md)를 기준으로 삼고, README/GUIDE에는 긴 schema를 중복 유지하지 않는다.
 
+PWN crash refinement에는 GDB 전용 scaffold를 쓴다. 기본은 `ctf-pwn:latest` Docker mode이고, metadata/log는 `CTF_GDB_ROOT`, core/memory artifact는 `CTF_GDB_ARTIFACT_ROOT` 아래 local-only로 둔다. 사용 예시는 [docs/gdb-session.md](docs/gdb-session.md)를 기준으로 한다.
+
 ### ctf_solver 대표 툴
 
 | # | 툴 | 용도 | 주요 파라미터 |

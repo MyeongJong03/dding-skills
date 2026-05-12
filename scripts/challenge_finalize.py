@@ -33,6 +33,7 @@ from ctf_solver_core.schemas import (
 )
 from ctf_solver_core.browser_client import close_browser_sessions_for_run
 from ctf_solver_core.callback_client import close_callback_listeners_for_run
+from ctf_solver_core.gdb_client import close_gdb_sessions_for_run
 from ctf_solver_core.session_client import close_sessions_for_run
 from ctf_solver_core.verifier import load_verifier_result, verifier_summary
 from ctf_solver_core.web_workflow import close_web_workflows_for_run, collect_web_evidence_for_run
@@ -63,6 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--keep-lease", action="store_true", help="do not release active resource leases for this run")
     parser.add_argument("--keep-server", action="store_true", help="do not release active platform server records for this run")
     parser.add_argument("--keep-sessions", action="store_true", help="do not close persistent sessions for this run")
+    parser.add_argument("--keep-gdb-sessions", action="store_true", help="do not close GDB debug sessions for this run")
     parser.add_argument(
         "--keep-browser-sessions",
         action="store_true",
@@ -197,6 +199,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 "writeup": existing.get("writeup") or {},
                 "cleanup": existing.get("cleanup") or {},
                 "sessions": existing.get("sessions") or {},
+                "gdb_sessions": existing.get("gdb_sessions") or {},
                 "browser_sessions": existing.get("browser_sessions") or {},
                 "callbacks": existing.get("callbacks") or {},
                 "web_workflows": existing.get("web_workflows") or {},
@@ -278,6 +281,42 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                     "closed_session_count": 0,
                     "session_bytes_read": 0,
                     "session_bytes_written": 0,
+                    "errors": [str(exc)],
+                }
+
+        gdb_session_result: dict[str, object] | None = None
+        if getattr(args, "keep_gdb_sessions", False):
+            gdb_session_result = {
+                "ok": True,
+                "reason": "kept_by_request",
+                "gdb_session_count": 0,
+                "closed_gdb_session_count": 0,
+                "gdb_crash_count": 0,
+                "gdb_command_count": 0,
+                "errors": [],
+            }
+        elif args.dry_run:
+            gdb_session_result = {
+                "ok": True,
+                "reason": "dry_run",
+                "gdb_session_count": 0,
+                "closed_gdb_session_count": 0,
+                "gdb_crash_count": 0,
+                "gdb_command_count": 0,
+                "errors": [],
+            }
+        else:
+            try:
+                gdb_session_result = {"ok": True, **close_gdb_sessions_for_run(run_id)}
+            except Exception as exc:
+                gdb_session_result = {
+                    "ok": False,
+                    "reason": "gdb_session_close_failed",
+                    "warning": str(exc),
+                    "gdb_session_count": 0,
+                    "closed_gdb_session_count": 0,
+                    "gdb_crash_count": 0,
+                    "gdb_command_count": 0,
                     "errors": [str(exc)],
                 }
 
@@ -555,6 +594,13 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "session_bytes_read": int((session_result or {}).get("session_bytes_read") or 0),
             "session_bytes_written": int((session_result or {}).get("session_bytes_written") or 0),
         }
+        gdb_metrics = {
+            "gdb_session_count": int((gdb_session_result or {}).get("gdb_session_count") or 0),
+            "closed_gdb_session_count": int((gdb_session_result or {}).get("closed_gdb_session_count") or 0),
+            "gdb_crash_count": int((gdb_session_result or {}).get("gdb_crash_count") or 0),
+            "gdb_command_count": int((gdb_session_result or {}).get("gdb_command_count") or 0),
+            "gdb_used": bool(int((gdb_session_result or {}).get("gdb_session_count") or 0)),
+        }
         browser_metrics = {
             "browser_session_count": int((browser_session_result or {}).get("session_count") or 0),
             "closed_browser_session_count": int((browser_session_result or {}).get("closed_browser_session_count") or 0),
@@ -607,6 +653,10 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "sessions": session_result or {},
             "session_metrics": session_metrics,
             "closed_session_count": session_metrics["closed_session_count"],
+            "gdb_sessions": gdb_session_result or {},
+            "gdb_metrics": gdb_metrics,
+            "closed_gdb_session_count": gdb_metrics["closed_gdb_session_count"],
+            "gdb_crash_count": gdb_metrics["gdb_crash_count"],
             "browser_sessions": browser_session_result or {},
             "browser_metrics": browser_metrics,
             "closed_browser_session_count": browser_metrics["closed_browser_session_count"],
@@ -694,6 +744,11 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 session_bytes_read=session_metrics["session_bytes_read"],
                 session_bytes_written=session_metrics["session_bytes_written"],
                 closed_session_count=session_metrics["closed_session_count"],
+                gdb_session_count=gdb_metrics["gdb_session_count"],
+                closed_gdb_session_count=gdb_metrics["closed_gdb_session_count"],
+                gdb_crash_count=gdb_metrics["gdb_crash_count"],
+                gdb_command_count=gdb_metrics["gdb_command_count"],
+                gdb_used=gdb_metrics["gdb_used"],
                 browser_session_count=browser_metrics["browser_session_count"],
                 closed_browser_session_count=browser_metrics["closed_browser_session_count"],
                 browser_actions_count=browser_metrics["browser_actions_count"],
@@ -782,6 +837,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
         "writeup": writeup_result,
         "cleanup": cleanup_result,
         "sessions": session_result,
+        "gdb_sessions": gdb_session_result,
         "browser_sessions": browser_session_result,
         "callbacks": callback_result,
         "web_workflows": web_workflow_result,

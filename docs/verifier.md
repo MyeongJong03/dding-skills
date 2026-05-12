@@ -45,7 +45,9 @@ python3 scripts/verify_run.py \
 ```
 
 Session verification uses bounded reads/expects through the local session daemon.
-It does not implement browser automation or GDB-specific behavior.
+It does not drive browser automation or GDB sessions. GDB debug summaries can be
+attached during finalization/writeup generation, while verifier evidence remains
+a separate success check.
 
 ## Manual Evidence Mode
 

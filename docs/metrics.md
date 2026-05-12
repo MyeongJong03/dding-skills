@@ -33,6 +33,11 @@
 - optional `closed_session_count`
 - optional `session_bytes_read`
 - optional `session_bytes_written`
+- optional `gdb_session_count`
+- optional `closed_gdb_session_count`
+- optional `gdb_crash_count`
+- optional `gdb_command_count`
+- optional `gdb_used`
 - optional `browser_session_count`
 - optional `closed_browser_session_count`
 - optional `browser_actions_count`
@@ -87,6 +92,7 @@ Do not put the following in public metrics:
 - private remote URLs or secret-bearing lease metadata
 - verifier raw output, raw evidence path, or exploit command
 - raw worker ID or hostname
+- GDB raw logs, core dumps, memory dumps, telescope dumps, or private binary paths
 - browser storage state paths or contents
 - browser action URLs, screenshot paths, network bodies, or raw console output
 - callback URLs, headers, bodies, cookies, token-like values, flags, hit logs, or private callback paths

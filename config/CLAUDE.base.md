@@ -34,7 +34,9 @@
   browser_cookies, browser_close, browser_list, callback_start, callback_url,
   callback_hits, callback_wait, callback_close, callback_list, web_payload_helper,
   web_workflow_init, web_payload_generate, web_browser_probe, web_callback_probe,
-  web_evidence_collect, web_workflow_close, web_workflow_list
+  web_evidence_collect, web_workflow_close, web_workflow_list, gdb_start,
+  gdb_cmd, gdb_continue, gdb_wait_crash, gdb_registers, gdb_backtrace,
+  gdb_vmmap, gdb_telescope, gdb_close, gdb_list
   - Codex에서 MCP가 직접 연결되지 않는 환경이면 같은 `server.py`와 `tools/*.py`를 CLI/Python helper처럼 사용한다.
   - docker_exec/docker_pwn은 persistent workspace(/workspace)를 공유함
   - sage_exec 기본 타임아웃 60초. LLL/Coppersmith 등 무거운 연산은 timeout_seconds 늘릴 것
@@ -57,7 +59,7 @@
 - Git sync may update only ctf-solver repo `metrics/`, `skills/`, `memory/`, `docs/`, `config/`, `scripts/`, `tools/`, and `ctf_solver_core/` plus top-level repo docs/config files.
 - In multi-terminal operation, do not mix artifacts from different `run_id` values.
 - If unsure whether a challenge is complete, ask the user, or finalize as `manual_stop`/`skipped` only when explicitly directed.
-- GDB-specific sessions, full browser solver, and full queue runner are future work.
+- Full browser solver and full queue runner are future work.
 
 ## Verifier Rules
 - When claiming a challenge is solved, run verifier when possible.
@@ -79,6 +81,17 @@
 - Close sessions during challenge finalization unless the user explicitly requests keeping them.
 - Never put cookies, bearer tokens, API keys, OAuth tokens, passwords, private keys, account IDs, or private server URLs into session logs.
 - Do not store session transcripts, flags, exploit code, or private run logs in the repo.
+
+## GDB / Pwn Debug Rules
+- Use GDB sessions for pwn crash analysis, register inspection, backtrace, vmmap, telescope, and exploit refinement.
+- Prefer Docker mode on macOS; it runs `gdb` inside `ctf-pwn:latest` with the selected workspace mounted at `/workspace`.
+- Associate GDB sessions with `run_id` and `challenge_id` when available.
+- Debug local challenge binaries only. Do not run GDB sessions against external systems or live remote CTF targets.
+- Bound all command output with `timeout_ms` and `max_bytes`; do not dump large memory by default.
+- Store GDB metadata/logs under `CTF_GDB_ROOT` or `~/.ctf-solver/gdb`; store core/memory artifacts under `CTF_GDB_ARTIFACT_ROOT` or `~/.ctf-solver/gdb-artifacts`.
+- Do not store raw core dumps, memory dumps, flags, exploit code, raw transcripts, or private logs in the repo.
+- Close GDB sessions during finalize unless explicitly keeping them with `--keep-gdb-sessions`.
+- Use verifier after exploit changes before marking a challenge solved.
 
 ## Callback Listener Rules
 - Use callback listeners for XSS, admin bot, SSRF, CSP leak, blind exfil, CSS exfil, and webhook-style Web CTF challenges.
@@ -148,7 +161,7 @@
 - Do not auto-push writeups. Public metrics may include only aggregate platform counters and must not include private paths, URLs, flags, cookies, tokens, or raw responses.
 - Close browser sessions during finalize unless explicitly keeping them.
 - Browser automation live external use is explicit/manual, not regression test.
-- Real site adapters, live browser login automation, live smoke tests, full browser solver, full exploit solver, and GDB-specific automation are explicit/manual future steps, not regression tests.
+- Real site adapters, live browser login automation, live smoke tests, full browser solver, and full exploit solver are explicit/manual future steps, not regression tests.
 
 ## Performance / Benchmark Rules
 - After each challenge finalization, record public-safe metrics when enough data exists.

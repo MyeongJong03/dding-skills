@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
 
 from ctf_solver_core.paths import display_path, resolve_path, solved_writeup_root
 from ctf_solver_core.callback_client import callback_summary
+from ctf_solver_core.gdb_session import gdb_summary_for_run
 from ctf_solver_core.schemas import (
     CATEGORIES,
     PLATFORMS,
@@ -181,6 +182,27 @@ def _verification_section(run_dir: Path | None) -> list[str]:
                     callback_lines.append(
                         f"- Workflow `{item.get('workflow_id')}` status `{item.get('status')}` "
                         f"payloads `{item.get('payload_count')}` callbacks `{item.get('callback_hit_count')}`"
+                    )
+            callback_lines.append("")
+        gdb_summary = gdb_summary_for_run(run_id)
+        if int(gdb_summary.get("gdb_session_count") or 0):
+            callback_lines.extend(
+                [
+                    "",
+                    "GDB debug summary:",
+                    "",
+                    f"- GDB session count: `{gdb_summary.get('gdb_session_count')}`",
+                    f"- Crash count: `{gdb_summary.get('gdb_crash_count')}`",
+                    f"- GDB command count: `{gdb_summary.get('gdb_command_count')}`",
+                ]
+            )
+            for item in gdb_summary.get("sessions") or []:
+                if isinstance(item, dict):
+                    crash = item.get("crash_info") if isinstance(item.get("crash_info"), dict) else {}
+                    suffix = f" crash `{crash.get('summary')}`" if crash.get("summary") else ""
+                    callback_lines.append(
+                        f"- GDB `{item.get('gdb_session_id')}` mode `{item.get('mode')}` "
+                        f"status `{item.get('status')}` commands `{item.get('command_count')}`{suffix}"
                     )
             callback_lines.append("")
     if not summary:

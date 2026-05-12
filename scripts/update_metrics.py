@@ -68,6 +68,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--session-bytes-read", type=int)
     parser.add_argument("--session-bytes-written", type=int)
     parser.add_argument("--closed-session-count", type=int)
+    parser.add_argument("--gdb-session-count", type=int)
+    parser.add_argument("--closed-gdb-session-count", type=int)
+    parser.add_argument("--gdb-crash-count", type=int)
+    parser.add_argument("--gdb-command-count", type=int)
+    parser.add_argument("--gdb-used", action="store_true")
     parser.add_argument("--browser-session-count", type=int)
     parser.add_argument("--closed-browser-session-count", type=int)
     parser.add_argument("--browser-actions-count", type=int)
@@ -275,6 +280,9 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
     web_metrics = final.get("web_metrics")
     if not isinstance(web_metrics, dict):
         web_metrics = {}
+    gdb_metrics = final.get("gdb_metrics")
+    if not isinstance(gdb_metrics, dict):
+        gdb_metrics = {}
 
     optional_ints = {
         "remote_wait_time_sec": getattr(args, "remote_wait_time_sec", None),
@@ -296,6 +304,10 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         "session_bytes_read": getattr(args, "session_bytes_read", None),
         "session_bytes_written": getattr(args, "session_bytes_written", None),
         "closed_session_count": getattr(args, "closed_session_count", None),
+        "gdb_session_count": getattr(args, "gdb_session_count", None),
+        "closed_gdb_session_count": getattr(args, "closed_gdb_session_count", None),
+        "gdb_crash_count": getattr(args, "gdb_crash_count", None),
+        "gdb_command_count": getattr(args, "gdb_command_count", None),
         "browser_session_count": getattr(args, "browser_session_count", None),
         "closed_browser_session_count": getattr(args, "closed_browser_session_count", None),
         "browser_actions_count": getattr(args, "browser_actions_count", None),
@@ -322,6 +334,8 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
             value = int(resource_metrics[key])
         if value is None and isinstance(session_metrics.get(key), int):
             value = int(session_metrics[key])
+        if value is None and isinstance(gdb_metrics.get(key), int):
+            value = int(gdb_metrics[key])
         if value is None and isinstance(browser_metrics.get(key), int):
             value = int(browser_metrics[key])
         if value is None and isinstance(callback_metrics.get(key), int):
@@ -354,6 +368,9 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         record["auto_finalize_used"] = True
     if require_verifier_used:
         record["require_verifier_used"] = True
+    gdb_used = bool(getattr(args, "gdb_used", False) or gdb_metrics.get("gdb_used"))
+    if gdb_used:
+        record["gdb_used"] = True
     callback_wait_success = bool(
         getattr(args, "callback_wait_success", False) or callback_metrics.get("callback_wait_success")
     )
