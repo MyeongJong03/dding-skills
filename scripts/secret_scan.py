@@ -98,6 +98,24 @@ def _git_ls_files(root: Path) -> list[Path]:
     return paths
 
 
+def _git_ls_untracked(root: Path) -> list[Path]:
+    result = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard"],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "git ls-files --others failed")
+    paths: list[Path] = []
+    for line in result.stdout.splitlines():
+        if line.strip():
+            paths.append(root / line.strip())
+    return paths
+
+
 def _is_allowlisted(root: Path, path: Path, line: str) -> bool:
     rel = path.relative_to(root).as_posix()
     if rel in ALLOWLIST_PATHS:
@@ -148,6 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=str(ROOT), help="repo root to scan")
     parser.add_argument("--strict", action="store_true", help="reserved for CI; findings are always fatal")
+    parser.add_argument("--include-untracked", action="store_true", help="also scan git untracked files")
     parser.add_argument("--json", action="store_true")
     return parser
 
@@ -157,6 +176,9 @@ def main() -> int:
     root = Path(args.root).expanduser().resolve()
     try:
         paths = _git_ls_files(root)
+        if args.include_untracked:
+            paths.extend(_git_ls_untracked(root))
+            paths = sorted(set(paths))
         findings = scan_paths(paths, root=root)
     except Exception as exc:
         result = {"ok": False, "error": str(exc), "findings": []}

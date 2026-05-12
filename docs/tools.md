@@ -9,6 +9,18 @@ MCP server name: `ctf_solver`
 | Tool | Module | Signature | Description |
 | --- | --- | --- | --- |
 | `binary_info` | `tools/binary_info.py` | `binary_info(file_path: str) -> str` | 바이너리 파일 기본 정보를 분석합니다. file, strings, checksec 결과를 한 번에 반환합니다. |
+| `browser_click` | `tools/browser_actions.py` | `browser_click(browser_session_id: str, selector: str, timeout_ms: int = 10000) -> str` | Click a selector in an active browser session. |
+| `browser_close` | `tools/browser_actions.py` | `browser_close(browser_session_id: str, reason: str = 'closed') -> str` | Close one browser session and persist local-only closed metadata. |
+| `browser_console` | `tools/browser_actions.py` | `browser_console(browser_session_id: str, limit: int = 50) -> str` | Return bounded, redacted console events for a browser session. |
+| `browser_cookies` | `tools/browser_actions.py` | `browser_cookies(browser_session_id: str) -> str` | Return redacted cookie summaries. Raw cookie values are never returned. |
+| `browser_eval` | `tools/browser_actions.py` | `browser_eval(browser_session_id: str, expression: str, timeout_ms: int = 10000, max_bytes: int = 4000) -> str` | Evaluate JavaScript and return a bounded, redacted result preview. |
+| `browser_fill` | `tools/browser_actions.py` | `browser_fill(browser_session_id: str, selector: str, value: str, timeout_ms: int = 10000) -> str` | Fill a selector in an active browser session. Filled values are not echoed. |
+| `browser_goto` | `tools/browser_actions.py` | `browser_goto(browser_session_id: str, url: str, timeout_ms: int = 10000, wait_until: str = 'load') -> str` | Navigate an active browser session to a URL. URLs in output are redacted. Regression tests must use local file, data URL, or mock server targets. |
+| `browser_list` | `tools/browser_actions.py` | `browser_list(run_id: str = None, challenge_id: str = None, include_closed: bool = False) -> str` | List browser sessions, optionally filtered by run_id or challenge_id. Closed sessions are hidden unless include_closed is true. |
+| `browser_network` | `tools/browser_actions.py` | `browser_network(browser_session_id: str, limit: int = 50) -> str` | Return bounded, redacted request/response summaries without bodies or raw cookies. |
+| `browser_screenshot` | `tools/browser_actions.py` | `browser_screenshot(browser_session_id: str, name: str = None, full_page: bool = False) -> str` | Save a screenshot under the local-only browser artifact root, never in the repo by default. |
+| `browser_start` | `tools/browser_actions.py` | `browser_start(run_id: str = None, challenge_id: str = None, worker_id: str = None, platform: str = None, event: str = None, profile: str = None, storage_state: str = None, browser_type: str = 'chromium', headless: bool = True) -> str` | Start a local-only Playwright browser session via the loopback browser daemon. Use run_id/challenge_id to isolate concurrent CTF work. Playwright is optional; missing installs return reason=playwright_not_installed. |
+| `browser_upload` | `tools/browser_actions.py` | `browser_upload(browser_session_id: str, selector: str, files: list[str], timeout_ms: int = 10000) -> str` | Upload one or more local files through a file input. Output includes only file counts. |
 | `cve_lookup` | `tools/cve_lookup.py` | `cve_lookup(cve_id: str) -> str` | CVE ID로 상세 정보, 공격 벡터, PoC 정보를 조회합니다. NVD API와 GitHub Advisory를 활용합니다. |
 | `dns_lookup` | `tools/dns_lookup.py` | `dns_lookup(domain: str, record_type: str = 'A', subdomain_wordlist: list = None) -> str` | DNS 레코드 조회 및 서브도메인 열거를 수행합니다. record_type: A, AAAA, MX, TXT, CNAME, NS 등 subdomain_wordlist: 서브도메인 열거 시 시도할 단어 목록 |
 | `docker_exec` | `tools/docker_exec.py` | `docker_exec(code: str, binary_path: str = None, timeout_seconds: int = 60) -> str` | Linux CTF 환경(Docker)에서 코드를 실행합니다. PWN/REV 문제에서 Linux ELF 바이너리 실행, GDB 디버깅, pwntools 익스플로잇에 사용합니다. /workspace 디렉토리는 호출 간 파일이 유지됩니다. binary_path: 로컬 바이너리 경로 (지정 시 /workspace/로 복사됨) code: 실행할 bash 또는 python3 코드 |
@@ -42,6 +54,130 @@ MCP server name: `ctf_solver`
 ```text
 바이너리 파일 기본 정보를 분석합니다.
 file, strings, checksec 결과를 한 번에 반환합니다.
+```
+
+### `browser_click`
+
+- Module: `tools/browser_actions.py`
+- Signature: `browser_click(browser_session_id: str, selector: str, timeout_ms: int = 10000) -> str`
+- Docstring:
+
+```text
+Click a selector in an active browser session.
+```
+
+### `browser_close`
+
+- Module: `tools/browser_actions.py`
+- Signature: `browser_close(browser_session_id: str, reason: str = 'closed') -> str`
+- Docstring:
+
+```text
+Close one browser session and persist local-only closed metadata.
+```
+
+### `browser_console`
+
+- Module: `tools/browser_actions.py`
+- Signature: `browser_console(browser_session_id: str, limit: int = 50) -> str`
+- Docstring:
+
+```text
+Return bounded, redacted console events for a browser session.
+```
+
+### `browser_cookies`
+
+- Module: `tools/browser_actions.py`
+- Signature: `browser_cookies(browser_session_id: str) -> str`
+- Docstring:
+
+```text
+Return redacted cookie summaries. Raw cookie values are never returned.
+```
+
+### `browser_eval`
+
+- Module: `tools/browser_actions.py`
+- Signature: `browser_eval(browser_session_id: str, expression: str, timeout_ms: int = 10000, max_bytes: int = 4000) -> str`
+- Docstring:
+
+```text
+Evaluate JavaScript and return a bounded, redacted result preview.
+```
+
+### `browser_fill`
+
+- Module: `tools/browser_actions.py`
+- Signature: `browser_fill(browser_session_id: str, selector: str, value: str, timeout_ms: int = 10000) -> str`
+- Docstring:
+
+```text
+Fill a selector in an active browser session. Filled values are not echoed.
+```
+
+### `browser_goto`
+
+- Module: `tools/browser_actions.py`
+- Signature: `browser_goto(browser_session_id: str, url: str, timeout_ms: int = 10000, wait_until: str = 'load') -> str`
+- Docstring:
+
+```text
+Navigate an active browser session to a URL. URLs in output are redacted.
+Regression tests must use local file, data URL, or mock server targets.
+```
+
+### `browser_list`
+
+- Module: `tools/browser_actions.py`
+- Signature: `browser_list(run_id: str = None, challenge_id: str = None, include_closed: bool = False) -> str`
+- Docstring:
+
+```text
+List browser sessions, optionally filtered by run_id or challenge_id.
+Closed sessions are hidden unless include_closed is true.
+```
+
+### `browser_network`
+
+- Module: `tools/browser_actions.py`
+- Signature: `browser_network(browser_session_id: str, limit: int = 50) -> str`
+- Docstring:
+
+```text
+Return bounded, redacted request/response summaries without bodies or raw cookies.
+```
+
+### `browser_screenshot`
+
+- Module: `tools/browser_actions.py`
+- Signature: `browser_screenshot(browser_session_id: str, name: str = None, full_page: bool = False) -> str`
+- Docstring:
+
+```text
+Save a screenshot under the local-only browser artifact root, never in the repo by default.
+```
+
+### `browser_start`
+
+- Module: `tools/browser_actions.py`
+- Signature: `browser_start(run_id: str = None, challenge_id: str = None, worker_id: str = None, platform: str = None, event: str = None, profile: str = None, storage_state: str = None, browser_type: str = 'chromium', headless: bool = True) -> str`
+- Docstring:
+
+```text
+Start a local-only Playwright browser session via the loopback browser daemon.
+Use run_id/challenge_id to isolate concurrent CTF work. Playwright is optional;
+missing installs return reason=playwright_not_installed.
+```
+
+### `browser_upload`
+
+- Module: `tools/browser_actions.py`
+- Signature: `browser_upload(browser_session_id: str, selector: str, files: list[str], timeout_ms: int = 10000) -> str`
+- Docstring:
+
+```text
+Upload one or more local files through a file input. Output includes only file counts.
 ```
 
 ### `cve_lookup`

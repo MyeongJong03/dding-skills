@@ -30,6 +30,7 @@ from ctf_solver_core.schemas import (
     parse_iso,
     read_json,
 )
+from ctf_solver_core.browser_client import close_browser_sessions_for_run
 from ctf_solver_core.session_client import close_sessions_for_run
 from ctf_solver_core.verifier import load_verifier_result, verifier_summary
 from ctf_solver_core.worker import release_claim
@@ -59,6 +60,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--keep-lease", action="store_true", help="do not release active resource leases for this run")
     parser.add_argument("--keep-server", action="store_true", help="do not release active platform server records for this run")
     parser.add_argument("--keep-sessions", action="store_true", help="do not close persistent sessions for this run")
+    parser.add_argument(
+        "--keep-browser-sessions",
+        action="store_true",
+        help="do not close browser action sessions for this run",
+    )
     parser.add_argument(
         "--require-verifier",
         action="store_true",
@@ -179,6 +185,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 "writeup": existing.get("writeup") or {},
                 "cleanup": existing.get("cleanup") or {},
                 "sessions": existing.get("sessions") or {},
+                "browser_sessions": existing.get("browser_sessions") or {},
                 "verifier": existing.get("verifier") or {},
                 "warnings": existing.get("warnings") or [],
                 "platform_server_release": existing.get("platform_server_release") or {},
@@ -251,6 +258,45 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                     "closed_session_count": 0,
                     "session_bytes_read": 0,
                     "session_bytes_written": 0,
+                    "errors": [str(exc)],
+                }
+
+        browser_session_result: dict[str, object] | None = None
+        if getattr(args, "keep_browser_sessions", False):
+            browser_session_result = {
+                "ok": True,
+                "reason": "kept_by_request",
+                "session_count": 0,
+                "closed_browser_session_count": 0,
+                "browser_actions_count": 0,
+                "browser_screenshot_count": 0,
+                "browser_network_event_count": 0,
+                "errors": [],
+            }
+        elif args.dry_run:
+            browser_session_result = {
+                "ok": True,
+                "reason": "dry_run",
+                "session_count": 0,
+                "closed_browser_session_count": 0,
+                "browser_actions_count": 0,
+                "browser_screenshot_count": 0,
+                "browser_network_event_count": 0,
+                "errors": [],
+            }
+        else:
+            try:
+                browser_session_result = {"ok": True, **close_browser_sessions_for_run(run_id)}
+            except Exception as exc:
+                browser_session_result = {
+                    "ok": False,
+                    "reason": "browser_session_close_failed",
+                    "warning": str(exc),
+                    "session_count": 0,
+                    "closed_browser_session_count": 0,
+                    "browser_actions_count": 0,
+                    "browser_screenshot_count": 0,
+                    "browser_network_event_count": 0,
                     "errors": [str(exc)],
                 }
 
@@ -408,6 +454,13 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "session_bytes_read": int((session_result or {}).get("session_bytes_read") or 0),
             "session_bytes_written": int((session_result or {}).get("session_bytes_written") or 0),
         }
+        browser_metrics = {
+            "browser_session_count": int((browser_session_result or {}).get("session_count") or 0),
+            "closed_browser_session_count": int((browser_session_result or {}).get("closed_browser_session_count") or 0),
+            "browser_actions_count": int((browser_session_result or {}).get("browser_actions_count") or 0),
+            "browser_screenshot_count": int((browser_session_result or {}).get("browser_screenshot_count") or 0),
+            "browser_network_event_count": int((browser_session_result or {}).get("browser_network_event_count") or 0),
+        }
 
         final_record = {
             "schema_version": 1,
@@ -433,6 +486,9 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "sessions": session_result or {},
             "session_metrics": session_metrics,
             "closed_session_count": session_metrics["closed_session_count"],
+            "browser_sessions": browser_session_result or {},
+            "browser_metrics": browser_metrics,
+            "closed_browser_session_count": browser_metrics["closed_browser_session_count"],
             "verifier": verifier_info,
             "verifier_success": verifier_success,
             "verifier_flag_found": bool(verifier_info.get("flag_found")),
@@ -508,6 +564,11 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 session_bytes_read=session_metrics["session_bytes_read"],
                 session_bytes_written=session_metrics["session_bytes_written"],
                 closed_session_count=session_metrics["closed_session_count"],
+                browser_session_count=browser_metrics["browser_session_count"],
+                closed_browser_session_count=browser_metrics["closed_browser_session_count"],
+                browser_actions_count=browser_metrics["browser_actions_count"],
+                browser_screenshot_count=browser_metrics["browser_screenshot_count"],
+                browser_network_event_count=browser_metrics["browser_network_event_count"],
                 worker_id_hash=None,
                 worker_count=None,
                 worker_action_count=None,
@@ -546,6 +607,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
         "writeup": writeup_result,
         "cleanup": cleanup_result,
         "sessions": session_result,
+        "browser_sessions": browser_session_result,
         "verifier": verifier_info,
         "warnings": verifier_warnings,
         "platform_server_release": platform_server_release_result,

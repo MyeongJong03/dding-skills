@@ -79,6 +79,8 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
     workers = tmp_path / "workers"
     sessions = tmp_path / "sessions"
     sessiond = tmp_path / "sessiond"
+    browser = tmp_path / "browser"
+    browser_artifacts = tmp_path / "browser-artifacts"
     browser_states = tmp_path / "browser-states"
     platform_auto = tmp_path / "platforms"
     downloads = tmp_path / "downloads"
@@ -96,6 +98,8 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         workers,
         sessions,
         sessiond,
+        browser,
+        browser_artifacts,
         browser_states,
         platform_auto,
         downloads,
@@ -115,6 +119,8 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         "CTF_WORKER_ROOT": str(workers),
         "CTF_SESSION_ROOT": str(sessions),
         "CTF_SESSIOND_ROOT": str(sessiond),
+        "CTF_BROWSER_ROOT": str(browser),
+        "CTF_BROWSER_ARTIFACT_ROOT": str(browser_artifacts),
         "CTF_BROWSER_STATE_ROOT": str(browser_states),
         "CTF_PLATFORM_AUTOMATION_ROOT": str(platform_auto),
         "CTF_DOWNLOAD_ROOT": str(downloads),
@@ -138,6 +144,8 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         workers=workers,
         sessions=sessions,
         sessiond=sessiond,
+        browser=browser,
+        browser_artifacts=browser_artifacts,
         browser_states=browser_states,
         platform_auto=platform_auto,
         downloads=downloads,

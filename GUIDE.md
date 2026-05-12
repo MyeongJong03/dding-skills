@@ -92,6 +92,7 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │   ├── git_sync_metrics.py
 │   ├── queue_next.py / queue_update.py / queue_history.py
 │   ├── browser_state_init.py / browser_state_check.py
+│   ├── browser_start.py / browser_goto.py / browser_eval.py / browser_close.py
 │   ├── platform_discover.py / platform_download.py / platform_submit.py
 │   ├── platform_server_acquire.py / platform_server_release.py / platform_server_status.py
 │   └── resource_acquire.py / resource_heartbeat.py / resource_reclaim_stale.py / resource_release.py
@@ -553,9 +554,25 @@ python3 scripts/session_close.py "$sid"
 
 MCP 도구는 `session_start`, `session_write`, `session_read`, `session_expect`, `session_close`, `session_list`다. `challenge_finalize.py`는 기본적으로 해당 `run_id`의 session을 닫고 aggregate byte/count만 metrics에 반영한다. 명시적 handoff가 필요할 때만 `--keep-sessions`를 사용한다. 자세한 내용은 `docs/sessions.md`를 기준으로 한다.
 
+### Browser action automation
+
+P1-6부터는 Web CTF에서 DOM, JavaScript, redirect, file upload, browser parser behavior가 필요한 경우 local-only browser action daemon을 사용할 수 있다. Playwright는 optional dependency라 설치되지 않아도 기본 테스트와 CLI가 깨지지 않는다.
+
+```bash
+python3 -m pip install playwright
+python3 -m playwright install chromium
+
+bid=$(python3 scripts/browser_start.py --run-id "$RUN_ID")
+python3 scripts/browser_goto.py --browser-session-id "$bid" --url 'data:text/html,<title>Local</title>'
+python3 scripts/browser_eval.py --browser-session-id "$bid" --expression 'document.title'
+python3 scripts/browser_close.py --browser-session-id "$bid"
+```
+
+Browser session metadata는 `CTF_BROWSER_ROOT` 또는 `~/.ctf-solver/browser`, screenshot/artifact는 `CTF_BROWSER_ARTIFACT_ROOT` 또는 `~/.ctf-solver/browser-artifacts`에 둔다. 둘 다 repo 밖 local-only여야 한다. Cookie 값, storage_state 내용, raw network body는 출력하지 않고 redacted summary만 사용한다. `challenge_finalize.py`는 기본적으로 해당 `run_id`의 browser session을 닫고 aggregate count만 metrics에 반영한다. 명시적 handoff가 필요할 때만 `--keep-browser-sessions`를 사용한다. 자세한 내용은 `docs/browser-actions.md`를 기준으로 한다.
+
 ### Platform resource automation
 
-P1-0.6부터는 여러 터미널/worker가 같은 플랫폼 리소스를 안전하게 공유하도록 policy, queue, lease scaffold를 사용한다. 실제 browser/session automation은 아직 구현하지 않고, login/session storage는 repo에 넣지 않는다.
+P1-0.6부터는 여러 터미널/worker가 같은 플랫폼 리소스를 안전하게 공유하도록 policy, queue, lease scaffold를 사용한다. Login/session storage는 repo에 넣지 않고, 실제 사이트 adapter와 live browser login은 별도 manual phase로 둔다.
 
 THCON처럼 한 세션에서 server/VM 하나만 가능한 대회는 `max_active_leases: 1`, `lease_scope: event`로 설정한다. Remote lease를 못 받은 worker는 idle하지 않고 `local_capable=true` 문제의 정찰, 정적 분석, exploit planning, local skeleton 작성을 진행한다. `local_exploit_ready=true` 문제는 remote lease 우선순위가 올라간다.
 

@@ -46,6 +46,10 @@ By default finalization also closes active persistent sessions associated with
 the run and records aggregate session counters in `finalization.json`. Use
 `--keep-sessions` only for explicit handoff.
 
+By default finalization closes browser action sessions associated with the run
+and records aggregate browser counters. Use `--keep-browser-sessions` only for
+explicit handoff.
+
 ## Multi-Terminal Run ID Discipline
 
 There is no supported global "current challenge". Each terminal/session must keep its own `challenge_id`, `run_id`, and `run_dir`.
@@ -64,6 +68,8 @@ There is no supported global "current challenge". Each terminal/session must kee
 - Challenge queue coordination uses JSON records under `CTF_QUEUE_ROOT` or `~/.ctf-solver/queue`.
 - Worker claim coordination uses JSON records under `CTF_WORKER_ROOT` or `~/.ctf-solver/workers`.
 - Browser profile metadata uses `CTF_BROWSER_STATE_ROOT` or `~/.ctf-solver/browser-states`.
+- Browser action session metadata uses `CTF_BROWSER_ROOT` or `~/.ctf-solver/browser`.
+- Browser screenshots/artifacts use `CTF_BROWSER_ARTIFACT_ROOT` or `~/.ctf-solver/browser-artifacts`.
 - Platform automation records use `CTF_PLATFORM_AUTOMATION_ROOT` or `~/.ctf-solver/platforms`.
 - Downloaded private challenge files use `CTF_DOWNLOAD_ROOT` or `~/CTF/downloads`.
 - Metrics updates use a global metrics lock and atomic file replacement.
@@ -125,6 +131,8 @@ Defaults are portable and may be overridden with environment variables:
 | Worker root | `Path.home() / ".ctf-solver" / "workers"` | `CTF_WORKER_ROOT` |
 | Session root | `Path.home() / ".ctf-solver" / "sessions"` | `CTF_SESSION_ROOT` |
 | Session daemon root | `Path.home() / ".ctf-solver" / "sessiond"` | `CTF_SESSIOND_ROOT` |
+| Browser action root | `Path.home() / ".ctf-solver" / "browser"` | `CTF_BROWSER_ROOT` |
+| Browser artifact root | `Path.home() / ".ctf-solver" / "browser-artifacts"` | `CTF_BROWSER_ARTIFACT_ROOT` |
 | Browser state root | `Path.home() / ".ctf-solver" / "browser-states"` | `CTF_BROWSER_STATE_ROOT` |
 | Platform automation root | `Path.home() / ".ctf-solver" / "platforms"` | `CTF_PLATFORM_AUTOMATION_ROOT` |
 | Download root | `Path.home() / "CTF" / "downloads"` | `CTF_DOWNLOAD_ROOT` |
@@ -185,6 +193,11 @@ Session metrics are public-safe aggregate counters only: session count, closed
 session count, and byte counters. Session commands, transcripts, logs, flags,
 and private paths are not public metrics.
 
+Browser metrics are public-safe aggregate counters only: browser session count,
+closed browser session count, action count, screenshot count, and network event
+count. URLs, cookies, storage state paths, screenshot paths, console text, and
+network bodies are not public metrics.
+
 Worker metrics are optional public-safe aggregate fields only: worker count,
 worker action/wait counts, claim reclaim count, `auto_finalize_used`, and
 `require_verifier_used`. Raw worker IDs and hostnames should be omitted or
@@ -226,7 +239,8 @@ state, cookies, tokens, OAuth values, account metadata, writeups, exploits, raw
 transcripts, or flags.
 
 Browser/platform automation details are documented in
-`docs/browser-platform-automation.md`.
+`docs/browser-platform-automation.md`. Browser action commands are documented in
+`docs/browser-actions.md`.
 
 ## Git Sync Boundary
 

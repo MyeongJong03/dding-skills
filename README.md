@@ -201,6 +201,8 @@ bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 | `CTF_SESSIOND_ROOT` | session daemon state 루트 | `~/.ctf-solver/sessiond` |
 | `CTF_SESSIOND_HOST` | session daemon bind host | `127.0.0.1` |
 | `CTF_SESSIOND_PORT` | session daemon bind port | `0` 자동 할당 |
+| `CTF_BROWSER_ROOT` | browser action session/daemon metadata 루트 | `~/.ctf-solver/browser` |
+| `CTF_BROWSER_ARTIFACT_ROOT` | browser action screenshot/artifact 루트 | `~/.ctf-solver/browser-artifacts` |
 | `CTF_BROWSER_STATE_ROOT` | browser/session profile metadata 루트 | `~/.ctf-solver/browser-states` |
 | `CTF_PLATFORM_AUTOMATION_ROOT` | platform server/session scaffold state 루트 | `~/.ctf-solver/platforms` |
 | `CTF_DOWNLOAD_ROOT` | downloaded private challenge file 루트 | `~/CTF/downloads` |
@@ -247,7 +249,14 @@ MCP tool `verify_run`도 command/session/manual mode를 지원합니다. Public 
 
 여러 터미널/worker가 같은 대회 리소스를 공유할 때는 platform policy, queue, lease helper를 사용합니다. THCON처럼 한 세션에서 VM/server 1개만 가능한 플랫폼은 `max_active_leases: 1`로 표현하고, remote lease를 못 받은 worker는 idle하지 않고 local-capable 문제의 triage/analysis/exploit planning을 먼저 진행합니다. `local_exploit_ready=true` 문제는 remote capacity가 풀릴 때 우선순위를 받습니다.
 
-P1-4 browser/platform scaffold는 로그인 세션 metadata 등록, mock/local discovery, download, server acquire/release/status, submission policy gate를 제공합니다. 실제 사이트 adapter, Playwright login, live smoke test, full browser solver는 다음 단계입니다. 자세한 내용은 [docs/browser-platform-automation.md](docs/browser-platform-automation.md)를 봅니다.
+P1-4 browser/platform scaffold는 로그인 세션 metadata 등록, mock/local discovery, download, server acquire/release/status, submission policy gate를 제공합니다. P1-6 browser action scaffold는 optional Playwright 기반 DOM 조작, local-only screenshot, console/network/cookie redaction, run_id 기반 session cleanup을 제공합니다. 실제 사이트 adapter, live browser login, live smoke test, full browser solver는 다음 단계입니다. 자세한 내용은 [docs/browser-platform-automation.md](docs/browser-platform-automation.md)와 [docs/browser-actions.md](docs/browser-actions.md)를 봅니다.
+
+Optional browser automation install:
+
+```bash
+python3 -m pip install playwright
+python3 -m playwright install chromium
+```
 
 Long-running remote 작업은 lease heartbeat를 남기고, worker crash나 터미널 종료로 stale lease가 생기면 dry-run 확인 후 reclaim합니다. Queue history는 여러 터미널에서 scheduler decision과 lease lifecycle을 추적하는 기준입니다.
 

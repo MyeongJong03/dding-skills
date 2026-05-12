@@ -1,7 +1,8 @@
 # Browser / Platform Automation
 
-P1-4 adds a safe scaffold for platform-driven CTF workflows. It does not log in
-to real sites, scrape Dreamhack/THCON, run Playwright, submit flags by default,
+P1-4 adds a safe scaffold for platform-driven CTF workflows. P1-6 adds the
+optional Playwright browser action layer used by future adapters and solvers. It
+does not log in to real sites, scrape Dreamhack/THCON, submit flags by default,
 or solve challenges. The generic CTFd adapter is fixture-first and does not use
 live network access unless a future manual smoke command explicitly opts in.
 
@@ -19,14 +20,16 @@ metadata and runs mock/local fixtures.
 
 | Purpose | Default | Override |
 | --- | --- | --- |
+| Browser action session metadata | `Path.home() / ".ctf-solver" / "browser"` | `CTF_BROWSER_ROOT` |
+| Browser screenshots/artifacts | `Path.home() / ".ctf-solver" / "browser-artifacts"` | `CTF_BROWSER_ARTIFACT_ROOT` |
 | Browser profile metadata | `Path.home() / ".ctf-solver" / "browser-states"` | `CTF_BROWSER_STATE_ROOT` |
 | Platform automation records | `Path.home() / ".ctf-solver" / "platforms"` | `CTF_PLATFORM_AUTOMATION_ROOT` |
 | Downloaded private challenge files | `Path.home() / "CTF" / "downloads"` | `CTF_DOWNLOAD_ROOT` |
 
 `scripts/doctor.py` warns if any of these roots resolve inside the repo.
-Storage state files, cookies, tokens, downloaded challenge files, server records,
-writeups, exploits, flags, raw transcripts, and private run logs must stay out
-of git.
+Storage state files, cookies, tokens, downloaded challenge files, screenshots,
+browser action metadata, server records, writeups, exploits, flags, raw
+transcripts, and private run logs must stay out of git.
 
 ## Register Browser State
 
@@ -52,6 +55,30 @@ python3 scripts/browser_state_check.py --platform thcon --event THCON --profile 
 
 If `--storage-state` points inside the repo, registration is refused. The check
 command verifies only metadata existence and file existence.
+
+## Browser Actions
+
+Browser action automation is documented in `docs/browser-actions.md`. It is
+optional and requires:
+
+```bash
+python3 -m pip install playwright
+python3 -m playwright install chromium
+```
+
+Start sessions with a `run_id`, then use DOM actions:
+
+```bash
+python3 scripts/browser_start.py --run-id RUN1 --challenge-id CHAL1 --json
+python3 scripts/browser_goto.py --browser-session-id <browser_session_id> --url 'data:text/html,<title>Local</title>' --json
+python3 scripts/browser_eval.py --browser-session-id <browser_session_id> --expression 'document.title' --json
+python3 scripts/browser_close.py --browser-session-id <browser_session_id> --json
+```
+
+Regression tests must use local HTML, data URLs, or mock servers. External CTF
+sites are manual-only. Cookie, network, console, and eval outputs are bounded
+and redacted. Screenshots are saved under `CTF_BROWSER_ARTIFACT_ROOT`, not in
+the repo.
 
 ## Adapter Interface
 
@@ -217,7 +244,9 @@ submission booleans/policy labels.
 ## Lifecycle And Metrics
 
 `challenge_finalize.py` releases local platform server records and remote leases
-by default. Use `--keep-server` or `--keep-lease` only for an explicit handoff.
+by default. It also closes browser action sessions associated with the run
+unless `--keep-browser-sessions` is supplied. Use `--keep-server`,
+`--keep-lease`, or `--keep-browser-sessions` only for an explicit handoff.
 
 Public metrics may include:
 
@@ -233,9 +262,14 @@ Public metrics may include:
 - `ctfd_submit_attempted`
 - `submission_policy`
 - `platform_adapter`
+- `browser_session_count`
+- `browser_actions_count`
+- `browser_screenshot_count`
+- `browser_network_event_count`
 
 They must not include cookies, tokens, private URLs, flags, raw response bodies,
-downloaded file absolute paths, writeups, exploit code, or transcripts.
+downloaded file absolute paths, browser artifact paths, writeups, exploit code,
+or transcripts.
 
 ## Manual Smoke Tests
 
@@ -253,7 +287,7 @@ be regression tests.
 
 - Real Dreamhack and THCON-like adapters are future work.
 - CTFd live network access is a manual opt-in future path.
-- Playwright login automation is optional future work.
+- Real site browser login automation is optional future work.
 - No live network regression tests.
 - No default flag auto-submit.
 - No Codex/Claude subprocess orchestration.

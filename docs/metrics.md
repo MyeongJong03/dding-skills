@@ -29,6 +29,15 @@
 - optional `verifier_target`
 - optional `verifier_attempts`
 - optional `verifier_duration_sec`
+- optional `session_count`
+- optional `closed_session_count`
+- optional `session_bytes_read`
+- optional `session_bytes_written`
+- optional `browser_session_count`
+- optional `closed_browser_session_count`
+- optional `browser_actions_count`
+- optional `browser_screenshot_count`
+- optional `browser_network_event_count`
 - optional `worker_id_hash`
 - optional `worker_count`
 - optional `worker_action_count`
@@ -69,6 +78,7 @@ Do not put the following in public metrics:
 - verifier raw output, raw evidence path, or exploit command
 - raw worker ID or hostname
 - browser storage state paths or contents
+- browser action URLs, screenshot paths, network bodies, or raw console output
 - downloaded private challenge file absolute paths
 - raw platform response bodies
 

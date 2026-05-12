@@ -28,7 +28,10 @@
 - **ctf_solver**: python_exec, sage_exec, docker_pwn, docker_exec, netcat_interact,
   rsa_ctftool, binary_info, file_analysis, port_scan, hash_crack, http_request,
   cve_lookup, dns_lookup, trivy, dreamhack_vm, session_start, session_write,
-  session_read, session_expect, session_close, session_list, verify_run
+  session_read, session_expect, session_close, session_list, verify_run,
+  browser_start, browser_goto, browser_click, browser_fill, browser_eval,
+  browser_upload, browser_screenshot, browser_console, browser_network,
+  browser_cookies, browser_close, browser_list
   - Codex에서 MCP가 직접 연결되지 않는 환경이면 같은 `server.py`와 `tools/*.py`를 CLI/Python helper처럼 사용한다.
   - docker_exec/docker_pwn은 persistent workspace(/workspace)를 공유함
   - sage_exec 기본 타임아웃 60초. LLL/Coppersmith 등 무거운 연산은 timeout_seconds 늘릴 것
@@ -51,7 +54,7 @@
 - Git sync may update only ctf-solver repo `metrics/`, `skills/`, `memory/`, `docs/`, `config/`, `scripts/`, `tools/`, and `ctf_solver_core/` plus top-level repo docs/config files.
 - In multi-terminal operation, do not mix artifacts from different `run_id` values.
 - If unsure whether a challenge is complete, ask the user, or finalize as `manual_stop`/`skipped` only when explicitly directed.
-- GDB-specific sessions, browser automation, and full queue runner are future work.
+- GDB-specific sessions, full browser solver, and full queue runner are future work.
 
 ## Verifier Rules
 - When claiming a challenge is solved, run verifier when possible.
@@ -93,7 +96,13 @@
 - Use queue event history to understand why a worker is waiting, doing local work, joining as helper, or acquiring remote.
 
 ## Browser / Platform Automation Rules
+- Use browser sessions for Web CTF tasks requiring DOM, JS, cookies, redirects, file upload, CSP, bot-like behavior, or browser parser behavior.
+- Associate browser sessions with `run_id` when available.
+- Do not mix browser sessions across different `run_id` values.
 - Never paste, print, store, or commit login cookies, browser storage state contents, tokens, OAuth values, passwords, API keys, email/account metadata, private server URLs, writeups, exploits, flags, raw transcripts, or private run logs.
+- Use redacted cookie/network summaries only; never print raw cookie values or bearer headers.
+- Save browser screenshots/artifacts only under `CTF_BROWSER_ARTIFACT_ROOT` or the local-only default `~/.ctf-solver/browser-artifacts`.
+- Browser session metadata lives under `CTF_BROWSER_ROOT` or `~/.ctf-solver/browser` and must stay out of the repo.
 - Register local browser/session profiles with `browser_state_init.py`; profile metadata lives under `CTF_BROWSER_STATE_ROOT` or `~/.ctf-solver/browser-states`.
 - `browser_state_check.py` may check metadata existence and storage-state file existence only; it must not read cookies or storage state contents.
 - Platform automation state lives under `CTF_PLATFORM_AUTOMATION_ROOT` or `~/.ctf-solver/platforms`; downloaded challenge private files live under `CTF_DOWNLOAD_ROOT` or `~/CTF/downloads`.
@@ -107,11 +116,14 @@
 - Helper workers are read-only/non-destructive and may join active remotes only when platform sharing policy explicitly allows it.
 - Submission requires explicit `automation.allow_submission: true`; `ask` and disabled modes must not submit.
 - For CTFd submissions, require `automation.allow_submission: true` and primary worker role; never log the raw flag.
+- Do not submit flags through browser automation unless platform policy has `allow_submission: true` and worker role is primary.
 - Do not log cookies, tokens, cookie headers, bearer headers, or browser storage state contents.
 - Store CTFd downloads outside the repo and queue discovered challenges before solving.
 - Finalize must release platform server records and resource leases unless `--keep-server` or `--keep-lease` is explicit.
 - Do not auto-push writeups. Public metrics may include only aggregate platform counters and must not include private paths, URLs, flags, cookies, tokens, or raw responses.
-- Real site adapters, Playwright login automation, live smoke tests, full browser solver, full exploit solver, and GDB-specific automation are explicit/manual future steps, not regression tests.
+- Close browser sessions during finalize unless explicitly keeping them.
+- Browser automation live external use is explicit/manual, not regression test.
+- Real site adapters, live browser login automation, live smoke tests, full browser solver, full exploit solver, and GDB-specific automation are explicit/manual future steps, not regression tests.
 
 ## Queue Runner Rules
 - Multiple terminals must claim queue items with `worker_next.py` or `worker_run_once.py` before working.

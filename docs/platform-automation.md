@@ -219,14 +219,15 @@ Worker metrics are optional aggregate fields such as worker action count, wait
 count, claim reclaim count, auto-finalize usage, and require-verifier usage.
 Raw worker IDs and hostnames should be omitted or hashed.
 
-Browser/platform discovery, download, server adapter, and submission scaffolds
-are documented in `docs/browser-platform-automation.md`. CTFd-specific fixture
-mode and policy details are documented in `docs/ctfd-adapter.md`.
+Browser/platform discovery, download, server adapter, submission scaffolds, and
+browser action automation are documented in `docs/browser-platform-automation.md`
+and `docs/browser-actions.md`. CTFd-specific fixture mode and policy details
+are documented in `docs/ctfd-adapter.md`.
 
 ## Limitations
 
 - Worker runner does not invoke Codex or Claude automatically.
-- Browser automation is a future phase.
+- Full browser solver and real-site browser adapters are future phases.
 - GDB-specific persistent sessions are a future phase.
 - Verifier execution remains explicit because the worker cannot infer the
   correct exploit command safely.

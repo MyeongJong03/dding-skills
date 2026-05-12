@@ -66,6 +66,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--session-bytes-read", type=int)
     parser.add_argument("--session-bytes-written", type=int)
     parser.add_argument("--closed-session-count", type=int)
+    parser.add_argument("--browser-session-count", type=int)
+    parser.add_argument("--closed-browser-session-count", type=int)
+    parser.add_argument("--browser-actions-count", type=int)
+    parser.add_argument("--browser-screenshot-count", type=int)
+    parser.add_argument("--browser-network-event-count", type=int)
     parser.add_argument("--worker-id-hash")
     parser.add_argument("--worker-count", type=int)
     parser.add_argument("--worker-action-count", type=int)
@@ -211,6 +216,9 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
     platform_metrics = final.get("platform_metrics")
     if not isinstance(platform_metrics, dict):
         platform_metrics = {}
+    browser_metrics = final.get("browser_metrics")
+    if not isinstance(browser_metrics, dict):
+        browser_metrics = {}
 
     optional_ints = {
         "remote_wait_time_sec": getattr(args, "remote_wait_time_sec", None),
@@ -232,6 +240,11 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         "session_bytes_read": getattr(args, "session_bytes_read", None),
         "session_bytes_written": getattr(args, "session_bytes_written", None),
         "closed_session_count": getattr(args, "closed_session_count", None),
+        "browser_session_count": getattr(args, "browser_session_count", None),
+        "closed_browser_session_count": getattr(args, "closed_browser_session_count", None),
+        "browser_actions_count": getattr(args, "browser_actions_count", None),
+        "browser_screenshot_count": getattr(args, "browser_screenshot_count", None),
+        "browser_network_event_count": getattr(args, "browser_network_event_count", None),
         "worker_count": getattr(args, "worker_count", None),
         "worker_action_count": getattr(args, "worker_action_count", None),
         "worker_wait_count": getattr(args, "worker_wait_count", None),
@@ -247,6 +260,8 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
             value = int(resource_metrics[key])
         if value is None and isinstance(session_metrics.get(key), int):
             value = int(session_metrics[key])
+        if value is None and isinstance(browser_metrics.get(key), int):
+            value = int(browser_metrics[key])
         if value is None and isinstance(worker_metrics.get(key), int):
             value = int(worker_metrics[key])
         if value is None and isinstance(platform_metrics.get(key), int):

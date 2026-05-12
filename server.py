@@ -25,6 +25,7 @@ from tools.docker_exec import register as register_docker_exec
 from tools.dreamhack_vm import register as register_dreamhack_vm
 from tools.session_tools import register as register_session_tools
 from tools.verify_run import register as register_verify_run
+from tools.browser_actions import register as register_browser_actions
 
 register_file_analysis(mcp)
 register_trivy(mcp)
@@ -42,6 +43,7 @@ register_docker_exec(mcp)
 register_dreamhack_vm(mcp)
 register_session_tools(mcp)
 register_verify_run(mcp)
+register_browser_actions(mcp)
 
 if __name__ == "__main__":
     mcp.run()

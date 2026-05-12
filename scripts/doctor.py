@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 from pathlib import Path
 import shutil
@@ -16,6 +17,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from ctf_solver_core.paths import (
+    browser_artifact_root,
+    browser_root,
     browser_state_root,
     download_root,
     display_path,
@@ -31,6 +34,8 @@ from ctf_solver_core.paths import (
     solved_writeup_root,
     worker_root,
 )
+from ctf_solver_core.browser_actions import active_browser_session_count
+from ctf_solver_core.browser_client import status as browser_daemon_status
 from ctf_solver_core.browser_state import browser_profile_count
 from ctf_solver_core.platform_automation import download_metadata_count, platform_server_record_count
 from ctf_solver_core.platform_adapters import get_adapter
@@ -196,6 +201,19 @@ class Doctor:
             "scripts/session_close.py",
             "scripts/session_list.py",
             "scripts/verify_run.py",
+            "scripts/browser_daemon.py",
+            "scripts/browser_start.py",
+            "scripts/browser_goto.py",
+            "scripts/browser_click.py",
+            "scripts/browser_fill.py",
+            "scripts/browser_eval.py",
+            "scripts/browser_upload.py",
+            "scripts/browser_screenshot.py",
+            "scripts/browser_console.py",
+            "scripts/browser_network.py",
+            "scripts/browser_cookies.py",
+            "scripts/browser_close.py",
+            "scripts/browser_list.py",
             "scripts/browser_state_init.py",
             "scripts/browser_state_check.py",
             "scripts/platform_discover.py",
@@ -229,6 +247,9 @@ class Doctor:
             "ctf_solver_core/session_daemon.py",
             "ctf_solver_core/session_client.py",
             "ctf_solver_core/verifier.py",
+            "ctf_solver_core/browser_actions.py",
+            "ctf_solver_core/browser_client.py",
+            "ctf_solver_core/browser_daemon.py",
             "ctf_solver_core/browser_state.py",
             "ctf_solver_core/platform_automation.py",
             "ctf_solver_core/platform_adapters.py",
@@ -236,6 +257,7 @@ class Doctor:
             "config/platforms.example.yaml",
             "docs/platform-automation.md",
             "docs/browser-platform-automation.md",
+            "docs/browser-actions.md",
             "docs/ctfd-adapter.md",
             "docs/worker-runner.md",
             "docs/sessions.md",
@@ -319,6 +341,8 @@ class Doctor:
         workers = worker_root()
         sessions = session_root()
         sessiond = sessiond_root()
+        browser = browser_root()
+        browser_artifacts = browser_artifact_root()
         browser_states = browser_state_root()
         platform_auto = platform_automation_root()
         downloads = download_root()
@@ -330,6 +354,8 @@ class Doctor:
         self.info(f"worker root: {display_path(workers)}")
         self.info(f"session root: {display_path(sessions)}")
         self.info(f"session daemon root: {display_path(sessiond)}")
+        self.info(f"browser root: {display_path(browser)}")
+        self.info(f"browser artifact root: {display_path(browser_artifacts)}")
         self.info(f"browser state root: {display_path(browser_states)}")
         self.info(f"platform automation root: {display_path(platform_auto)}")
         self.info(f"download root: {display_path(downloads)}")
@@ -350,6 +376,13 @@ class Doctor:
             self.warn("session root is inside repo; prefer ~/.ctf-solver/sessions or CTF_SESSION_ROOT outside repo")
         if is_inside_repo(sessiond):
             self.warn("session daemon root is inside repo; prefer ~/.ctf-solver/sessiond or CTF_SESSIOND_ROOT outside repo")
+        if is_inside_repo(browser):
+            self.warn("browser root is inside repo; prefer ~/.ctf-solver/browser or CTF_BROWSER_ROOT outside repo")
+        if is_inside_repo(browser_artifacts):
+            self.warn(
+                "browser artifact root is inside repo; prefer ~/.ctf-solver/browser-artifacts "
+                "or CTF_BROWSER_ARTIFACT_ROOT outside repo"
+            )
         if is_inside_repo(browser_states):
             self.warn("browser state root is inside repo; prefer ~/.ctf-solver/browser-states or CTF_BROWSER_STATE_ROOT outside repo")
         if is_inside_repo(platform_auto):
@@ -364,6 +397,19 @@ class Doctor:
                 self.info("session daemon not running (optional)")
         except Exception as exc:
             self.warn(f"could not inspect session daemon safely: {exc}")
+        if importlib.util.find_spec("playwright"):
+            self.info("Playwright Python package is available (optional browser automation)")
+        else:
+            self.warn("Playwright Python package not found (optional browser automation)")
+        try:
+            daemon = browser_daemon_status()
+            if daemon.get("running"):
+                self.info(f"browser daemon running pid={daemon.get('pid')} {daemon.get('host')}:{daemon.get('port')}")
+            else:
+                self.info("browser daemon not running (optional)")
+            self.info(f"active browser session metadata count: {active_browser_session_count()}")
+        except Exception as exc:
+            self.warn(f"could not inspect browser daemon safely: {exc}")
         try:
             active_claims = list_claims(include_stale=False)
             stale_claims = detect_stale_claims()

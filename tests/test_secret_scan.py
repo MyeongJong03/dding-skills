@@ -66,3 +66,31 @@ def test_current_repo_secret_scan_strict_passes() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_secret_scan_include_untracked_detects_secret(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True, text=True)
+    secret_file = repo / "untracked.txt"
+    secret_value = "sk-testcccccccccccccccccccc"
+    secret_file.write_text(f"OPENAI_API_KEY={secret_value}\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "secret_scan.py"),
+            "--root",
+            str(repo),
+            "--strict",
+            "--include-untracked",
+        ],
+        text=True,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "untracked.txt:1:" in result.stdout
+    assert secret_value not in result.stdout
+    assert secret_value not in result.stderr
