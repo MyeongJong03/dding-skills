@@ -209,6 +209,8 @@ bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 | `CTF_CALLBACK_ROOT` | callback listener metadata/hit log 루트 | `~/.ctf-solver/callbacks` |
 | `CTF_CALLBACKD_ROOT` | callback daemon state 루트 | `~/.ctf-solver/callbackd` |
 | `CTF_WEB_WORKFLOW_ROOT` | web exploit workflow metadata/evidence 루트 | `~/.ctf-solver/web-workflows` |
+| `CTF_BENCHMARK_ROOT` | private benchmark pack 루트 | `~/.ctf-solver/benchmarks` |
+| `CTF_BENCHMARK_RUN_ROOT` | private benchmark raw result 루트 | `~/.ctf-solver/benchmark-runs` |
 | `CTF_PLATFORM_AUTOMATION_ROOT` | platform server/session scaffold state 루트 | `~/.ctf-solver/platforms` |
 | `CTF_DOWNLOAD_ROOT` | downloaded private challenge file 루트 | `~/CTF/downloads` |
 | `CTF_PLATFORM_CONFIG` | repo 밖 platform policy YAML | unset (`config/platforms.example.yaml` for schema/example) |
@@ -353,8 +355,16 @@ python3 scripts/performance_report.py
 Public outputs stay under `metrics/` and contain only aggregate status,
 timing, verifier, tool/session/browser/callback, cleanup, remote wait, token,
 and cost counters. Private detailed AI usage stays under `CTF_AI_USAGE_ROOT`
-or `~/.ctf-solver/ai-usage`. See
-[docs/benchmarking.md](docs/benchmarking.md) and
+or `~/.ctf-solver/ai-usage`.
+
+Private benchmark packs for real solver evaluation live outside the repo under
+`CTF_BENCHMARK_ROOT`; raw private run details live under
+`CTF_BENCHMARK_RUN_ROOT`. Use `benchmark_pack_init.py` and
+`benchmark_pack_validate.py` to manage the pack skeleton, then export
+public-safe result JSONL with `benchmark_export_public.py` and compare
+before/after snapshots with `benchmark_compare.py` into `metrics/comparisons`.
+See [docs/benchmarking.md](docs/benchmarking.md),
+[docs/private-benchmarks.md](docs/private-benchmarks.md), and
 [docs/ai-usage-metrics.md](docs/ai-usage-metrics.md).
 
 ## Credits

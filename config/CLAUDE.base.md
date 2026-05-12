@@ -157,6 +157,8 @@
 - Public metrics may include aggregate status, duration, time to flag, verifier booleans, target class, tool/session/browser/callback counters, cleanup bytes, remote wait/local prework, provider/model names, tokens, and cost totals.
 - Never put flags, exploit code, raw transcripts, cookies/tokens, private paths, private URLs, browser artifacts, raw verifier output, prompts, or provider account metadata in public metrics.
 - Use `scripts/benchmark_report.py`, `scripts/ai_usage_report.py`, and `scripts/performance_report.py` to evaluate changes before adding more solver features.
+- Private benchmark packs live under `CTF_BENCHMARK_ROOT`; raw private benchmark results live under `CTF_BENCHMARK_RUN_ROOT`; neither root may be committed.
+- Use `scripts/benchmark_export_public.py` and `scripts/benchmark_compare.py` for public-safe before/after feature comparisons.
 - Continue the finalize-before-next rule; benchmark reporting does not replace finalization.
 - Benchmark tests must not invoke live AI providers, external CTF sites, Docker, Playwright, GDB, or full solver runs.
 

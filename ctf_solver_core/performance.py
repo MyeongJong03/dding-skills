@@ -30,30 +30,26 @@ def _rate(numerator: int, denominator: int) -> float:
     return round((numerator / denominator * 100.0), 1) if denominator else 0.0
 
 
-def _read_public_json(path: Path) -> dict[str, object]:
-    data = read_json(path, default={})
-    return data if isinstance(data, dict) else {}
-
-
 def validate_public_metrics_files(root: Path | None = None) -> list[str]:
     base = root or metrics_root()
     errors: list[str] = []
-    jsonl_files = [
-        "summary.jsonl",
-        "benchmark_summary.jsonl",
-        "ai_usage_summary.jsonl",
-    ]
-    for name in jsonl_files:
-        path = base / name
+    for path in sorted(base.rglob("*.jsonl")):
         for index, record in enumerate(read_jsonl(path), start=1):
-            errors.extend(f"{name}:{index}: {error}" for error in validate_public_record(record))
-    json_files = ["performance_summary.json"]
-    for name in json_files:
-        path = base / name
-        if not path.is_file():
-            continue
-        record = _read_public_json(path)
-        errors.extend(f"{name}: {error}" for error in validate_public_record(record))
+            rel = path.relative_to(base).as_posix()
+            errors.extend(f"{rel}:{index}: {error}" for error in validate_public_record(record))
+    for path in sorted(base.rglob("*.json")):
+        rel = path.relative_to(base).as_posix()
+        data = read_json(path, default={})
+        if isinstance(data, list):
+            for index, record in enumerate(data, start=1):
+                if isinstance(record, dict):
+                    errors.extend(f"{rel}:{index}: {error}" for error in validate_public_record(record))
+                else:
+                    errors.append(f"{rel}:{index}: expected JSON object")
+        elif isinstance(data, dict):
+            errors.extend(f"{rel}: {error}" for error in validate_public_record(data))
+        else:
+            errors.append(f"{rel}: expected JSON object or array")
     return errors
 
 
@@ -271,4 +267,3 @@ def generate_performance_report(*, dry_run: bool = False) -> dict[str, object]:
         "summary_path": str(root / "performance_summary.json"),
         "dashboard_path": str(root / "performance_dashboard.md"),
     }
-

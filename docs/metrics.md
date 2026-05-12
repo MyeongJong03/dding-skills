@@ -122,6 +122,8 @@ boolean and must never be replaced with the flag text.
 P2-0 adds three additional public-safe files:
 
 - `metrics/benchmark_summary.jsonl`
+- `metrics/benchmark_exports/*.jsonl`
+- `metrics/comparisons/*.json`
 - `metrics/ai_usage_summary.jsonl`
 - `metrics/performance_summary.json`
 
@@ -145,4 +147,11 @@ token/cost totals.
 Private detailed AI usage lives under `CTF_AI_USAGE_ROOT` or
 `Path.home() / ".ctf-solver" / "ai-usage"`. Private detailed metrics live under
 `CTF_PRIVATE_METRICS_ROOT` or `Path.home() / ".ctf-solver" /
-"metrics-private"`. These roots must not be inside the repo.
+"metrics-private"`. Private benchmark packs live under `CTF_BENCHMARK_ROOT`;
+private raw benchmark results live under `CTF_BENCHMARK_RUN_ROOT`. These roots
+must not be inside the repo.
+
+Use `scripts/benchmark_export_public.py` to strip private benchmark run fields
+before writing `metrics/benchmark_exports`, then use
+`scripts/benchmark_compare.py` to write public-safe before/after reports under
+`metrics/comparisons`.

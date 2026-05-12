@@ -87,6 +87,10 @@ def private_benchmark_root() -> Path:
     return _env_path("CTF_BENCHMARK_ROOT", Path.home() / ".ctf-solver" / "benchmarks")
 
 
+def private_benchmark_run_root() -> Path:
+    return _env_path("CTF_BENCHMARK_RUN_ROOT", Path.home() / ".ctf-solver" / "benchmark-runs")
+
+
 def platform_automation_root() -> Path:
     return _env_path("CTF_PLATFORM_AUTOMATION_ROOT", Path.home() / ".ctf-solver" / "platforms")
 
@@ -105,6 +109,14 @@ def metrics_root() -> Path:
 
 def public_benchmark_root() -> Path:
     return repo_root() / "config" / "benchmarks"
+
+
+def public_benchmark_export_root() -> Path:
+    return metrics_root() / "benchmark_exports"
+
+
+def public_comparison_root() -> Path:
+    return metrics_root() / "comparisons"
 
 
 def resolve_path(value: str | Path) -> Path:

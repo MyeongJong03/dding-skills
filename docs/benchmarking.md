@@ -8,8 +8,11 @@ This scaffold does not invoke Codex, Claude, Docker, browsers, GDB, or live CTF 
 
 - Public definitions: `config/benchmarks/*.json`
 - Private definitions: `CTF_BENCHMARK_ROOT` or `Path.home() / ".ctf-solver" / "benchmarks"`
+- Private benchmark run details: `CTF_BENCHMARK_RUN_ROOT` or `Path.home() / ".ctf-solver" / "benchmark-runs"`
 - Public results: `metrics/benchmark_summary.jsonl`
 - Public dashboard: `metrics/benchmark_dashboard.md`
+- Public exports: `metrics/benchmark_exports`
+- Public comparisons: `metrics/comparisons`
 
 Public benchmark data must not contain flags, exploit code, raw output, transcripts, private absolute paths, cookies, tokens, private URLs, browser artifact paths, or problem text by default.
 
@@ -83,7 +86,27 @@ outputs, copied challenge statements, private file mappings, or private URLs.
 
 Private benchmark packs may contain real event names, local fixture wiring, or
 private challenge naming, but they must live outside the repo under
-`CTF_BENCHMARK_ROOT`.
+`CTF_BENCHMARK_ROOT`. Raw private benchmark run data must live outside the repo
+under `CTF_BENCHMARK_RUN_ROOT`.
+
+Create and validate a private pack skeleton:
+
+```bash
+python3 scripts/benchmark_pack_init.py --pack-id dh-private-core --name "Dreamhack private core pack" --json
+python3 scripts/benchmark_pack_validate.py "$CTF_BENCHMARK_ROOT/dh-private-core/benchmark_pack.yaml" --json
+```
+
+Export private run results into a public-safe JSONL and compare before/after
+feature changes:
+
+```bash
+python3 scripts/benchmark_export_public.py --input "$CTF_BENCHMARK_RUN_ROOT/before/results.jsonl" --output metrics/benchmark_exports/before.jsonl --json
+python3 scripts/benchmark_export_public.py --input "$CTF_BENCHMARK_RUN_ROOT/after/results.jsonl" --output metrics/benchmark_exports/after.jsonl --json
+python3 scripts/benchmark_compare.py --before metrics/benchmark_exports/before.jsonl --after metrics/benchmark_exports/after.jsonl --output metrics/comparisons/feature-change.json --json
+```
+
+See [private-benchmarks.md](private-benchmarks.md) for the manifest schema and
+runbook.
 
 Use the smoke fixtures to compare before and after feature changes:
 

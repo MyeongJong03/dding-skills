@@ -61,6 +61,14 @@ PATH_RULES = [
         "raw_ai_usage_import_file",
         re.compile(r"(^|/)(ai[-_]?usage[-_]?raw|claude[-_]?usage[-_]?raw|codex[-_]?usage[-_]?raw).*\.(json|jsonl)$", re.IGNORECASE),
     ),
+    Rule(
+        "private_benchmark_raw_file",
+        re.compile(
+            r"(^|/)(private[-_]?benchmarks?|benchmarks[-_]?private|benchmark[-_]?runs?|raw[-_]?benchmarks?)(/|$)",
+            re.IGNORECASE,
+        ),
+    ),
+    Rule("private_benchmark_manifest", re.compile(r"(^|/)benchmark_pack\.ya?ml$", re.IGNORECASE)),
 ]
 
 

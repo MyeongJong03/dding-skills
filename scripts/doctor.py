@@ -29,6 +29,8 @@ from ctf_solver_core.paths import (
     local_run_root,
     lock_root,
     metrics_root,
+    private_benchmark_root,
+    private_benchmark_run_root,
     private_metrics_root,
     platform_automation_root,
     queue_root,
@@ -315,6 +317,10 @@ class Doctor:
             "scripts/benchmark_init.py",
             "scripts/benchmark_record_result.py",
             "scripts/benchmark_report.py",
+            "scripts/benchmark_pack_init.py",
+            "scripts/benchmark_pack_validate.py",
+            "scripts/benchmark_export_public.py",
+            "scripts/benchmark_compare.py",
             "scripts/performance_report.py",
             "scripts/ai_usage_record.py",
             "scripts/ai_usage_import.py",
@@ -369,6 +375,7 @@ class Doctor:
             "docs/sessions.md",
             "docs/verifier.md",
             "docs/benchmarking.md",
+            "docs/private-benchmarks.md",
             "docs/ai-usage-metrics.md",
         ]:
             self.require_file(relative)
@@ -439,6 +446,8 @@ class Doctor:
         run_root = local_run_root()
         private_metrics = private_metrics_root()
         ai_usage = ai_usage_root()
+        private_benchmarks = private_benchmark_root()
+        benchmark_runs = private_benchmark_run_root()
         locks = lock_root()
         leases = lease_root()
         queue = queue_root()
@@ -457,6 +466,8 @@ class Doctor:
         self.info(f"private run root: {display_path(run_root)}")
         self.info(f"private metrics root: {display_path(private_metrics)}")
         self.info(f"AI usage root: {display_path(ai_usage)}")
+        self.info(f"private benchmark root: {display_path(private_benchmarks)}")
+        self.info(f"private benchmark run root: {display_path(benchmark_runs)}")
         self.info(f"lock root: {display_path(locks)}")
         self.info(f"lease root: {display_path(leases)}")
         self.info(f"queue root: {display_path(queue)}")
@@ -480,6 +491,13 @@ class Doctor:
             self.warn("private metrics root is inside repo; prefer ~/.ctf-solver/metrics-private or CTF_PRIVATE_METRICS_ROOT outside repo")
         if is_inside_repo(ai_usage):
             self.warn("AI usage root is inside repo; prefer ~/.ctf-solver/ai-usage or CTF_AI_USAGE_ROOT outside repo")
+        if is_inside_repo(private_benchmarks):
+            self.warn("private benchmark root is inside repo; prefer ~/.ctf-solver/benchmarks or CTF_BENCHMARK_ROOT outside repo")
+        if is_inside_repo(benchmark_runs):
+            self.warn(
+                "private benchmark run root is inside repo; "
+                "prefer ~/.ctf-solver/benchmark-runs or CTF_BENCHMARK_RUN_ROOT outside repo"
+            )
         if is_inside_repo(locks):
             self.warn("lock root is inside repo; prefer ~/.ctf-solver/locks or CTF_LOCK_ROOT outside repo")
         if is_inside_repo(leases):

@@ -1194,6 +1194,8 @@ P2-0부터는 solver 기능을 더 붙이기 전에 public-safe 성능 지표를
 주요 파일:
 
 - `metrics/benchmark_summary.jsonl`
+- `metrics/benchmark_exports/*.jsonl`
+- `metrics/comparisons/*.json`
 - `metrics/ai_usage_summary.jsonl`
 - `metrics/performance_summary.json`
 - `metrics/benchmark_dashboard.md`
@@ -1209,9 +1211,18 @@ python3 scripts/ai_usage_record.py --run-id RUN-DEMO-1 --provider codex --model 
 python3 scripts/performance_report.py
 ```
 
+Private benchmark pack은 `CTF_BENCHMARK_ROOT` 또는 `~/.ctf-solver/benchmarks` 아래에 두고, raw benchmark run 결과는 `CTF_BENCHMARK_RUN_ROOT` 또는 `~/.ctf-solver/benchmark-runs` 아래에 둔다. 실제 solver runner는 아직 붙이지 않고, pack 구조/검증/export/compare만 제공한다.
+
+```bash
+python3 scripts/benchmark_pack_init.py --pack-id dh-private-core --name "Dreamhack private core pack"
+python3 scripts/benchmark_pack_validate.py "$CTF_BENCHMARK_ROOT/dh-private-core/benchmark_pack.yaml"
+python3 scripts/benchmark_export_public.py --input "$CTF_BENCHMARK_RUN_ROOT/before/results.jsonl" --output metrics/benchmark_exports/before.jsonl
+python3 scripts/benchmark_compare.py --before metrics/benchmark_exports/before.jsonl --after metrics/benchmark_exports/after.jsonl --output metrics/comparisons/feature-change.json
+```
+
 Private detailed AI usage는 `CTF_AI_USAGE_ROOT` 또는 `~/.ctf-solver/ai-usage` 아래에만 저장한다. Public metrics에는 flag, exploit code, raw transcript, private path, cookies/tokens, private URL, browser artifact path를 넣지 않는다.
 
-자세한 내용은 `docs/benchmarking.md`, `docs/ai-usage-metrics.md`, `docs/metrics.md`를 기준으로 한다.
+자세한 내용은 `docs/benchmarking.md`, `docs/private-benchmarks.md`, `docs/ai-usage-metrics.md`, `docs/metrics.md`를 기준으로 한다.
 
 ---
 

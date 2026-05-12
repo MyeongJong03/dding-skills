@@ -108,6 +108,7 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
     private_metrics = tmp_path / "metrics-private"
     ai_usage = tmp_path / "ai-usage"
     private_benchmarks = tmp_path / "benchmarks-private"
+    private_benchmark_runs = tmp_path / "benchmark-runs-private"
     platform_auto = tmp_path / "platforms"
     downloads = tmp_path / "downloads"
     solver_repo = tmp_path / "solver-repo"
@@ -133,6 +134,7 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         private_metrics,
         ai_usage,
         private_benchmarks,
+        private_benchmark_runs,
         platform_auto,
         downloads,
         solver_repo / "metrics",
@@ -160,6 +162,7 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         "CTF_PRIVATE_METRICS_ROOT": str(private_metrics),
         "CTF_AI_USAGE_ROOT": str(ai_usage),
         "CTF_BENCHMARK_ROOT": str(private_benchmarks),
+        "CTF_BENCHMARK_RUN_ROOT": str(private_benchmark_runs),
         "CTF_PLATFORM_AUTOMATION_ROOT": str(platform_auto),
         "CTF_DOWNLOAD_ROOT": str(downloads),
         "CTF_SOLVER_REPO_ROOT": str(solver_repo),
@@ -194,6 +197,7 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         private_metrics=private_metrics,
         ai_usage=ai_usage,
         private_benchmarks=private_benchmarks,
+        private_benchmark_runs=private_benchmark_runs,
         platform_auto=platform_auto,
         downloads=downloads,
         solver_repo=solver_repo,
