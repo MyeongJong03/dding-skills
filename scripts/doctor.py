@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-import importlib.util
 import os
 from pathlib import Path
 import shutil
@@ -162,6 +161,73 @@ class Doctor:
             self.ok("Docker daemon reachable")
         else:
             self.warn("Docker daemon off or unreachable (optional runtime dependency)")
+
+    def check_playwright_runtime(self) -> None:
+        script = ROOT / "scripts" / "browser_playwright_check.py"
+        if not script.is_file():
+            self.warn("browser Playwright runtime check script missing (optional)")
+            return
+        try:
+            result = subprocess.run(
+                [sys.executable, str(script), "--use-uv", "--timeout-seconds", "12", "--json"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            self.warn("Playwright runtime check timed out (optional browser automation)")
+            return
+        if result.returncode != 0:
+            self.warn("Playwright runtime check failed to run (optional browser automation)")
+            return
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            self.warn("Playwright runtime check returned invalid JSON (optional browser automation)")
+            return
+
+        if data.get("current_python_playwright_available"):
+            self.ok("current Python can import Playwright")
+        else:
+            self.info("current Python cannot import Playwright (optional browser automation)")
+
+        if data.get("uv_available"):
+            self.ok("uv executable found for optional Playwright runtime")
+        else:
+            self.warn("uv executable not found; use a repo-external venv for optional Playwright runtime")
+
+        uv_available = data.get("uv_playwright_available")
+        if uv_available is True:
+            self.ok("uv can provide Playwright from local cache without installing")
+        elif uv_available is False:
+            self.info("uv offline Playwright check did not find a cached package; documented uv command can install it")
+        else:
+            self.info(f"uv Playwright check status: {data.get('uv_check_mode')}")
+
+        current_chromium = data.get("current_python_chromium_available")
+        uv_chromium = data.get("uv_chromium_available")
+        if current_chromium is True:
+            self.ok("current Python Playwright Chromium binary is installed")
+        elif current_chromium is False:
+            self.warn("current Python Playwright package exists but Chromium browser binary is missing")
+        else:
+            self.info("current Python Chromium binary check skipped because Playwright is not importable")
+
+        if uv_chromium is True:
+            self.ok("uv Playwright Chromium binary is installed")
+        elif uv_chromium is False:
+            self.warn("uv Playwright is available but Chromium browser binary is missing")
+        else:
+            self.info("uv Chromium binary check not available in no-install mode")
+
+        if (
+            not data.get("current_python_playwright_available")
+            and data.get("uv_playwright_available") is not True
+        ):
+            self.warn("Playwright runtime missing from current Python and uv offline cache (optional)")
+        else:
+            self.info(f"Playwright recommendation: {data.get('recommendation')}")
 
     def check_tools(self) -> None:
         tools = sorted((ROOT / "tools").glob("*.py"))
@@ -397,10 +463,7 @@ class Doctor:
                 self.info("session daemon not running (optional)")
         except Exception as exc:
             self.warn(f"could not inspect session daemon safely: {exc}")
-        if importlib.util.find_spec("playwright"):
-            self.info("Playwright Python package is available (optional browser automation)")
-        else:
-            self.warn("Playwright Python package not found (optional browser automation)")
+        self.check_playwright_runtime()
         try:
             daemon = browser_daemon_status()
             if daemon.get("running"):

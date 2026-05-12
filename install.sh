@@ -43,6 +43,16 @@ Options:
   --all                   Run both optional tasks above.
   --help, -h              Show this help.
 
+Optional browser runtime:
+  uv run --with playwright python -c "import playwright; print('ok')"
+  uv run --with playwright python -m playwright install chromium
+  uv run --with pytest --with playwright python -m pytest tests/test_browser_actions.py -q
+  python3 scripts/browser_playwright_check.py --use-uv --json
+
+  If Claude MCP should use browser tools, add --with playwright to the
+  registered ctf_solver uv command. Do not use --break-system-packages as the
+  default Homebrew Python workaround.
+
 Environment:
   CTF_DIR                 Primary CTF workspace. Default: ~/CTF
   CTF_SOLVER_DOCKER_REBUILD=1
@@ -277,6 +287,7 @@ Codex primary workspace:
 
 Optional Claude MCP:
   bash install.sh --with-claude-mcp
+  Add --with playwright to the registered uv command when MCP browser tools need Playwright.
 
 Optional external skills:
   bash install.sh --with-external-skills

@@ -559,16 +559,36 @@ MCP 도구는 `session_start`, `session_write`, `session_read`, `session_expect`
 P1-6부터는 Web CTF에서 DOM, JavaScript, redirect, file upload, browser parser behavior가 필요한 경우 local-only browser action daemon을 사용할 수 있다. Playwright는 optional dependency라 설치되지 않아도 기본 테스트와 CLI가 깨지지 않는다.
 
 ```bash
-python3 -m pip install playwright
-python3 -m playwright install chromium
+uv run --with playwright python -c "import playwright; print('ok')"
+uv run --with playwright python -m playwright install chromium
+uv run --with pytest --with playwright python -m pytest tests/test_browser_actions.py -q
 
-bid=$(python3 scripts/browser_start.py --run-id "$RUN_ID")
-python3 scripts/browser_goto.py --browser-session-id "$bid" --url 'data:text/html,<title>Local</title>'
-python3 scripts/browser_eval.py --browser-session-id "$bid" --expression 'document.title'
-python3 scripts/browser_close.py --browser-session-id "$bid"
+python3 -m venv ~/.ctf-solver/venvs/browser
+~/.ctf-solver/venvs/browser/bin/python -m pip install playwright pytest
+~/.ctf-solver/venvs/browser/bin/python -m playwright install chromium
+
+bid=$(uv run --with playwright python scripts/browser_start.py --run-id "$RUN_ID")
+uv run --with playwright python scripts/browser_goto.py --browser-session-id "$bid" --url 'data:text/html,<title>Local</title>'
+uv run --with playwright python scripts/browser_eval.py --browser-session-id "$bid" --expression 'document.title'
+uv run --with playwright python scripts/browser_close.py --browser-session-id "$bid"
+```
+
+macOS Homebrew Python에서는 `python3 -m pip install playwright`가 PEP 668
+`externally-managed-environment`로 막힐 수 있다. 기본 해결책으로
+`--break-system-packages`를 쓰지 말고, 위의 uv 방식 또는 repo 밖 venv를
+사용한다. MCP에서 browser tools를 쓸 때는 `ctf_solver` 등록 command의 uv
+인자에 `--with playwright`가 필요할 수 있다.
+
+검증:
+
+```bash
+python3 scripts/browser_playwright_check.py --use-uv --json
+python3 scripts/doctor.py
 ```
 
 Browser session metadata는 `CTF_BROWSER_ROOT` 또는 `~/.ctf-solver/browser`, screenshot/artifact는 `CTF_BROWSER_ARTIFACT_ROOT` 또는 `~/.ctf-solver/browser-artifacts`에 둔다. 둘 다 repo 밖 local-only여야 한다. Cookie 값, storage_state 내용, raw network body는 출력하지 않고 redacted summary만 사용한다. `challenge_finalize.py`는 기본적으로 해당 `run_id`의 browser session을 닫고 aggregate count만 metrics에 반영한다. 명시적 handoff가 필요할 때만 `--keep-browser-sessions`를 사용한다. 자세한 내용은 `docs/browser-actions.md`를 기준으로 한다.
+
+Browser E2E regression은 data URL, local HTML, mock loopback server만 사용한다. 실제 외부 CTF 사이트 접속 테스트는 만들지 않는다.
 
 ### Platform resource automation
 

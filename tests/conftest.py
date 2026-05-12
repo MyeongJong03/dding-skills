@@ -11,6 +11,26 @@ import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+REAL_HOME = Path.home()
+
+
+def _existing_playwright_browser_path() -> str | None:
+    configured = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    if configured:
+        return configured
+    candidates = []
+    if sys.platform == "darwin":
+        candidates.append(REAL_HOME / "Library" / "Caches" / "ms-playwright")
+    candidates.extend(
+        [
+            REAL_HOME / ".cache" / "ms-playwright",
+            REAL_HOME / "AppData" / "Local" / "ms-playwright",
+        ]
+    )
+    for path in candidates:
+        if path.is_dir():
+            return str(path)
+    return None
 
 
 def _policy_value(value: bool | str) -> str:
@@ -128,6 +148,9 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         "CTF_PLATFORM_CONFIG": str(policy),
         "CTF_METRICS_MODE": "public",
     }
+    playwright_browsers = _existing_playwright_browser_path()
+    if playwright_browsers:
+        env_values["PLAYWRIGHT_BROWSERS_PATH"] = playwright_browsers
     for key, value in env_values.items():
         monkeypatch.setenv(key, value)
     monkeypatch.delenv("CTF_AUTO_PUSH", raising=False)

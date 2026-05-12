@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 
+from conftest import REPO_ROOT
 from conftest import parse_json_output
 from ctf_solver_core.browser_actions import (
     BrowserActionError,
@@ -169,9 +171,21 @@ def test_optional_playwright_data_url_flow(run_cli, temp_ctf_env) -> None:
         pytest.skip(str(started.get("reason") or "playwright browser unavailable"))
     session_id = str(started["session"]["browser_session_id"])
     try:
-        html = "data:text/html,<html><head><title>Local</title></head><body><input id='x'><script>console.log('ready')</script></body></html>"
+        html = quote(
+            """
+            <html>
+              <head><title>Local</title></head>
+              <body>
+                <input id="x">
+                <button id="save" onclick="document.title='Clicked ' + document.querySelector('#x').value; console.log('clicked')">Go</button>
+                <script>console.log('ready')</script>
+              </body>
+            </html>
+            """,
+            safe="",
+        )
         goto = parse_json_output(
-            run_cli(["scripts/browser_goto.py", "--browser-session-id", session_id, "--url", html, "--json"])
+            run_cli(["scripts/browser_goto.py", "--browser-session-id", session_id, "--url", f"data:text/html,{html}", "--json"])
         )
         assert goto["ok"] is True
         filled = parse_json_output(
@@ -189,6 +203,19 @@ def test_optional_playwright_data_url_flow(run_cli, temp_ctf_env) -> None:
             )
         )
         assert filled["value_redacted"] is True
+        clicked = parse_json_output(
+            run_cli(
+                [
+                    "scripts/browser_click.py",
+                    "--browser-session-id",
+                    session_id,
+                    "--selector",
+                    "#save",
+                    "--json",
+                ]
+            )
+        )
+        assert clicked["ok"] is True
         evaluated = parse_json_output(
             run_cli(
                 [
@@ -201,12 +228,33 @@ def test_optional_playwright_data_url_flow(run_cli, temp_ctf_env) -> None:
                 ]
             )
         )
-        assert evaluated["result"] == "Local"
+        assert evaluated["result"] == "Clicked hello"
+        console = parse_json_output(
+            run_cli(["scripts/browser_console.py", "--browser-session-id", session_id, "--limit", "10", "--json"])
+        )
+        assert console["ok"] is True
+        assert console["count"] >= 1
+        network = parse_json_output(
+            run_cli(["scripts/browser_network.py", "--browser-session-id", session_id, "--limit", "10", "--json"])
+        )
+        assert network["ok"] is True
+        for event in network["events"]:
+            assert "body" not in event
+            headers = event.get("headers", {})
+            for name, value in headers.items():
+                if name.lower() in {"authorization", "cookie", "set-cookie"}:
+                    assert value == "<REDACTED>"
+        cookies = parse_json_output(run_cli(["scripts/browser_cookies.py", "--browser-session-id", session_id, "--json"]))
+        assert cookies["ok"] is True
+        assert cookies["values_redacted"] is True
+        for cookie in cookies["cookies"]:
+            assert cookie["value"] == "<REDACTED>"
         screenshot = parse_json_output(
             run_cli(["scripts/browser_screenshot.py", "--browser-session-id", session_id, "--name", "local", "--json"])
         )
         screenshot_path = Path(str(screenshot["screenshot_path"]).replace("~", str(temp_ctf_env.home), 1))
         assert screenshot_path.is_file()
+        assert REPO_ROOT not in screenshot_path.parents
         assert temp_ctf_env.solver_repo not in screenshot_path.parents
     finally:
         run_cli(["scripts/browser_close.py", "--browser-session-id", session_id, "--json"], check=False)

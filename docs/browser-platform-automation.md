@@ -62,9 +62,13 @@ Browser action automation is documented in `docs/browser-actions.md`. It is
 optional and requires:
 
 ```bash
-python3 -m pip install playwright
-python3 -m playwright install chromium
+uv run --with playwright python -c "import playwright; print('ok')"
+uv run --with playwright python -m playwright install chromium
 ```
+
+On Homebrew Python, do not use `--break-system-packages` to force a system pip
+install. Use uv or a repo-external venv as documented in
+`docs/browser-actions.md`.
 
 Start sessions with a `run_id`, then use DOM actions:
 

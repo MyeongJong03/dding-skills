@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import secrets
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 
 from .browser_actions import (
@@ -317,7 +317,10 @@ class BrowserManager:
             return {
                 "ok": False,
                 "reason": "playwright_not_installed",
-                "install": "python3 -m pip install playwright && python3 -m playwright install chromium",
+                "install": (
+                    "uv run --with playwright python -m playwright install chromium; "
+                    "run browser tools through uv --with playwright or a repo-external venv"
+                ),
             }
         except BrowserActionError as exc:
             return {"ok": False, "reason": str(exc)}
@@ -402,7 +405,7 @@ class BrowserManager:
             return {
                 "ok": False,
                 "reason": reason,
-                "install": "python3 -m playwright install chromium",
+                "install": "uv run --with playwright python -m playwright install chromium",
                 "session": public_session_metadata(metadata),
             }
         except Exception as exc:
@@ -511,9 +514,7 @@ class BrowserManager:
                 pass
 
 
-class BrowserHTTPServer(ThreadingHTTPServer):
-    daemon_threads = True
-
+class BrowserHTTPServer(HTTPServer):
     def __init__(self, server_address: tuple[str, int], handler_cls: type[BaseHTTPRequestHandler], token: str) -> None:
         super().__init__(server_address, handler_cls)
         self.manager = BrowserManager()

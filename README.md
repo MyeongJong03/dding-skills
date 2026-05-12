@@ -251,12 +251,25 @@ MCP tool `verify_run`도 command/session/manual mode를 지원합니다. Public 
 
 P1-4 browser/platform scaffold는 로그인 세션 metadata 등록, mock/local discovery, download, server acquire/release/status, submission policy gate를 제공합니다. P1-6 browser action scaffold는 optional Playwright 기반 DOM 조작, local-only screenshot, console/network/cookie redaction, run_id 기반 session cleanup을 제공합니다. 실제 사이트 adapter, live browser login, live smoke test, full browser solver는 다음 단계입니다. 자세한 내용은 [docs/browser-platform-automation.md](docs/browser-platform-automation.md)와 [docs/browser-actions.md](docs/browser-actions.md)를 봅니다.
 
-Optional browser automation install:
+### Browser Runtime Validation
+
+Playwright is optional. On macOS Homebrew Python, direct
+`python3 -m pip install playwright` can hit PEP 668
+`externally-managed-environment`, so use uv first or a venv outside the repo.
+Do not use `--break-system-packages` as the default path.
 
 ```bash
-python3 -m pip install playwright
-python3 -m playwright install chromium
+uv run --with playwright python -c "import playwright; print('ok')"
+uv run --with playwright python -m playwright install chromium
+uv run --with pytest --with playwright python -m pytest tests/test_browser_actions.py -q
+python3 scripts/browser_playwright_check.py --use-uv --json
+python3 scripts/doctor.py
 ```
+
+Claude MCP browser tools need Playwright in the registered `ctf_solver` runtime.
+If browser tools are required, add `--with playwright` to the uv MCP command.
+Browser regression tests are local-only: data URLs, local HTML, or mock loopback
+servers only. No live external CTF site tests are part of this scaffold.
 
 Long-running remote 작업은 lease heartbeat를 남기고, worker crash나 터미널 종료로 stale lease가 생기면 dry-run 확인 후 reclaim합니다. Queue history는 여러 터미널에서 scheduler decision과 lease lifecycle을 추적하는 기준입니다.
 

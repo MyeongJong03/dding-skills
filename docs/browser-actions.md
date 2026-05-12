@@ -4,17 +4,51 @@ P1-6 adds a local-only browser action layer between platform adapters and future
 web solvers. It can drive Playwright when installed, but Playwright is optional:
 the rest of the repo and regression suite must pass without it.
 
-## Optional Install
+## Playwright Runtime Validation
+
+Playwright is an optional runtime. On macOS Homebrew Python,
+`python3 -m pip install playwright` can fail with PEP 668
+`externally-managed-environment`. Do not use `--break-system-packages` as the
+default fix. Prefer either `uv` or a venv outside this repo.
+
+Recommended path 1, uv:
 
 ```bash
-python3 -m pip install playwright
-python3 -m playwright install chromium
+uv run --with playwright python -c "import playwright; print('ok')"
+uv run --with playwright python -m playwright install chromium
+uv run --with pytest --with playwright python -m pytest tests/test_browser_actions.py -q
+```
+
+When using the CLI through uv, run the browser command in the same uv-provided
+runtime:
+
+```bash
+uv run --with playwright python scripts/browser_start.py --run-id RUN1 --json
+```
+
+Recommended path 2, repo-external venv:
+
+```bash
+python3 -m venv ~/.ctf-solver/venvs/browser
+~/.ctf-solver/venvs/browser/bin/python -m pip install playwright pytest
+~/.ctf-solver/venvs/browser/bin/python -m playwright install chromium
+~/.ctf-solver/venvs/browser/bin/python -m pytest tests/test_browser_actions.py -q
+```
+
+No live external CTF site should be used for browser regression tests. Use local
+HTML files, data URLs, or mock loopback servers only.
+
+Check the runtime without installing or contacting the network:
+
+```bash
+python3 scripts/browser_playwright_check.py --use-uv --json
+python3 scripts/doctor.py
 ```
 
 If Playwright is missing, `browser_start.py` and the MCP `browser_start` tool
 return `reason: playwright_not_installed`. If the Python package exists but the
-browser binary is missing, the result points to `python3 -m playwright install
-chromium`.
+browser binary is missing, the result points to installing Chromium with
+Playwright.
 
 ## Local-Only Roots
 
@@ -130,6 +164,19 @@ The same operations are exposed through MCP server `ctf_solver`:
 - `browser_cookies`
 - `browser_close`
 - `browser_list`
+
+If Claude MCP is expected to use browser tools, the registered `ctf_solver`
+command may need Playwright in the same runtime. With uv, add
+`--with playwright` to the MCP command, for example:
+
+```bash
+claude mcp add --scope user ctf_solver \
+  -- <path-to-uv> run --with playwright --with "mcp[cli]" --with requests --with httpx \
+  mcp run <path-to-repo>/server.py
+```
+
+Browser artifacts, including screenshots, stay under
+`CTF_BROWSER_ARTIFACT_ROOT` and are local-only.
 
 ## Finalize Cleanup
 
