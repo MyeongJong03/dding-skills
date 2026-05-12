@@ -70,6 +70,15 @@ QUEUE_EVENT_TYPES = {
     "lease_stale_reclaimed",
     "finalized",
     "keep_lease",
+    "worker_claimed",
+    "worker_claim_heartbeat",
+    "worker_claim_released",
+    "worker_claim_stale_detected",
+    "worker_claim_stale_reclaimed",
+    "worker_action_selected",
+    "worker_wait",
+    "worker_auto_finalize",
+    "worker_auto_acquire_remote",
 }
 
 

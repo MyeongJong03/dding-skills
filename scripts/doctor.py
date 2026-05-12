@@ -26,11 +26,13 @@ from ctf_solver_core.paths import (
     session_root,
     sessiond_root,
     solved_writeup_root,
+    worker_root,
 )
 from ctf_solver_core.platforms import platform_config_path, validate_platform_config
 from ctf_solver_core.resources import detect_stale_leases, list_leases
 from ctf_solver_core.schemas import read_jsonl, validate_public_record
 from ctf_solver_core.session_client import status as session_daemon_status
+from ctf_solver_core.worker import detect_stale_claims, list_claims
 
 HOME = Path.home()
 CTF_DIR = HOME / "CTF"
@@ -174,6 +176,10 @@ class Doctor:
             "scripts/queue_next.py",
             "scripts/queue_update.py",
             "scripts/queue_history.py",
+            "scripts/worker_next.py",
+            "scripts/worker_run_once.py",
+            "scripts/worker_loop.py",
+            "scripts/worker_status.py",
             "scripts/secret_scan.py",
             "scripts/doctor.py",
             "scripts/session_daemon.py",
@@ -203,12 +209,14 @@ class Doctor:
             "ctf_solver_core/platforms.py",
             "ctf_solver_core/resources.py",
             "ctf_solver_core/queue.py",
+            "ctf_solver_core/worker.py",
             "ctf_solver_core/sessions.py",
             "ctf_solver_core/session_daemon.py",
             "ctf_solver_core/session_client.py",
             "ctf_solver_core/verifier.py",
             "config/platforms.example.yaml",
             "docs/platform-automation.md",
+            "docs/worker-runner.md",
             "docs/sessions.md",
             "docs/verifier.md",
         ]:
@@ -272,6 +280,7 @@ class Doctor:
         locks = lock_root()
         leases = lease_root()
         queue = queue_root()
+        workers = worker_root()
         sessions = session_root()
         sessiond = sessiond_root()
         self.info(f"writeup root: {display_path(writeup_root)}")
@@ -279,6 +288,7 @@ class Doctor:
         self.info(f"lock root: {display_path(locks)}")
         self.info(f"lease root: {display_path(leases)}")
         self.info(f"queue root: {display_path(queue)}")
+        self.info(f"worker root: {display_path(workers)}")
         self.info(f"session root: {display_path(sessions)}")
         self.info(f"session daemon root: {display_path(sessiond)}")
 
@@ -292,6 +302,8 @@ class Doctor:
             self.warn("lease root is inside repo; prefer ~/.ctf-solver/leases or CTF_LEASE_ROOT outside repo")
         if is_inside_repo(queue):
             self.warn("queue root is inside repo; prefer ~/.ctf-solver/queue or CTF_QUEUE_ROOT outside repo")
+        if is_inside_repo(workers):
+            self.warn("worker root is inside repo; prefer ~/.ctf-solver/workers or CTF_WORKER_ROOT outside repo")
         if is_inside_repo(sessions):
             self.warn("session root is inside repo; prefer ~/.ctf-solver/sessions or CTF_SESSION_ROOT outside repo")
         if is_inside_repo(sessiond):
@@ -304,6 +316,19 @@ class Doctor:
                 self.info("session daemon not running (optional)")
         except Exception as exc:
             self.warn(f"could not inspect session daemon safely: {exc}")
+        try:
+            active_claims = list_claims(include_stale=False)
+            stale_claims = detect_stale_claims()
+            if active_claims:
+                self.info(f"active worker claim count: {len(active_claims)}")
+            else:
+                self.ok("active worker claim count: 0")
+            if stale_claims:
+                self.warn(f"stale worker claim count: {len(stale_claims)}")
+            else:
+                self.ok("stale worker claim count: 0")
+        except Exception as exc:
+            self.warn(f"could not inspect worker claim counts safely: {exc}")
         try:
             active_leases = list_leases()
             if active_leases:

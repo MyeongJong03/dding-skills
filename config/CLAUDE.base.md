@@ -92,6 +92,16 @@
 - Helper workers must stop if the primary lease becomes stale or released.
 - Use queue event history to understand why a worker is waiting, doing local work, joining as helper, or acquiring remote.
 
+## Queue Runner Rules
+- Multiple terminals must claim queue items with `worker_next.py` or `worker_run_once.py` before working.
+- Do not work on a challenge already claimed by another active worker unless helper mode is selected.
+- If remote is unavailable, prefer local prework instead of idle.
+- If a challenge is solved, verify when possible before finalize.
+- Never move to the next challenge until finalize succeeds.
+- Use `worker_status.py` and `queue_history.py` to debug contention.
+- Do not auto-push writeups.
+- Worker runner does not invoke Codex/Claude, browser automation, or GDB-specific sessions automatically.
+
 ## 로컬 도구
 | 도구 | 용도 |
 |---|---|

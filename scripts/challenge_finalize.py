@@ -31,6 +31,7 @@ from ctf_solver_core.schemas import (
 )
 from ctf_solver_core.session_client import close_sessions_for_run
 from ctf_solver_core.verifier import load_verifier_result, verifier_summary
+from ctf_solver_core.worker import release_claim
 from cleanup_challenge import cleanup
 from generate_writeup import generate_writeup
 from git_sync_metrics import git_sync
@@ -62,6 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="fail solved finalization unless <run_dir>/verifier.json is successful",
     )
     parser.add_argument("--force", action="store_true", help="replace an existing finalization for this run")
+    parser.add_argument("--auto-finalize-used", action="store_true", help="record worker auto-finalize usage in metrics")
     parser.add_argument("--dry-run", action="store_true")
     return parser
 
@@ -160,6 +162,9 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 f"use --force to replace it with {args.status!r}"
             )
         if existing_finalized and existing_status == args.status and not args.force:
+            claim_release_result = {"released_count": 0, "reason": "already_finalized"}
+            if not args.dry_run:
+                claim_release_result = release_claim(run_id=run_id, reason="already_finalized")
             return {
                 "challenge_id": challenge_id,
                 "run_id": run_id,
@@ -176,6 +181,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 "warnings": existing.get("warnings") or [],
                 "resource_release": existing.get("resource_release") or {},
                 "queue": existing.get("queue") or {},
+                "worker_claim_release": claim_release_result,
                 "metrics": {"duplicate_skipped": True, "reason": "already finalized"},
                 "git_sync": None,
                 "dry_run": args.dry_run,
@@ -338,6 +344,19 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             except Exception as exc:
                 queue_result = {"updated": False, "reason": "queue_update_failed", "warning": str(exc)}
 
+        worker_claim_release: dict[str, object] | None = None
+        if args.dry_run:
+            worker_claim_release = {"released_count": 0, "reason": "dry_run"}
+        else:
+            try:
+                worker_claim_release = release_claim(run_id=run_id, reason="finalized")
+            except Exception as exc:
+                worker_claim_release = {
+                    "released_count": 0,
+                    "reason": "claim_release_failed",
+                    "warning": str(exc),
+                }
+
         resource_metrics = {
             "lease_release_count": int((lease_release_result or {}).get("released_count") or 0),
             "stale_lease_reclaimed_count": 0,
@@ -384,6 +403,12 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "resource_warnings": resource_warnings,
             "resource_metrics": resource_metrics,
             "queue": queue_result or {},
+            "worker_claim_release": worker_claim_release or {},
+            "worker_metrics": {
+                "auto_finalize_used": bool(getattr(args, "auto_finalize_used", False)),
+                "require_verifier_used": bool(getattr(args, "require_verifier", False)),
+                "worker_claim_reclaim_count": 0,
+            },
             "forced": bool(args.force),
             "previous_status": existing_status if existing_finalized else "",
         }
@@ -437,6 +462,13 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 session_bytes_read=session_metrics["session_bytes_read"],
                 session_bytes_written=session_metrics["session_bytes_written"],
                 closed_session_count=session_metrics["closed_session_count"],
+                worker_id_hash=None,
+                worker_count=None,
+                worker_action_count=None,
+                worker_wait_count=None,
+                worker_claim_reclaim_count=0,
+                auto_finalize_used=bool(getattr(args, "auto_finalize_used", False)),
+                require_verifier_used=bool(getattr(args, "require_verifier", False)),
                 tool_call_counts_json=None,
                 model_tooling_summary=None,
                 include_challenge_name=False,
@@ -472,6 +504,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
         "warnings": verifier_warnings,
         "resource_release": lease_release_result,
         "queue": queue_result,
+        "worker_claim_release": worker_claim_release,
         "metrics": metrics_result,
         "git_sync": git_result,
         "dry_run": args.dry_run,

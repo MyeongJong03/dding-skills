@@ -30,6 +30,16 @@ def test_public_metrics_are_safe_and_deduplicated(temp_ctf_env, run_cli) -> None
             "DH{dummy_public_metrics_must_not_include}",
             "--writeup-generated",
             "--exploit-included",
+            "--worker-id-hash",
+            "abcd1234",
+            "--worker-action-count",
+            "2",
+            "--worker-wait-count",
+            "1",
+            "--worker-claim-reclaim-count",
+            "1",
+            "--auto-finalize-used",
+            "--require-verifier-used",
         ]
     )
     records = _summary_records(summary)
@@ -43,6 +53,12 @@ def test_public_metrics_are_safe_and_deduplicated(temp_ctf_env, run_cli) -> None
     assert str(temp_ctf_env.base) not in rendered
     assert "challenge_name" not in record
     assert "Private Challenge Name" not in rendered
+    assert record["worker_id_hash"] == "abcd1234"
+    assert record["worker_action_count"] == 2
+    assert record["worker_wait_count"] == 1
+    assert record["worker_claim_reclaim_count"] == 1
+    assert record["auto_finalize_used"] is True
+    assert record["require_verifier_used"] is True
     assert dashboard.is_file()
 
     run_cli(

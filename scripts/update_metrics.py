@@ -65,6 +65,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--session-bytes-read", type=int)
     parser.add_argument("--session-bytes-written", type=int)
     parser.add_argument("--closed-session-count", type=int)
+    parser.add_argument("--worker-id-hash")
+    parser.add_argument("--worker-count", type=int)
+    parser.add_argument("--worker-action-count", type=int)
+    parser.add_argument("--worker-wait-count", type=int)
+    parser.add_argument("--worker-claim-reclaim-count", type=int)
+    parser.add_argument("--auto-finalize-used", action="store_true")
+    parser.add_argument("--require-verifier-used", action="store_true")
     parser.add_argument("--verifier-success", action="store_true")
     parser.add_argument("--verifier-flag-found", action="store_true")
     parser.add_argument("--verifier-target")
@@ -186,6 +193,9 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
     session_metrics = final.get("session_metrics")
     if not isinstance(session_metrics, dict):
         session_metrics = {}
+    worker_metrics = final.get("worker_metrics")
+    if not isinstance(worker_metrics, dict):
+        worker_metrics = {}
 
     optional_ints = {
         "remote_wait_time_sec": getattr(args, "remote_wait_time_sec", None),
@@ -206,12 +216,18 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         "session_bytes_read": getattr(args, "session_bytes_read", None),
         "session_bytes_written": getattr(args, "session_bytes_written", None),
         "closed_session_count": getattr(args, "closed_session_count", None),
+        "worker_count": getattr(args, "worker_count", None),
+        "worker_action_count": getattr(args, "worker_action_count", None),
+        "worker_wait_count": getattr(args, "worker_wait_count", None),
+        "worker_claim_reclaim_count": getattr(args, "worker_claim_reclaim_count", None),
     }
     for key, value in optional_ints.items():
         if value is None and isinstance(resource_metrics.get(key), int):
             value = int(resource_metrics[key])
         if value is None and isinstance(session_metrics.get(key), int):
             value = int(session_metrics[key])
+        if value is None and isinstance(worker_metrics.get(key), int):
+            value = int(worker_metrics[key])
         if value is not None:
             record[key] = max(0, int(value))
 
@@ -223,6 +239,17 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         record["shared_remote_used"] = True
     if local_ready_before_remote:
         record["local_ready_before_remote"] = True
+    worker_id_hash = str(getattr(args, "worker_id_hash", "") or worker_metrics.get("worker_id_hash") or "")
+    if worker_id_hash:
+        record["worker_id_hash"] = worker_id_hash
+    auto_finalize_used = bool(getattr(args, "auto_finalize_used", False) or worker_metrics.get("auto_finalize_used"))
+    require_verifier_used = bool(
+        getattr(args, "require_verifier_used", False) or worker_metrics.get("require_verifier_used")
+    )
+    if auto_finalize_used:
+        record["auto_finalize_used"] = True
+    if require_verifier_used:
+        record["require_verifier_used"] = True
 
     private = {
         "updated_at": iso_now(),

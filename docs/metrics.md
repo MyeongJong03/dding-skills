@@ -29,6 +29,13 @@
 - optional `verifier_target`
 - optional `verifier_attempts`
 - optional `verifier_duration_sec`
+- optional `worker_id_hash`
+- optional `worker_count`
+- optional `worker_action_count`
+- optional `worker_wait_count`
+- optional `worker_claim_reclaim_count`
+- optional `auto_finalize_used`
+- optional `require_verifier_used`
 - optional `model_tooling_summary`
 
 Challenge names are excluded by default. Use `--include-challenge-name` only for private repos or events where challenge names are intentionally public.
@@ -48,6 +55,7 @@ Do not put the following in public metrics:
 - detailed artifact paths
 - private remote URLs or secret-bearing lease metadata
 - verifier raw output, raw evidence path, or exploit command
+- raw worker ID or hostname
 
 `scripts/update_metrics.py --check` validates existing public metrics before git sync.
 

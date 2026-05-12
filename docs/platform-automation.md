@@ -61,6 +61,42 @@ Lease records are stored under `CTF_LEASE_ROOT` or `~/.ctf-solver/leases`.
 Queue records are stored under `CTF_QUEUE_ROOT` or `~/.ctf-solver/queue`. Both
 paths should remain outside the repo.
 
+## Queue Worker Runner
+
+The P1-3 worker scaffold combines queue state, worker claims, remote lease
+policy, verifier state, and finalization state. It does not invoke Codex,
+Claude, browser automation, GDB, Docker, Sage, or exploit commands.
+
+```bash
+python3 scripts/worker_next.py --platform thcon --event THCON --policy ~/.ctf-solver/platforms/thcon.yaml --require-verifier true
+python3 scripts/worker_run_once.py --platform thcon --event THCON --auto-acquire-remote --auto-finalize --require-verifier --json
+python3 scripts/worker_loop.py --platform thcon --event THCON --interval-sec 10
+python3 scripts/worker_status.py --platform thcon --event THCON --show-claims --show-queue
+```
+
+Worker claims are stored under `CTF_WORKER_ROOT` or
+`~/.ctf-solver/workers`. Claim records contain `worker_id`, `challenge_id`,
+`run_id`, `claimed_at`, `heartbeat_at`, `stale_after_sec`, and `action`.
+Non-helper active claims are exclusive per challenge, so another terminal will
+not duplicate local work on the same problem. Helper claims are shared and are
+only selected when platform sharing policy allows it and an active primary
+lease exists.
+
+Actions are:
+
+- `do_local_work`
+- `acquire_remote`
+- `join_remote_as_helper`
+- `verify_solution`
+- `finalize_challenge`
+- `wait`
+- `no_work`
+
+Solved queue items go to `verify_solution` first when `--require-verifier` is
+enabled and `<run_dir>/verifier.json` is missing or unsuccessful. Ended items
+then go to `finalize_challenge`, and the worker will not select unrelated new
+work until finalization is complete.
+
 ## Lease Heartbeat
 
 Lease records include `heartbeat_at`, `heartbeat_interval_sec`,
@@ -115,7 +151,8 @@ python3 scripts/queue_history.py --platform thcon --event THCON --json
 
 Events include queue item creation/update, state and priority changes,
 scheduler decisions, remote blockage, local-work selection, helper joins, lease
-acquire/release, stale detection/reclaim, and finalization.
+acquire/release, stale detection/reclaim, worker claim lifecycle, worker action
+selection, optional worker auto-acquire/finalize, and finalization.
 
 ## Remote Collaboration
 
@@ -140,6 +177,11 @@ remote-ready item existed but capacity was occupied. `local_work_selected` means
 the scheduler intentionally chose local-first progress while remote capacity was
 blocked. `wait_selected` means no remote capacity, no eligible local work, and no
 safe helper assignment were available.
+
+Use `worker_status.py` when contention is claim-related. It reports active and
+stale claim counts, active and stale lease counts, queue counts by state, and
+worker action counts without printing private paths, raw transcripts, flags, or
+tokens.
 
 ## THCON-Like Stale Worker Example
 
@@ -171,3 +213,15 @@ for handoff; that choice is also recorded in queue event history.
 Public-safe metrics may record aggregate resource timing and collaboration
 booleans, but must not include URLs, lease metadata with secrets, flags,
 writeups, exploit code, or raw transcripts.
+
+Worker metrics are optional aggregate fields such as worker action count, wait
+count, claim reclaim count, auto-finalize usage, and require-verifier usage.
+Raw worker IDs and hostnames should be omitted or hashed.
+
+## Limitations
+
+- Worker runner does not invoke Codex or Claude automatically.
+- Browser automation is a future phase.
+- GDB-specific persistent sessions are a future phase.
+- Verifier execution remains explicit because the worker cannot infer the
+  correct exploit command safely.

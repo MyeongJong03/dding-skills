@@ -559,10 +559,16 @@ Long-running remote 작업은 lease heartbeat를 남긴다. Worker crash나 터�
 
 Remote sharing이 policy에서 허용되고 multi-client safe일 때만 helper worker가 active remote challenge에 합류한다. Primary worker만 destructive action, submit, restart/release 권한이 있고 helper는 read-only analysis와 non-destructive request만 수행한다. 자세한 내용은 `docs/platform-automation.md`를 기준으로 한다.
 
+P1-3 worker runner는 queue item claim, heartbeat, stale reclaim, verifier-before-finalize, finalize-before-next 규칙을 worker layer에서 강제하는 scaffold다. Worker claim은 `CTF_WORKER_ROOT` 또는 `~/.ctf-solver/workers`에 저장되고, active claim이 있는 문제는 helper mode가 아닌 이상 다른 터미널이 중복 claim하지 않는다.
+
 ```bash
 python3 scripts/platform_config_init.py --print-template
 python3 scripts/queue_update.py --platform thcon --event THCON --challenge-id A --category web --state downloaded --local-capable true --remote-required true --local-exploit-ready false --confidence 0.4 --destructive-risk 0.1
 python3 scripts/queue_next.py --platform thcon --event THCON --policy ~/.ctf-solver/platforms/thcon.yaml
+python3 scripts/worker_next.py --platform thcon --event THCON --require-verifier true
+python3 scripts/worker_run_once.py --platform thcon --event THCON --auto-acquire-remote --auto-finalize --require-verifier --json
+python3 scripts/worker_loop.py --platform thcon --event THCON --interval-sec 10
+python3 scripts/worker_status.py --platform thcon --event THCON --show-claims --json
 python3 scripts/resource_acquire.py --platform thcon --event THCON --challenge-id A --run-id RUN_A --resource remote_server --mode primary --policy ~/.ctf-solver/platforms/thcon.yaml
 python3 scripts/resource_heartbeat.py --lease-id <lease-id> --once
 python3 scripts/resource_reclaim_stale.py --dry-run
@@ -987,6 +993,7 @@ CTF_WORK_ROOT=<work-root>
 CTF_LOCAL_RUN_ROOT=<private-run-root>
 CTF_LOCK_ROOT=<lock-root>
 CTF_SOLVED_WRITEUP_ROOT=<local-writeup-root>
+CTF_WORKER_ROOT=<worker-claim-root>
 CTF_AUTO_PUSH=1
 ```
 

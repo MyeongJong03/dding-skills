@@ -196,6 +196,7 @@ bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 | `CTF_LEASE_HEARTBEAT_INTERVAL_SEC` | lease heartbeat 권장 주기 | `30` |
 | `CTF_LEASE_STALE_AFTER_SEC` | heartbeat 중단 후 stale 판정 시간 | `180` |
 | `CTF_QUEUE_ROOT` | challenge queue 루트 | `~/.ctf-solver/queue` |
+| `CTF_WORKER_ROOT` | worker claim 루트 | `~/.ctf-solver/workers` |
 | `CTF_SESSION_ROOT` | persistent session metadata 루트 | `~/.ctf-solver/sessions` |
 | `CTF_SESSIOND_ROOT` | session daemon state 루트 | `~/.ctf-solver/sessiond` |
 | `CTF_SESSIOND_HOST` | session daemon bind host | `127.0.0.1` |
@@ -258,6 +259,19 @@ python3 scripts/resource_reclaim_stale.py --apply
 python3 scripts/queue_history.py --tail 20
 python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCON --all-for-run
 ```
+
+## Queue worker runner (P1-3)
+
+여러 터미널에서 자동화 scaffold를 돌릴 때는 worker가 queue item을 먼저 claim합니다. Active claim이 있는 문제는 다른 worker가 중복 작업하지 않고, helper mode가 가능한 경우에만 active remote challenge에 read-only helper로 합류합니다. Worker claim은 `CTF_WORKER_ROOT` 또는 `~/.ctf-solver/workers` 아래 local-only JSON으로 저장되고 heartbeat가 끊기면 stale reclaim 대상이 됩니다.
+
+```bash
+python3 scripts/worker_next.py --platform thcon --event THCON --worker-id w1 --require-verifier true
+python3 scripts/worker_run_once.py --platform thcon --event THCON --worker-id w1 --auto-acquire-remote --auto-finalize --require-verifier --json
+python3 scripts/worker_loop.py --platform thcon --event THCON --worker-id w1 --interval-sec 10
+python3 scripts/worker_status.py --platform thcon --event THCON --show-claims --json
+```
+
+Worker는 Codex/Claude, browser automation, GDB session, exploit 실행을 직접 호출하지 않습니다. `worker_next.py`는 다음 action과 suggested command를 고르고, `worker_run_once.py`는 lease acquire/finalize처럼 public-safe한 orchestration step만 옵션으로 수행합니다. Solved candidate는 `--require-verifier`가 켜진 경우 successful verifier 없이는 finalize action으로 넘어가지 않습니다.
 
 ## Persistent sessions (P1-1)
 

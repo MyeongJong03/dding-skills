@@ -62,6 +62,7 @@ There is no supported global "current challenge". Each terminal/session must kee
 - Challenge finalization uses a per-`challenge_id`/`run_id` directory lock.
 - Remote server/VM coordination uses file-backed leases under `CTF_LEASE_ROOT` or `~/.ctf-solver/leases`.
 - Challenge queue coordination uses JSON records under `CTF_QUEUE_ROOT` or `~/.ctf-solver/queue`.
+- Worker claim coordination uses JSON records under `CTF_WORKER_ROOT` or `~/.ctf-solver/workers`.
 - Metrics updates use a global metrics lock and atomic file replacement.
 - Git sync uses a global git lock so concurrent commits and pushes serialize.
 - Locks are atomic directories created with `Path.mkdir(exist_ok=False)` and include `owner.json` with pid, timestamp, purpose, and a stale timeout.
@@ -78,6 +79,28 @@ If sharing is allowed and safe, helper workers may join an active remote
 challenge. Helper workers are non-destructive only. Primary workers own submit,
 restart, release, and other destructive actions. See
 `docs/platform-automation.md` for commands and examples.
+
+## Queue Worker Runner
+
+P1-3 adds a worker layer above queue, leases, verifier, and finalization:
+
+```bash
+python3 scripts/worker_next.py --platform thcon --event THCON --require-verifier true
+python3 scripts/worker_run_once.py --platform thcon --event THCON --auto-acquire-remote --auto-finalize --require-verifier --json
+python3 scripts/worker_loop.py --platform thcon --event THCON --interval-sec 10 --max-iterations 3
+python3 scripts/worker_status.py --platform thcon --event THCON --show-claims --json
+```
+
+Each worker has a `worker_id` and must claim a queue item before local work,
+remote acquire, verify, or finalize orchestration. Active non-stale claims block
+other workers from taking the same challenge. Stale claims can be reclaimed
+after `stale_after_sec`. Finalized queue items are never selected.
+
+Solved queue items are selected for `verify_solution` first when
+`--require-verifier` is enabled and no successful verifier exists. Only after
+verification passes does the worker select `finalize_challenge`. The worker
+does not invoke Codex, Claude, browser automation, GDB, Docker, Sage, or exploit
+commands by itself.
 
 ## Idempotent Finalization
 
@@ -96,6 +119,7 @@ Defaults are portable and may be overridden with environment variables:
 | Lock root | `Path.home() / ".ctf-solver" / "locks"` | `CTF_LOCK_ROOT` |
 | Lease root | `Path.home() / ".ctf-solver" / "leases"` | `CTF_LEASE_ROOT` |
 | Queue root | `Path.home() / ".ctf-solver" / "queue"` | `CTF_QUEUE_ROOT` |
+| Worker root | `Path.home() / ".ctf-solver" / "workers"` | `CTF_WORKER_ROOT` |
 | Session root | `Path.home() / ".ctf-solver" / "sessions"` | `CTF_SESSION_ROOT` |
 | Session daemon root | `Path.home() / ".ctf-solver" / "sessiond"` | `CTF_SESSIOND_ROOT` |
 | Local writeup root | `Path.home() / "SolvedWriteUp"` | `CTF_SOLVED_WRITEUP_ROOT` |
@@ -155,6 +179,11 @@ Session metrics are public-safe aggregate counters only: session count, closed
 session count, and byte counters. Session commands, transcripts, logs, flags,
 and private paths are not public metrics.
 
+Worker metrics are optional public-safe aggregate fields only: worker count,
+worker action/wait counts, claim reclaim count, `auto_finalize_used`, and
+`require_verifier_used`. Raw worker IDs and hostnames should be omitted or
+hashed.
+
 Each public metrics entry includes a `run_id` so `scripts/update_metrics.py` can prevent duplicate appends. Re-running metrics update for the same `run_id` is skipped by default; use `--replace` or `--force` to replace the existing entry.
 
 ## Public-Safe Metrics Policy
@@ -181,6 +210,7 @@ python3 scripts/secret_scan.py --strict
 
 Tests set `CTF_WORK_ROOT`, `CTF_LOCAL_RUN_ROOT`, `CTF_LOCK_ROOT`,
 `CTF_SOLVED_WRITEUP_ROOT`, `CTF_LEASE_ROOT`, `CTF_QUEUE_ROOT`,
+`CTF_WORKER_ROOT`,
 `CTF_SOLVER_REPO_ROOT`, and `CTF_PLATFORM_CONFIG` to temp directories. They do
 not touch real HOME state such as `~/.ctf-solver`, `~/SolvedWriteUp`,
 `~/.agents`, `~/.claude`, or `~/.codex`.
