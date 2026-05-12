@@ -175,6 +175,51 @@ class Doctor:
         else:
             self.warn("Docker daemon off or unreachable (optional runtime dependency)")
 
+    def check_docker_gdb_smoke_availability(self) -> None:
+        enabled = os.environ.get("CTF_RUN_DOCKER_GDB_TESTS") == "1"
+        self.info(f"CTF_RUN_DOCKER_GDB_TESTS={'1' if enabled else 'not set'}")
+        docker = shutil.which("docker")
+        if not docker:
+            self.info("Docker GDB smoke unavailable: Docker CLI not found")
+            return
+        info = subprocess.run([docker, "info"], capture_output=True, text=True, timeout=10)
+        if info.returncode != 0:
+            self.info("Docker GDB smoke unavailable: Docker daemon is not reachable")
+            return
+        image = subprocess.run(
+            [docker, "image", "inspect", "ctf-pwn:latest"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if image.returncode != 0:
+            self.info("Docker GDB smoke unavailable: ctf-pwn:latest image not found")
+            return
+        self.ok("ctf-pwn:latest Docker image is available")
+        compiler = subprocess.run(
+            [
+                docker,
+                "run",
+                "--rm",
+                "--platform",
+                "linux/amd64",
+                "--network",
+                "none",
+                "ctf-pwn:latest",
+                "bash",
+                "-lc",
+                "command -v gcc >/dev/null 2>&1 && echo gcc || { command -v cc >/dev/null 2>&1 && echo cc; }",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        found = compiler.stdout.strip().splitlines()
+        if compiler.returncode == 0 and found:
+            self.ok(f"Docker GDB smoke compiler inside ctf-pwn:latest: {found[0]}")
+        else:
+            self.info("Docker GDB smoke will skip until gcc/cc is available inside ctf-pwn:latest")
+
     def check_playwright_runtime(self) -> None:
         script = ROOT / "scripts" / "browser_playwright_check.py"
         if not script.is_file():
@@ -289,6 +334,7 @@ class Doctor:
             "scripts/gdb_telescope.py",
             "scripts/gdb_close.py",
             "scripts/gdb_list.py",
+            "scripts/gdb_docker_smoke.py",
             "scripts/verify_run.py",
             "scripts/browser_daemon.py",
             "scripts/browser_start.py",
@@ -832,6 +878,7 @@ def main() -> int:
     doctor.check_personal_skill()
     doctor.check_external_skills()
     doctor.docker_status()
+    doctor.check_docker_gdb_smoke_availability()
     doctor.command_version("codex", optional=True)
     doctor.command_version("claude", optional=True)
     doctor.check_claude_mcp_registration()

@@ -5,6 +5,7 @@ ENV TZ=Asia/Seoul
 
 RUN apt-get update && apt-get install -y \
     binutils \
+    build-essential \
     curl \
     file \
     gdb \

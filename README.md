@@ -169,7 +169,17 @@ claude plugin marketplace add cyberkaida/reverse-engineering-assistant
 
 ```bash
 docker build --platform linux/amd64 -f Dockerfile.ctf -t ctf-pwn:latest .
+docker run --rm --platform linux/amd64 --network none ctf-pwn:latest bash -lc 'python3 -c "import pwn,z3,Crypto,gmpy2,sympy,requests,httpx; print(\"python-modules-ok\")"; gdb --version | head -1; pwninit --version; one_gadget --version; seccomp-tools --version; r2 -v | head -1'
 ```
+
+Pwn/GDB runtime smoke validation은 local toy crash binary만 대상으로 Docker 안의 실제 `gdb` 흐름을 확인합니다.
+
+```bash
+python3 scripts/gdb_docker_smoke.py --json
+CTF_RUN_DOCKER_GDB_TESTS=1 python3 -m pytest tests/test_gdb_docker_smoke.py -q
+```
+
+`ctf-pwn:latest`는 의도적으로 무거운 이미지입니다. `docker system prune -a`는 필요한 이미지까지 지울 수 있으므로 신중히 사용하고, 빌드 캐시 정리에는 `docker builder prune`이 더 안전합니다.
 
 #### 7. 설정 파일 생성/동기화
 

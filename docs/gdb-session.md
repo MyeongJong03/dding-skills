@@ -20,6 +20,29 @@ These roots should not be inside the repo. `scripts/doctor.py` reports the resol
 
 Docker mode checks that the Docker CLI, daemon, and `ctf-pwn:latest` image are available. If not, it returns a clear error; regression tests use mock mode by default.
 
+## Docker Runtime Smoke
+
+Build or rebuild the pwn image when needed:
+
+```bash
+docker build --platform linux/amd64 -f Dockerfile.ctf -t ctf-pwn:latest .
+docker run --rm --platform linux/amd64 --network none ctf-pwn:latest bash -lc 'python3 -c "import pwn,z3,Crypto,gmpy2,sympy,requests,httpx; print(\"python-modules-ok\")"; gdb --version | head -1; pwninit --version; one_gadget --version; seccomp-tools --version; r2 -v | head -1'
+```
+
+Validate the real Docker GDB runtime against a local toy crash binary:
+
+```bash
+python3 scripts/gdb_docker_smoke.py --json
+```
+
+Optional pytest validation is disabled by default and only runs when explicitly enabled:
+
+```bash
+CTF_RUN_DOCKER_GDB_TESTS=1 python3 -m pytest tests/test_gdb_docker_smoke.py -q
+```
+
+On macOS, Docker mode is preferred for pwn debugging. The smoke script compiles and debugs only a local toy binary; it does not attach GDB to live remote services or external CTF targets.
+
 ## CLI
 
 ```bash

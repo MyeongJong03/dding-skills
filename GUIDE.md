@@ -370,6 +370,15 @@ MCP 서버명은 `ctf_solver`이고 표시명은 CTF Solver다. 실제 파라미
 
 PWN crash refinement에는 GDB 전용 scaffold를 쓴다. 기본은 `ctf-pwn:latest` Docker mode이고, metadata/log는 `CTF_GDB_ROOT`, core/memory artifact는 `CTF_GDB_ARTIFACT_ROOT` 아래 local-only로 둔다. 사용 예시는 [docs/gdb-session.md](docs/gdb-session.md)를 기준으로 한다.
 
+Docker GDB runtime smoke validation은 실제 `ctf-pwn:latest` 이미지 안에서 local toy crash binary를 컴파일하고 `gdb_start` → `gdb_wait_crash` → registers/backtrace/vmmap/telescope → `gdb_close` 흐름을 확인한다. 기본 pytest에서는 skip되며, 명시적으로 실행할 때만 Docker/GDB를 사용한다.
+
+```bash
+docker build --platform linux/amd64 -f Dockerfile.ctf -t ctf-pwn:latest .
+docker run --rm --platform linux/amd64 --network none ctf-pwn:latest bash -lc 'python3 -c "import pwn,z3,Crypto,gmpy2,sympy,requests,httpx; print(\"python-modules-ok\")"; gdb --version | head -1; pwninit --version; one_gadget --version; seccomp-tools --version; r2 -v | head -1'
+python3 scripts/gdb_docker_smoke.py --json
+CTF_RUN_DOCKER_GDB_TESTS=1 python3 -m pytest tests/test_gdb_docker_smoke.py -q
+```
+
 ### ctf_solver 대표 툴
 
 | # | 툴 | 용도 | 주요 파라미터 |
@@ -857,6 +866,7 @@ dreamhack_vm 툴 사용:
 ```bash
 docker --version                       # 실행 확인
 # 안 나오면 Docker Desktop 먼저 실행
+python3 scripts/gdb_docker_smoke.py --json
 ```
 
 ### git push 인증 오류
@@ -1137,9 +1147,10 @@ sparseVhd 미사용 시에는 vhdx가 한 번 커지면 수동 `compact vdisk` �
 ### 주기적 정리 (문제 5~10개마다 권장)
 
 ```bash
-# Docker 관련 (가장 효과적)
-docker system prune -f          # 중지 컨테이너/미사용 이미지/네트워크 삭제
-docker builder prune -a -f      # 빌드 캐시 전체 삭제 (-a 필수, 더 많은 공간 회수)
+# Docker 관련
+docker builder prune -f         # 빌드 캐시 삭제, 이미지 보존 관점에서 더 안전
+docker system prune -f          # 중지 컨테이너/미사용 네트워크/댕글링 이미지 삭제
+# docker system prune -a 는 ctf-pwn:latest 같은 필요한 이미지도 제거할 수 있으므로 신중히 사용
 
 # apt/pip 캐시
 sudo apt clean

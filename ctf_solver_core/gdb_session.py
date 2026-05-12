@@ -422,6 +422,9 @@ def continue_gdb(gdb_session_id: str, *, timeout_ms: int = DEFAULT_TIMEOUT_MS, m
 def wait_crash(gdb_session_id: str, *, timeout_ms: int = 5000, max_bytes: int = DEFAULT_MAX_BYTES) -> dict[str, object]:
     result = run_gdb_cmd(gdb_session_id, "continue", timeout_ms=timeout_ms, max_bytes=max_bytes)
     crash = parse_crash(str(result.get("output") or ""))
+    if not crash.get("crashed") and "program is not being run" in str(result.get("output") or "").lower():
+        result = run_gdb_cmd(gdb_session_id, "run", timeout_ms=timeout_ms, max_bytes=max_bytes)
+        crash = parse_crash(str(result.get("output") or ""))
     metadata = load_gdb_session(gdb_session_id)
     if crash.get("crashed"):
         metadata["status"] = "crashed"

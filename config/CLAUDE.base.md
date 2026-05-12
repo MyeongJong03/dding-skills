@@ -85,8 +85,11 @@
 ## GDB / Pwn Debug Rules
 - Use GDB sessions for pwn crash analysis, register inspection, backtrace, vmmap, telescope, and exploit refinement.
 - Prefer Docker mode on macOS; it runs `gdb` inside `ctf-pwn:latest` with the selected workspace mounted at `/workspace`.
+- Before relying on Docker GDB mode, check the `ctf-pwn:latest` image and use `scripts/gdb_docker_smoke.py` for local runtime validation when needed.
 - Associate GDB sessions with `run_id` and `challenge_id` when available.
 - Debug local challenge binaries only. Do not run GDB sessions against external systems or live remote CTF targets.
+- Do not attach GDB to live remote services; use local challenge binaries only.
+- If Docker GDB smoke fails, fall back to mock/local analysis and report the concrete reason.
 - Bound all command output with `timeout_ms` and `max_bytes`; do not dump large memory by default.
 - Store GDB metadata/logs under `CTF_GDB_ROOT` or `~/.ctf-solver/gdb`; store core/memory artifacts under `CTF_GDB_ARTIFACT_ROOT` or `~/.ctf-solver/gdb-artifacts`.
 - Do not store raw core dumps, memory dumps, flags, exploit code, raw transcripts, or private logs in the repo.
