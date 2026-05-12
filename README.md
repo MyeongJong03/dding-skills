@@ -228,6 +228,17 @@ GitHub에 올릴 수 있는 것은 `metrics/summary.jsonl`과 `metrics/dashboard
 
 Codex는 `~/CTF/AGENTS.md`, Claude는 `~/CTF/CLAUDE.md`를 읽으며 두 파일은 `config/deploy.sh`가 같은 lifecycle enforcement content로 동기화합니다.
 
+## Solve verifier (P1-2)
+
+Solved claim 전에는 가능한 경우 verifier를 먼저 실행합니다. 결과는 private run directory의 `verifier.json`에 저장되고, raw evidence를 보존해야 할 때만 `--save`로 `<run_dir>/logs/verifier-output.txt`에 둡니다.
+
+```bash
+python3 scripts/verify_run.py --run-dir <run-dir> --mode command --command "python3 exploit.py" --cwd <workspace> --flag-regex 'DH\{[^}]+\}' --local
+python3 scripts/challenge_finalize.py --run-dir <run-dir> --status solved --require-verifier --generate-writeup --update-metrics
+```
+
+MCP tool `verify_run`도 command/session/manual mode를 지원합니다. Public metrics에는 verifier success/flag_found/target/attempts/duration summary만 들어가며, flag 원문, exploit code, raw output, private evidence path는 들어가지 않습니다. 자세한 내용은 [docs/verifier.md](docs/verifier.md)를 봅니다.
+
 ## Platform resource automation (P1-0.6)
 
 여러 터미널/worker가 같은 대회 리소스를 공유할 때는 platform policy, queue, lease helper를 사용합니다. THCON처럼 한 세션에서 VM/server 1개만 가능한 플랫폼은 `max_active_leases: 1`로 표현하고, remote lease를 못 받은 worker는 idle하지 않고 local-capable 문제의 triage/analysis/exploit planning을 먼저 진행합니다. `local_exploit_ready=true` 문제는 remote capacity가 풀릴 때 우선순위를 받습니다.

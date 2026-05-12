@@ -23,6 +23,7 @@ from ctf_solver_core.schemas import (
     json_dumps,
     read_json,
 )
+from ctf_solver_core.verifier import load_verifier_result, verifier_summary
 
 
 LANG_BY_SUFFIX = {
@@ -138,6 +139,31 @@ def _exploit_sections(exploit_paths: list[Path], copied: list[Path]) -> tuple[li
     return sections, records
 
 
+def _verification_section(run_dir: Path | None) -> list[str]:
+    verifier = load_verifier_result(run_dir) if run_dir else None
+    summary = verifier_summary(verifier, include_preview=True)
+    if not summary:
+        return ["TODO: paste local/remote verification evidence without raw secrets beyond the local-only flag if needed.", ""]
+
+    lines = [
+        f"- Verifier ID: `{summary.get('verifier_id')}`",
+        f"- Success: `{bool(summary.get('success'))}`",
+        f"- Flag found by regex: `{bool(summary.get('flag_found'))}`",
+        f"- Target: `{summary.get('target')}`",
+        f"- Mode: `{summary.get('mode')}`",
+        f"- Attempts: `{summary.get('attempts')}`",
+        f"- Duration: `{summary.get('duration_sec')}s`",
+    ]
+    if summary.get("evidence_path"):
+        lines.append(f"- Private evidence: `<run_dir>/{summary.get('evidence_path')}`")
+    preview = str(summary.get("output_preview") or "").strip()
+    if preview:
+        fence = _fence_for(preview)
+        lines.extend(["", "Redacted bounded output preview:", "", fence, preview, fence])
+    lines.append("")
+    return lines
+
+
 def generate_writeup(args: argparse.Namespace) -> dict[str, object]:
     run_dir = resolve_path(args.run_dir) if args.run_dir else None
     metadata = _load_metadata(run_dir)
@@ -164,6 +190,7 @@ def generate_writeup(args: argparse.Namespace) -> dict[str, object]:
         copied_paths = [_unique_destination(output_dir, exploit) for exploit in exploit_paths]
 
     exploit_markdown, exploit_records = _exploit_sections(exploit_paths, copied_paths)
+    verification_markdown = _verification_section(run_dir)
     flag_lines = []
     if args.flag and not args.exclude_flag:
         flag_lines = [
@@ -207,8 +234,7 @@ def generate_writeup(args: argparse.Namespace) -> dict[str, object]:
         "## Final Exploit Code",
         *exploit_markdown,
         "## Verification",
-        "TODO: paste local/remote verification evidence without raw secrets beyond the local-only flag if needed.",
-        "",
+        *verification_markdown,
         "## Failed Attempts",
         "TODO: summarize useful failed attempts and backtracking reasons.",
         "",

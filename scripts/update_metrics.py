@@ -29,6 +29,7 @@ from ctf_solver_core.schemas import (
     read_jsonl,
     validate_public_record,
 )
+from ctf_solver_core.verifier import load_verifier_result, verifier_summary
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -64,6 +65,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--session-bytes-read", type=int)
     parser.add_argument("--session-bytes-written", type=int)
     parser.add_argument("--closed-session-count", type=int)
+    parser.add_argument("--verifier-success", action="store_true")
+    parser.add_argument("--verifier-flag-found", action="store_true")
+    parser.add_argument("--verifier-target")
+    parser.add_argument("--verifier-attempts", type=int)
+    parser.add_argument("--verifier-duration-sec", type=float)
     parser.add_argument("--tool-call-counts-json")
     parser.add_argument("--model-tooling-summary")
     parser.add_argument("--include-challenge-name", action="store_true")
@@ -122,6 +128,10 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
     if isinstance(final.get("writeup"), dict):
         writeup_generated = writeup_generated or bool(final["writeup"].get("generated"))
         exploit_included = exploit_included or bool(final["writeup"].get("exploit_included"))
+    verifier = final.get("verifier") if isinstance(final.get("verifier"), dict) else None
+    if not verifier and run_dir:
+        verifier = load_verifier_result(run_dir)
+    verifier_info = verifier_summary(verifier)
 
     record: dict[str, object] = {
         "schema_version": 1,
@@ -146,6 +156,29 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         record["model_tooling_summary"] = args.model_tooling_summary
     if args.include_challenge_name and challenge_name:
         record["challenge_name"] = challenge_name
+
+    has_verifier_args = any(
+        [
+            getattr(args, "verifier_success", False),
+            getattr(args, "verifier_flag_found", False),
+            getattr(args, "verifier_target", None),
+            getattr(args, "verifier_attempts", None) is not None,
+            getattr(args, "verifier_duration_sec", None) is not None,
+        ]
+    )
+    if verifier_info or has_verifier_args:
+        record["verifier_success"] = bool(args.verifier_success or verifier_info.get("success"))
+        record["verifier_flag_found"] = bool(args.verifier_flag_found or verifier_info.get("flag_found"))
+        target = str(args.verifier_target or verifier_info.get("target") or "unknown")
+        record["verifier_target"] = target if target in {"local", "remote", "unknown"} else "unknown"
+        attempts = args.verifier_attempts
+        if attempts is None:
+            attempts = int(verifier_info.get("attempts") or 0)
+        record["verifier_attempts"] = max(0, int(attempts))
+        duration = args.verifier_duration_sec
+        if duration is None and isinstance(verifier_info.get("duration_sec"), (int, float)):
+            duration = float(verifier_info["duration_sec"])
+        record["verifier_duration_sec"] = max(0.0, round(float(duration or 0), 3))
 
     resource_metrics = final.get("resource_metrics")
     if not isinstance(resource_metrics, dict):

@@ -31,6 +31,8 @@ PROTECTED_NAMES = {
     "cleanup.json",
     "finalize.json",
     "run.json",
+    "verifier.json",
+    "verifier-output.txt",
 }
 PROTECTED_NAME_HINTS = ("final", "payload", "exploit", "solve", "solver", "original", "challenge")
 
@@ -171,4 +173,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -28,7 +28,7 @@
 - **ctf_solver**: python_exec, sage_exec, docker_pwn, docker_exec, netcat_interact,
   rsa_ctftool, binary_info, file_analysis, port_scan, hash_crack, http_request,
   cve_lookup, dns_lookup, trivy, dreamhack_vm, session_start, session_write,
-  session_read, session_expect, session_close, session_list
+  session_read, session_expect, session_close, session_list, verify_run
   - Codex에서 MCP가 직접 연결되지 않는 환경이면 같은 `server.py`와 `tools/*.py`를 CLI/Python helper처럼 사용한다.
   - docker_exec/docker_pwn은 persistent workspace(/workspace)를 공유함
   - sage_exec 기본 타임아웃 60초. LLL/Coppersmith 등 무거운 연산은 timeout_seconds 늘릴 것
@@ -51,7 +51,17 @@
 - Git sync may update only ctf-solver repo `metrics/`, `skills/`, `memory/`, `docs/`, `config/`, `scripts/`, `tools/`, and `ctf_solver_core/` plus top-level repo docs/config files.
 - In multi-terminal operation, do not mix artifacts from different `run_id` values.
 - If unsure whether a challenge is complete, ask the user, or finalize as `manual_stop`/`skipped` only when explicitly directed.
-- GDB-specific sessions, browser automation, and verifier full implementation are future work.
+- GDB-specific sessions, browser automation, and full queue runner are future work.
+
+## Verifier Rules
+- When claiming a challenge is solved, run verifier when possible.
+- Prefer `verify_run` before `status=solved` finalization.
+- If exploit exists, verify via command mode or session mode.
+- If only evidence from another terminal exists, use manual mode.
+- Store verifier results under the private `run_dir`; keep raw evidence local-only.
+- If `--require-verifier` is configured and verifier fails, do not mark the run solved unless explicitly forced.
+- Never place raw flag/output/exploit evidence in public metrics.
+- Do not move to the next challenge until finalization is complete.
 
 ## Persistent Session Rules
 - Use persistent sessions for interactive `nc` menus, Python/Sage REPL work, shell state, Docker shell state, and long-running local helper processes.

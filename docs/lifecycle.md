@@ -10,6 +10,10 @@ init -> solve -> finalize -> writeup -> cleanup -> metrics -> git sync -> next
 
 The next challenge should not start until finalization succeeds for the current run. Finalization is the mandatory handoff point that preserves useful artifacts, writes local notes, performs safe cleanup, and records public-safe metrics.
 
+When a solve is claimed, run `scripts/verify_run.py` first when possible. The
+verifier stores private solve evidence under `<run_dir>/verifier.json` and lets
+finalization, writeups, and metrics consume a redacted summary.
+
 ## Mandatory Finalization Before Next Challenge
 
 Every challenge end state must pass through `scripts/challenge_finalize.py` before another challenge starts in that terminal. This applies to successful and non-successful outcomes:
@@ -30,6 +34,9 @@ python3 scripts/challenge_finalize.py --run-dir <run-dir> --status solved --gene
 ```
 
 Finalization should generate a local writeup whenever there is enough information to produce one. If exploit files exist, pass them with `--exploit <path>` or keep them under `<run_dir>/exploit/` so the writeup includes the full exploit code.
+
+Use `--require-verifier` when solved status must be backed by a successful
+verifier. Without it, solved finalization warns if no successful verifier exists.
 
 By default finalization releases active remote leases for the run and marks a
 matching queue item as `finalized`. Use `--keep-lease` only for intentional
@@ -114,6 +121,10 @@ General CTF writeups use:
 
 Writeups may include the full final exploit code and local-only flag. They must not be automatically pushed to GitHub.
 
+If `<run_dir>/verifier.json` exists, generated writeups include a Verification
+section with verifier ID, target, mode, attempts, duration, and a redacted
+bounded output preview.
+
 ## Local-Only Writeup Policy
 
 Writeups, copied exploit files, flags, raw transcripts, private notes, and private run logs stay outside the repository. `~/SolvedWriteUp` and `CTF_SOLVED_WRITEUP_ROOT` are never valid git sync targets.
@@ -134,6 +145,11 @@ metrics/dashboard.md
 ```
 
 Public metrics may include timestamp, platform, event, category, status, duration, tool counts, cleanup bytes, writeup boolean, and exploit-included boolean. Public metrics must not include flags, exploit code, raw transcripts, cookies, tokens, account metadata, or private absolute paths.
+
+Verifier metrics are summary-only: `verifier_success`,
+`verifier_flag_found`, `verifier_target`, `verifier_attempts`, and
+`verifier_duration_sec`. Verifier raw evidence and private evidence paths are not
+public metrics.
 
 Session metrics are public-safe aggregate counters only: session count, closed
 session count, and byte counters. Session commands, transcripts, logs, flags,
@@ -192,3 +208,4 @@ CTF_AUTO_PUSH=1 python3 scripts/git_sync_metrics.py --push
 `git_sync_metrics.py` only stages public-safe repo paths. It does not stage `~/SolvedWriteUp`, private run logs, flags, copied writeup exploits, or raw transcripts.
 
 Persistent session details and examples are documented in `docs/sessions.md`.
+Verifier details and examples are documented in `docs/verifier.md`.

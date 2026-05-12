@@ -30,6 +30,7 @@ from ctf_solver_core.schemas import (
     read_json,
 )
 from ctf_solver_core.session_client import close_sessions_for_run
+from ctf_solver_core.verifier import load_verifier_result, verifier_summary
 from cleanup_challenge import cleanup
 from generate_writeup import generate_writeup
 from git_sync_metrics import git_sync
@@ -55,6 +56,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-push", action="store_true")
     parser.add_argument("--keep-lease", action="store_true", help="do not release active resource leases for this run")
     parser.add_argument("--keep-sessions", action="store_true", help="do not close persistent sessions for this run")
+    parser.add_argument(
+        "--require-verifier",
+        action="store_true",
+        help="fail solved finalization unless <run_dir>/verifier.json is successful",
+    )
     parser.add_argument("--force", action="store_true", help="replace an existing finalization for this run")
     parser.add_argument("--dry-run", action="store_true")
     return parser
@@ -133,6 +139,16 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
     )
     finalized_at = iso_now()
     exploits = _collect_exploits(run_dir, args.exploit)
+    verifier = load_verifier_result(run_dir)
+    verifier_info = verifier_summary(verifier, include_preview=True)
+    verifier_warnings: list[str] = []
+    verifier_success = bool(verifier_info.get("success"))
+    if args.status == "solved":
+        if not verifier_success:
+            warning = "status=solved without successful verifier"
+            verifier_warnings.append(warning)
+            if args.require_verifier and not args.force:
+                raise RuntimeError(f"{warning}; use --force to override")
 
     with DirectoryLock(f"finalize-{challenge_id}-{run_id}", "challenge finalization", wait_seconds=120):
         existing = _load_finalization(run_dir)
@@ -156,6 +172,8 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 "writeup": existing.get("writeup") or {},
                 "cleanup": existing.get("cleanup") or {},
                 "sessions": existing.get("sessions") or {},
+                "verifier": existing.get("verifier") or {},
+                "warnings": existing.get("warnings") or [],
                 "resource_release": existing.get("resource_release") or {},
                 "queue": existing.get("queue") or {},
                 "metrics": {"duplicate_skipped": True, "reason": "already finalized"},
@@ -356,6 +374,12 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "sessions": session_result or {},
             "session_metrics": session_metrics,
             "closed_session_count": session_metrics["closed_session_count"],
+            "verifier": verifier_info,
+            "verifier_success": verifier_success,
+            "verifier_flag_found": bool(verifier_info.get("flag_found")),
+            "verifier_target": str(verifier_info.get("target") or "unknown"),
+            "verifier_id": str(verifier_info.get("verifier_id") or ""),
+            "warnings": verifier_warnings,
             "resource_release": lease_release_result or {},
             "resource_warnings": resource_warnings,
             "resource_metrics": resource_metrics,
@@ -444,6 +468,8 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
         "writeup": writeup_result,
         "cleanup": cleanup_result,
         "sessions": session_result,
+        "verifier": verifier_info,
+        "warnings": verifier_warnings,
         "resource_release": lease_release_result,
         "queue": queue_result,
         "metrics": metrics_result,

@@ -24,6 +24,11 @@
 - optional `shared_remote_used`
 - optional `helper_workers_used`
 - optional `local_ready_before_remote`
+- optional `verifier_success`
+- optional `verifier_flag_found`
+- optional `verifier_target`
+- optional `verifier_attempts`
+- optional `verifier_duration_sec`
 - optional `model_tooling_summary`
 
 Challenge names are excluded by default. Use `--include-challenge-name` only for private repos or events where challenge names are intentionally public.
@@ -42,10 +47,15 @@ Do not put the following in public metrics:
 - account email, account UUID, organization UUID
 - detailed artifact paths
 - private remote URLs or secret-bearing lease metadata
+- verifier raw output, raw evidence path, or exploit command
 
 `scripts/update_metrics.py --check` validates existing public metrics before git sync.
 
 Metrics writes use a global lock and atomic file replacement. Public records must remain free of private absolute paths even when generated from private run directories.
+
+Verifier fields are copied only as public-safe summaries from
+`<run_dir>/verifier.json` or finalization state. `verifier_flag_found` is a
+boolean and must never be replaced with the flag text.
 
 ## Dashboard
 

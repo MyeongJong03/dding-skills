@@ -183,6 +183,7 @@ class Doctor:
             "scripts/session_expect.py",
             "scripts/session_close.py",
             "scripts/session_list.py",
+            "scripts/verify_run.py",
         ]
         for relative in scripts:
             self.require_file(relative)
@@ -205,9 +206,11 @@ class Doctor:
             "ctf_solver_core/sessions.py",
             "ctf_solver_core/session_daemon.py",
             "ctf_solver_core/session_client.py",
+            "ctf_solver_core/verifier.py",
             "config/platforms.example.yaml",
             "docs/platform-automation.md",
             "docs/sessions.md",
+            "docs/verifier.md",
         ]:
             self.require_file(relative)
 
@@ -448,6 +451,11 @@ class Doctor:
             self.ok(f"server.py MCP name is {CANONICAL_MCP_NAME}")
         else:
             self.fail(f"server.py MCP name is not {CANONICAL_MCP_NAME}")
+        tools_doc = ROOT / "docs" / "tools.md"
+        if tools_doc.is_file() and "`verify_run`" in tools_doc.read_text(encoding="utf-8", errors="replace"):
+            self.ok("docs/tools.md includes verify_run")
+        else:
+            self.fail("docs/tools.md missing verify_run; run scripts/dump_mcp_tools.py --write")
 
         checked_paths = [
             ROOT / "server.py",

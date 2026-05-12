@@ -357,7 +357,7 @@ url = "http://localhost:18080/mcp/message"
 
 MCP 서버명은 `ctf_solver`이고 표시명은 CTF Solver다. 실제 파라미터는 코드에서 생성한 [docs/tools.md](docs/tools.md)를 기준으로 삼고, README/GUIDE에는 긴 schema를 중복 유지하지 않는다.
 
-### ctf_solver 툴 (21개)
+### ctf_solver 툴 (22개)
 
 | # | 툴 | 용도 | 주요 파라미터 |
 | --- | --- | --- | --- |
@@ -382,6 +382,7 @@ MCP 서버명은 `ctf_solver`이고 표시명은 CTF Solver다. 실제 파라미
 | 19 | `session_expect` | 패턴까지 읽기 | `session_id`, `patterns`, `timeout_ms`, `max_bytes` |
 | 20 | `session_close` | session 종료 | `session_id`, `reason` |
 | 21 | `session_list` | session 목록/필터 | `run_id`, `challenge_id`, `include_closed` |
+| 22 | `verify_run` | solve evidence 검증 | `mode`, `run_dir`, `command`, `session_id`, `flag_regex` |
 
 최신 schema 재생성:
 
@@ -523,6 +524,15 @@ Writeup은 `~/SolvedWriteUp` 또는 `CTF_SOLVED_WRITEUP_ROOT` 아래 local-only�
 GitHub에 올릴 수 있는 것은 `metrics/summary.jsonl`, `metrics/dashboard.md` 같은 public-safe aggregate metrics뿐이다. 기본 metrics에는 challenge name도 넣지 않는다. Metrics에는 `run_id`가 들어가며 같은 `run_id`는 중복 append하지 않는다. 교체가 필요할 때만 `--replace` 또는 `--force`를 쓴다.
 
 `challenge_finalize.py`는 이미 같은 status로 finalize된 run이면 no-op으로 끝나고 duplicate metrics를 만들지 않는다. 다른 status로 바꾸려면 `--force`가 필요하다.
+
+Solved claim 전에는 가능한 경우 `verify_run`을 먼저 실행한다. 결과는 `<run_dir>/verifier.json`에 저장되고, raw evidence가 필요할 때만 `--save`로 `<run_dir>/logs/verifier-output.txt`에 둔다. `challenge_finalize.py --require-verifier`는 solved 상태에 성공한 verifier를 요구한다.
+
+```bash
+python3 scripts/verify_run.py --run-dir <run-dir> --mode command --command "python3 exploit.py" --cwd <workspace> --flag-regex 'DH\{[^}]+\}' --local
+python3 scripts/verify_run.py --run-dir <run-dir> --mode manual --evidence-text "verified marker" --success-regex verified --remote
+```
+
+Verifier summary는 writeup의 Verification section과 public-safe metrics(`verifier_success`, `verifier_flag_found`, `verifier_target`, `verifier_attempts`, `verifier_duration_sec`)에 반영된다. Public metrics에는 flag 원문, exploit code, raw output, private evidence path를 넣지 않는다.
 
 Codex는 `~/CTF/AGENTS.md`, Claude는 `~/CTF/CLAUDE.md`를 읽는다. 두 파일은 `config/deploy.sh`가 같은 generated lifecycle enforcement content로 동기화한다.
 

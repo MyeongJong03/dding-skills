@@ -29,6 +29,7 @@ MCP server name: `ctf_solver`
 | `session_start` | `tools/session_tools.py` | `session_start(kind: str, command: str = None, cwd: str = None, run_id: str = None, challenge_id: str = None, worker_id: str = None, host: str = None, port: str = None, image: str = None, workspace: str = None, timeout_ms: int = 1000, env_json: str = None) -> str` | Start a persistent local session via the loopback-only session daemon. kind: shell, python, sage, nc, or docker-shell. Associate run_id/challenge_id when solving a tracked challenge. |
 | `session_write` | `tools/session_tools.py` | `session_write(session_id: str, data: str, newline: bool = True, encoding: str = 'text') -> str` | Write text or base64 data to a persistent session. newline defaults to true for menu prompts and REPL commands. |
 | `trivy` | `tools/trivy_scan.py` | `trivy(file_path: str) -> str` | Trivy를 사용하여 의존성 파일(package.json, requirements.txt 등)의 알려진 취약점(CVE)을 스캔합니다. |
+| `verify_run` | `tools/verify_run.py` | `verify_run(mode: str, run_dir: str = None, command: str = None, cwd: str = None, timeout_sec: int = 30, retries: int = 0, flag_regex: str = None, success_regex: str = None, fail_regex: str = None, session_id: str = None, session_input: str = None, expect: list[str] = None, evidence_text: str = None, target: str = 'unknown', local: bool = False, remote: bool = False, label: str = '', save: bool = True, save_evidence: bool = False, max_output_bytes: int = 8000) -> str` | Verify solve evidence for a tracked challenge run. Supports command, session, and manual modes. Output is bounded and redacted; raw flag values and raw transcripts are not returned by default. |
 
 ## Details
 
@@ -283,4 +284,16 @@ newline defaults to true for menu prompts and REPL commands.
 ```text
 Trivy를 사용하여 의존성 파일(package.json, requirements.txt 등)의
 알려진 취약점(CVE)을 스캔합니다.
+```
+
+### `verify_run`
+
+- Module: `tools/verify_run.py`
+- Signature: `verify_run(mode: str, run_dir: str = None, command: str = None, cwd: str = None, timeout_sec: int = 30, retries: int = 0, flag_regex: str = None, success_regex: str = None, fail_regex: str = None, session_id: str = None, session_input: str = None, expect: list[str] = None, evidence_text: str = None, target: str = 'unknown', local: bool = False, remote: bool = False, label: str = '', save: bool = True, save_evidence: bool = False, max_output_bytes: int = 8000) -> str`
+- Docstring:
+
+```text
+Verify solve evidence for a tracked challenge run.
+Supports command, session, and manual modes. Output is bounded and redacted;
+raw flag values and raw transcripts are not returned by default.
 ```
