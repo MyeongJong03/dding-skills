@@ -91,10 +91,28 @@ destinations are refused unless `--allow-repo-dest` is explicit.
 ## Live Mode
 
 Regression tests must use local fixtures only. Live CTFd smoke work is manual
-and opt-in. Supplying a live URL without opt-in returns
+and opt-in through `scripts/platform_live_smoke.py`. Without `--live`, the smoke
+command validates policy/profile metadata and does not open the URL. Supplying a
+live URL directly to the adapter without opt-in returns
 `ctfd_live_mode_requires_opt_in`; opting in currently returns
 `ctfd_live_network_not_implemented` until the live fetch path is deliberately
 implemented.
+
+```bash
+python3 scripts/platform_live_smoke.py \
+  --platform ctfd \
+  --event local-fixture \
+  --adapter ctfd \
+  --policy ~/.ctf-solver/platforms/ctfd.yaml \
+  --profile main \
+  --base-url https://ctfd.example.invalid \
+  --mode discovery \
+  --live \
+  --json
+```
+
+Smoke mode never submits flags. Downloads require `--allow-download`; server
+acquire requires `--allow-server-acquire` and the normal resource lease policy.
 
 Store authentication outside the repo. Use `browser_state_init.py` for local
 profile metadata, or provide any future cookie header through an environment

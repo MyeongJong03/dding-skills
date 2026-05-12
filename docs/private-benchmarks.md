@@ -8,6 +8,12 @@ This scaffold does not run Codex, Claude, Docker, GDB, browsers, or live CTF
 targets. It only creates pack structure, validates manifests, exports
 public-safe summaries, and compares before/after result snapshots.
 
+Manual live platform smoke results are separate from benchmark packs. If a smoke
+check is useful context, record only public-safe counters such as
+`live_smoke_success` and `live_smoke_discovered_count` in metrics. Keep
+`CTF_LIVE_SMOKE_ROOT` outside the repo, and do not copy raw smoke result
+directories into benchmark packs.
+
 ## Storage Policy
 
 - Private pack root: `CTF_BENCHMARK_ROOT`, default `Path.home() / ".ctf-solver" / "benchmarks"`

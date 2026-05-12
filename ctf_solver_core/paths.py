@@ -83,6 +83,10 @@ def web_workflow_root() -> Path:
     return _env_path("CTF_WEB_WORKFLOW_ROOT", Path.home() / ".ctf-solver" / "web-workflows")
 
 
+def live_smoke_root() -> Path:
+    return _env_path("CTF_LIVE_SMOKE_ROOT", Path.home() / ".ctf-solver" / "live-smoke")
+
+
 def private_metrics_root() -> Path:
     return _env_path("CTF_PRIVATE_METRICS_ROOT", Path.home() / ".ctf-solver" / "metrics-private")
 

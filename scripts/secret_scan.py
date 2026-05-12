@@ -69,6 +69,14 @@ PATH_RULES = [
         ),
     ),
     Rule("private_benchmark_manifest", re.compile(r"(^|/)benchmark_pack\.ya?ml$", re.IGNORECASE)),
+    Rule(
+        "live_smoke_raw_response_file",
+        re.compile(
+            r"(^|/)(live[-_]?smoke|live_smoke)(/|.*)"
+            r"(raw[-_]?response|response[-_]?body|cookies?|storage[-_]?state).*\.(json|txt|html|har)$",
+            re.IGNORECASE,
+        ),
+    ),
 ]
 
 

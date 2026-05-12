@@ -34,6 +34,12 @@ For THCON-like platforms, set `resources.remote_server.max_active_leases: 1`,
 `lease_scope: event`, and `release_required_before_next: true`. Workers must not
 create a second remote server while an event-scoped lease is active.
 
+Before attaching a real site adapter, use `scripts/platform_live_smoke.py` in
+dry-run mode. Add `--live` only for explicit manual smoke checks; smoke mode
+never submits flags, and download/server-acquire checks require separate
+`--allow-download` or `--allow-server-acquire` flags. See
+`docs/live-smoke.md`.
+
 ## Local-First Scheduling
 
 Workers should ask the queue before idling:

@@ -166,6 +166,18 @@
 - Browser automation live external use is explicit/manual, not regression test.
 - Real site adapters, live browser login automation, live smoke tests, full browser solver, and full exploit solver are explicit/manual future steps, not regression tests.
 
+## Live Platform Smoke Rules
+- Never run live platform smoke against an external CTF site without explicit user approval and `--live`.
+- Start with `scripts/platform_live_smoke.py --mode dry-run` or the same command without `--live`; dry-run must not access external network.
+- Smoke mode must never submit flags, even when `automation.allow_submission: true`.
+- Do not print cookies, tokens, bearer headers, OAuth values, passwords, account metadata, private URLs with secrets, or browser storage state contents.
+- Browser profile checks may verify metadata and storage-state file existence only; never read storage-state contents.
+- Download smoke requires explicit `--allow-download`; server acquire smoke requires explicit `--allow-server-acquire`.
+- Respect platform resource leases. Do not create a second server when `resources.remote_server.max_active_leases=1` already has an active scoped lease.
+- Store live smoke results under `CTF_LIVE_SMOKE_ROOT` or `~/.ctf-solver/live-smoke`, outside the repo.
+- Record only public-safe smoke summaries in metrics: counts, mode, success boolean, and server-acquire attempted boolean.
+- Regression tests must remain mock/local only and must not contact live CTF sites.
+
 ## Performance / Benchmark Rules
 - After each challenge finalization, record public-safe metrics when enough data exists.
 - If `benchmark_id` is known, record a benchmark result with `scripts/benchmark_record_result.py` or pass `--benchmark-id` to `challenge_finalize.py`.

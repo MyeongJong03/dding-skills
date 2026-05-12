@@ -99,6 +99,7 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │   ├── web_browser_probe.py / web_evidence_collect.py / web_workflow_close.py
 │   ├── platform_discover.py / platform_download.py / platform_submit.py
 │   ├── platform_server_acquire.py / platform_server_release.py / platform_server_status.py
+│   ├── platform_live_smoke.py
 │   └── resource_acquire.py / resource_heartbeat.py / resource_reclaim_stale.py / resource_release.py
 ├── metrics/                      # GitHub push 가능한 public-safe metrics
 ├── docs/
@@ -632,6 +633,8 @@ python3 scripts/callback_close.py --listener-id "$LISTENER_ID" --json
 ### Platform resource automation
 
 P1-0.6부터는 여러 터미널/worker가 같은 플랫폼 리소스를 안전하게 공유하도록 policy, queue, lease scaffold를 사용한다. Login/session storage는 repo에 넣지 않고, 실제 사이트 adapter와 live browser login은 별도 manual phase로 둔다.
+
+Live platform smoke는 `scripts/platform_live_smoke.py`를 사용한다. 항상 dry-run부터 실행하고, `--live`가 없으면 외부 CTF 사이트에 접속하지 않는다. Smoke mode에서는 `automation.allow_submission: true`여도 flag submit을 수행하지 않는다. Download는 `--allow-download`, server acquire는 `--allow-server-acquire`가 별도로 있어야 하며, 결과는 `CTF_LIVE_SMOKE_ROOT` 또는 `~/.ctf-solver/live-smoke` 아래 local-only로 저장한다. 자세한 내용은 `docs/live-smoke.md`를 기준으로 한다.
 
 THCON처럼 한 세션에서 server/VM 하나만 가능한 대회는 `max_active_leases: 1`, `lease_scope: event`로 설정한다. Remote lease를 못 받은 worker는 idle하지 않고 `local_capable=true` 문제의 정찰, 정적 분석, exploit planning, local skeleton 작성을 진행한다. `local_exploit_ready=true` 문제는 remote lease 우선순위가 올라간다.
 

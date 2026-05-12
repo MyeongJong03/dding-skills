@@ -28,6 +28,7 @@ from ctf_solver_core.paths import (
     ai_usage_root,
     is_inside_repo,
     lease_root,
+    live_smoke_root,
     local_run_root,
     lock_root,
     metrics_root,
@@ -48,6 +49,7 @@ from ctf_solver_core.browser_state import browser_profile_count
 from ctf_solver_core.callback_client import status as callback_daemon_status
 from ctf_solver_core.callbacks import active_listener_count
 from ctf_solver_core.gdb_session import active_gdb_session_count
+from ctf_solver_core.live_smoke import live_smoke_result_count
 from ctf_solver_core.platform_automation import download_metadata_count, platform_server_record_count
 from ctf_solver_core.platform_adapters import get_adapter
 from ctf_solver_core.platforms import platform_config_path, validate_platform_config
@@ -373,6 +375,7 @@ class Doctor:
             "scripts/platform_server_status.py",
             "scripts/platform_submit.py",
             "scripts/platform_smoke_test.py",
+            "scripts/platform_live_smoke.py",
             "scripts/benchmark_init.py",
             "scripts/benchmark_record_result.py",
             "scripts/benchmark_report.py",
@@ -425,6 +428,7 @@ class Doctor:
             "ctf_solver_core/browser_state.py",
             "ctf_solver_core/platform_automation.py",
             "ctf_solver_core/platform_adapters.py",
+            "ctf_solver_core/live_smoke.py",
             "ctf_solver_core/adapters/ctfd.py",
             "config/platforms.example.yaml",
             "docs/platform-automation.md",
@@ -433,6 +437,7 @@ class Doctor:
             "docs/callback-listener.md",
             "docs/web-exploit-workflow.md",
             "docs/ctfd-adapter.md",
+            "docs/live-smoke.md",
             "docs/worker-runner.md",
             "docs/sessions.md",
             "docs/gdb-session.md",
@@ -525,6 +530,7 @@ class Doctor:
         callbacks = callback_root()
         callbackd = callbackd_root()
         web_workflows = web_workflow_root()
+        live_smoke = live_smoke_root()
         platform_auto = platform_automation_root()
         downloads = download_root()
         self.info(f"writeup root: {display_path(writeup_root)}")
@@ -547,6 +553,7 @@ class Doctor:
         self.info(f"callback root: {display_path(callbacks)}")
         self.info(f"callback daemon root: {display_path(callbackd)}")
         self.info(f"web workflow root: {display_path(web_workflows)}")
+        self.info(f"live smoke root: {display_path(live_smoke)}")
         self.info(f"platform automation root: {display_path(platform_auto)}")
         self.info(f"download root: {display_path(downloads)}")
 
@@ -599,6 +606,8 @@ class Doctor:
             self.warn("callback daemon root is inside repo; prefer ~/.ctf-solver/callbackd or CTF_CALLBACKD_ROOT outside repo")
         if is_inside_repo(web_workflows):
             self.warn("web workflow root is inside repo; prefer ~/.ctf-solver/web-workflows or CTF_WEB_WORKFLOW_ROOT outside repo")
+        if is_inside_repo(live_smoke):
+            self.warn("live smoke root is inside repo; prefer ~/.ctf-solver/live-smoke or CTF_LIVE_SMOKE_ROOT outside repo")
         if is_inside_repo(platform_auto):
             self.warn("platform automation root is inside repo; prefer ~/.ctf-solver/platforms or CTF_PLATFORM_AUTOMATION_ROOT outside repo")
         if is_inside_repo(downloads):
@@ -680,6 +689,7 @@ class Doctor:
             self.warn(f"could not inspect lease counts safely: {exc}")
         try:
             self.info(f"browser profile metadata count: {browser_profile_count()}")
+            self.info(f"live smoke result count: {live_smoke_result_count()}")
             self.info(f"platform server record count: {platform_server_record_count()}")
             self.info(f"download metadata count: {download_metadata_count()}")
         except Exception as exc:

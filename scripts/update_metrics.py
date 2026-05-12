@@ -106,6 +106,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ctfd-submit-attempted", action="store_true")
     parser.add_argument("--submission-policy")
     parser.add_argument("--platform-adapter")
+    parser.add_argument("--live-smoke-count", type=int)
+    parser.add_argument("--live-smoke-mode")
+    parser.add_argument("--live-smoke-success", action="store_true")
+    parser.add_argument("--live-smoke-discovered-count", type=int)
+    parser.add_argument("--live-smoke-downloaded-count", type=int)
+    parser.add_argument("--live-smoke-server-acquire-attempted", action="store_true")
     parser.add_argument("--verifier-success", action="store_true")
     parser.add_argument("--verifier-flag-found", action="store_true")
     parser.add_argument("--verifier-target")
@@ -328,6 +334,9 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         "downloaded_bytes": getattr(args, "downloaded_bytes", None),
         "ctfd_challenge_count": getattr(args, "ctfd_challenge_count", None),
         "ctfd_download_count": getattr(args, "ctfd_download_count", None),
+        "live_smoke_count": getattr(args, "live_smoke_count", None),
+        "live_smoke_discovered_count": getattr(args, "live_smoke_discovered_count", None),
+        "live_smoke_downloaded_count": getattr(args, "live_smoke_downloaded_count", None),
     }
     for key, value in optional_ints.items():
         if value is None and isinstance(resource_metrics.get(key), int):
@@ -411,6 +420,18 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         record["submission_attempted"] = True
     if ctfd_submit_attempted:
         record["ctfd_submit_attempted"] = True
+    live_smoke_success = bool(getattr(args, "live_smoke_success", False) or platform_metrics.get("live_smoke_success"))
+    live_smoke_server_acquire_attempted = bool(
+        getattr(args, "live_smoke_server_acquire_attempted", False)
+        or platform_metrics.get("live_smoke_server_acquire_attempted")
+    )
+    if live_smoke_success:
+        record["live_smoke_success"] = True
+    if live_smoke_server_acquire_attempted:
+        record["live_smoke_server_acquire_attempted"] = True
+    live_smoke_mode = str(getattr(args, "live_smoke_mode", "") or platform_metrics.get("live_smoke_mode") or "")
+    if live_smoke_mode:
+        record["live_smoke_mode"] = live_smoke_mode
     submission_policy = str(getattr(args, "submission_policy", "") or platform_metrics.get("submission_policy") or "")
     if submission_policy:
         record["submission_policy"] = submission_policy

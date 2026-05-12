@@ -107,6 +107,7 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
     callbacks = tmp_path / "callbacks"
     callbackd = tmp_path / "callbackd"
     web_workflows = tmp_path / "web-workflows"
+    live_smoke = home / ".ctf-solver" / "live-smoke"
     private_metrics = tmp_path / "metrics-private"
     ai_usage = tmp_path / "ai-usage"
     private_benchmarks = tmp_path / "benchmarks-private"
@@ -135,6 +136,7 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         callbacks,
         callbackd,
         web_workflows,
+        live_smoke,
         private_metrics,
         ai_usage,
         private_benchmarks,
@@ -165,6 +167,7 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         "CTF_CALLBACK_ROOT": str(callbacks),
         "CTF_CALLBACKD_ROOT": str(callbackd),
         "CTF_WEB_WORKFLOW_ROOT": str(web_workflows),
+        "CTF_LIVE_SMOKE_ROOT": str(live_smoke),
         "CTF_PRIVATE_METRICS_ROOT": str(private_metrics),
         "CTF_AI_USAGE_ROOT": str(ai_usage),
         "CTF_BENCHMARK_ROOT": str(private_benchmarks),
@@ -202,6 +205,7 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         callbacks=callbacks,
         callbackd=callbackd,
         web_workflows=web_workflows,
+        live_smoke=live_smoke,
         private_metrics=private_metrics,
         ai_usage=ai_usage,
         private_benchmarks=private_benchmarks,

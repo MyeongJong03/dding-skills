@@ -23,6 +23,7 @@ metadata and runs mock/local fixtures.
 | Browser action session metadata | `Path.home() / ".ctf-solver" / "browser"` | `CTF_BROWSER_ROOT` |
 | Browser screenshots/artifacts | `Path.home() / ".ctf-solver" / "browser-artifacts"` | `CTF_BROWSER_ARTIFACT_ROOT` |
 | Browser profile metadata | `Path.home() / ".ctf-solver" / "browser-states"` | `CTF_BROWSER_STATE_ROOT` |
+| Live platform smoke results | `Path.home() / ".ctf-solver" / "live-smoke"` | `CTF_LIVE_SMOKE_ROOT` |
 | Platform automation records | `Path.home() / ".ctf-solver" / "platforms"` | `CTF_PLATFORM_AUTOMATION_ROOT` |
 | Downloaded private challenge files | `Path.home() / "CTF" / "downloads"` | `CTF_DOWNLOAD_ROOT` |
 
@@ -266,6 +267,12 @@ Public metrics may include:
 - `ctfd_submit_attempted`
 - `submission_policy`
 - `platform_adapter`
+- `live_smoke_count`
+- `live_smoke_mode`
+- `live_smoke_success`
+- `live_smoke_discovered_count`
+- `live_smoke_downloaded_count`
+- `live_smoke_server_acquire_attempted`
 - `browser_session_count`
 - `browser_actions_count`
 - `browser_screenshot_count`
@@ -277,20 +284,29 @@ or transcripts.
 
 ## Manual Smoke Tests
 
-`platform_smoke_test.py` is dry-run only by default. It prints planned checks for
-manual adapter validation and does not perform live network activity.
+`platform_smoke_test.py` is the legacy dry-run-only scaffold. The manual opt-in
+framework is `platform_live_smoke.py`. Start with dry-run:
 
 ```bash
 python3 scripts/platform_smoke_test.py --platform thcon --event THCON --adapter generic
+python3 scripts/platform_live_smoke.py --platform ctfd --event local-fixture --adapter ctfd --mode discovery --base-url https://ctfd.example.invalid --json
 ```
 
-Live CTFd smoke tests are future manual work, must require `--live`, and must not
-be regression tests.
+`platform_live_smoke.py --live` is required before any live network-capable
+adapter path may run. Smoke mode never submits flags. Download requires
+`--allow-download`; server acquire requires `--allow-server-acquire` and still
+respects `max_active_leases`. Browser profile metadata is checked through
+`browser_state_check`-equivalent helpers without reading storage state contents.
+Results are written under `CTF_LIVE_SMOKE_ROOT` and only public-safe summaries
+may be reflected in metrics. Regression tests remain mock/local only.
+
+See [live-smoke.md](live-smoke.md).
 
 ## Limitations
 
 - Real Dreamhack and THCON-like adapters are future work.
-- CTFd live network access is a manual opt-in future path.
+- CTFd live network access is manual opt-in through live smoke until a real
+  adapter path is deliberately implemented.
 - Real site browser login automation is optional future work.
 - No live network regression tests.
 - No default flag auto-submit.

@@ -72,6 +72,12 @@
 - optional `ctfd_submit_attempted`
 - optional `submission_policy`
 - optional `platform_adapter`
+- optional `live_smoke_count`
+- optional `live_smoke_mode`
+- optional `live_smoke_success`
+- optional `live_smoke_discovered_count`
+- optional `live_smoke_downloaded_count`
+- optional `live_smoke_server_acquire_attempted`
 - optional `model_tooling_summary`
 
 Challenge names are excluded by default. Use `--include-challenge-name` only for private repos or events where challenge names are intentionally public.
