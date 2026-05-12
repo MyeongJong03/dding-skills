@@ -8,8 +8,8 @@ CTF 문제 풀이를 위한 Codex-first, Claude-compatible AI 에이전트 세�
 ```
 dding-skills/
 ├── server.py              # MCP 서버 진입점
-├── tools/                 # MCP 툴 15개
-├── ctf_solver_core/       # lifecycle path/lock/schema helpers
+├── tools/                 # MCP 툴
+├── ctf_solver_core/       # lifecycle path/lock/schema/session helpers
 ├── scripts/               # doctor + lifecycle/finalization CLIs
 ├── metrics/               # public-safe metrics and dashboard
 ├── docs/                  # tools/lifecycle/metrics/platform automation docs
@@ -38,6 +38,7 @@ Codex (primary)
   │
   └─ MCP/CLI helper 호출
          └─ ctf_solver (CTF Solver) ───→  server.py → tools/*.py
+                                      └─ persistent session daemon (127.0.0.1)
 ```
 
 `~/CTF/CLAUDE.md`는 심볼릭 링크가 아니라 `config/deploy.sh`가 `config/{mac|windows}/env.md`와 `config/CLAUDE.base.md`를 합쳐 생성하는 실제 파일입니다.
@@ -195,6 +196,10 @@ bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 | `CTF_LEASE_HEARTBEAT_INTERVAL_SEC` | lease heartbeat 권장 주기 | `30` |
 | `CTF_LEASE_STALE_AFTER_SEC` | heartbeat 중단 후 stale 판정 시간 | `180` |
 | `CTF_QUEUE_ROOT` | challenge queue 루트 | `~/.ctf-solver/queue` |
+| `CTF_SESSION_ROOT` | persistent session metadata 루트 | `~/.ctf-solver/sessions` |
+| `CTF_SESSIOND_ROOT` | session daemon state 루트 | `~/.ctf-solver/sessiond` |
+| `CTF_SESSIOND_HOST` | session daemon bind host | `127.0.0.1` |
+| `CTF_SESSIOND_PORT` | session daemon bind port | `0` 자동 할당 |
 | `CTF_PLATFORM_CONFIG` | repo 밖 platform policy YAML | unset (`config/platforms.example.yaml` for schema/example) |
 | `CTF_SOLVED_WRITEUP_ROOT` | local-only writeup 루트 | `~/SolvedWriteUp` |
 | `CTF_METRICS_MODE` | public metrics 업데이트 모드 | `public` |
@@ -243,6 +248,19 @@ python3 scripts/queue_history.py --tail 20
 python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCON --all-for-run
 ```
 
+## Persistent sessions (P1-1)
+
+Interactive nc menus, Python/Sage REPLs, shell state, Docker shell state, and long-running local helper processes can be kept alive through a loopback-only session daemon. The daemon stores local state under `~/.ctf-solver/sessiond`, session metadata under `~/.ctf-solver/sessions`, and does not write raw transcripts by default.
+
+```bash
+sid=$(python3 scripts/session_start.py shell --run-id "$RUN_ID")
+python3 scripts/session_write.py "$sid" "echo hello"
+python3 scripts/session_expect.py "$sid" hello --timeout-ms 1000
+python3 scripts/session_close.py "$sid"
+```
+
+MCP tools mirror the CLI: `session_start`, `session_write`, `session_read`, `session_expect`, `session_close`, and `session_list`. `challenge_finalize.py` closes sessions for the run unless `--keep-sessions` is supplied. Details are in [docs/sessions.md](docs/sessions.md).
+
 ## 점검 및 공유 전 redaction
 
 ```bash
@@ -253,7 +271,7 @@ python3 scripts/redact_sensitive.py --self-test
 python3 scripts/redact_sensitive.py audit-pack.txt > audit-pack.redacted.txt
 ```
 
-Regression tests는 temp env roots를 사용하며 실제 HOME의 `~/.ctf-solver`, `~/SolvedWriteUp`, `~/.agents`, `~/.claude`, `~/.codex`를 건드리지 않습니다. P1 persistent session 변경 전에는 `python3 -m pytest tests`와 `python3 scripts/secret_scan.py --strict`를 먼저 실행합니다.
+Regression tests는 temp env roots를 사용하며 실제 HOME의 `~/.ctf-solver`, `~/SolvedWriteUp`, `~/.agents`, `~/.claude`, `~/.codex`를 건드리지 않습니다. lifecycle/resource/session 변경 후에는 `python3 -m pytest tests`와 `python3 scripts/secret_scan.py --strict`를 실행합니다.
 
 audit pack이나 설정을 공유하기 전에는 API key뿐 아니라 email, account UUID, organization UUID, referral code, billing/subscription metadata도 redaction 대상입니다. `~/.claude.json`, `~/.codex/config.toml`, browser storage state, cookies, tokens 원문은 paste하거나 commit하지 않습니다.
 

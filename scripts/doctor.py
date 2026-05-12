@@ -23,11 +23,14 @@ from ctf_solver_core.paths import (
     lock_root,
     metrics_root,
     queue_root,
+    session_root,
+    sessiond_root,
     solved_writeup_root,
 )
 from ctf_solver_core.platforms import platform_config_path, validate_platform_config
 from ctf_solver_core.resources import detect_stale_leases, list_leases
 from ctf_solver_core.schemas import read_jsonl, validate_public_record
+from ctf_solver_core.session_client import status as session_daemon_status
 
 HOME = Path.home()
 CTF_DIR = HOME / "CTF"
@@ -173,6 +176,13 @@ class Doctor:
             "scripts/queue_history.py",
             "scripts/secret_scan.py",
             "scripts/doctor.py",
+            "scripts/session_daemon.py",
+            "scripts/session_start.py",
+            "scripts/session_write.py",
+            "scripts/session_read.py",
+            "scripts/session_expect.py",
+            "scripts/session_close.py",
+            "scripts/session_list.py",
         ]
         for relative in scripts:
             self.require_file(relative)
@@ -192,8 +202,12 @@ class Doctor:
             "ctf_solver_core/platforms.py",
             "ctf_solver_core/resources.py",
             "ctf_solver_core/queue.py",
+            "ctf_solver_core/sessions.py",
+            "ctf_solver_core/session_daemon.py",
+            "ctf_solver_core/session_client.py",
             "config/platforms.example.yaml",
             "docs/platform-automation.md",
+            "docs/sessions.md",
         ]:
             self.require_file(relative)
 
@@ -255,11 +269,15 @@ class Doctor:
         locks = lock_root()
         leases = lease_root()
         queue = queue_root()
+        sessions = session_root()
+        sessiond = sessiond_root()
         self.info(f"writeup root: {display_path(writeup_root)}")
         self.info(f"private run root: {display_path(run_root)}")
         self.info(f"lock root: {display_path(locks)}")
         self.info(f"lease root: {display_path(leases)}")
         self.info(f"queue root: {display_path(queue)}")
+        self.info(f"session root: {display_path(sessions)}")
+        self.info(f"session daemon root: {display_path(sessiond)}")
 
         if is_inside_repo(writeup_root):
             self.fail("writeup root is inside repo; local-only writeups could be staged accidentally")
@@ -271,6 +289,18 @@ class Doctor:
             self.warn("lease root is inside repo; prefer ~/.ctf-solver/leases or CTF_LEASE_ROOT outside repo")
         if is_inside_repo(queue):
             self.warn("queue root is inside repo; prefer ~/.ctf-solver/queue or CTF_QUEUE_ROOT outside repo")
+        if is_inside_repo(sessions):
+            self.warn("session root is inside repo; prefer ~/.ctf-solver/sessions or CTF_SESSION_ROOT outside repo")
+        if is_inside_repo(sessiond):
+            self.warn("session daemon root is inside repo; prefer ~/.ctf-solver/sessiond or CTF_SESSIOND_ROOT outside repo")
+        try:
+            daemon = session_daemon_status()
+            if daemon.get("running"):
+                self.info(f"session daemon running pid={daemon.get('pid')} {daemon.get('host')}:{daemon.get('port')}")
+            else:
+                self.info("session daemon not running (optional)")
+        except Exception as exc:
+            self.warn(f"could not inspect session daemon safely: {exc}")
         try:
             active_leases = list_leases()
             if active_leases:
@@ -386,6 +416,9 @@ class Doctor:
         return names
 
     def check_claude_mcp_registration(self) -> None:
+        if os.environ.get("CTF_DOCTOR_INSPECT_CLAUDE_CONFIG") != "1":
+            self.info("Claude MCP registration not inspected by default; set CTF_DOCTOR_INSPECT_CLAUDE_CONFIG=1 to opt in")
+            return
         config = HOME / ".claude.json"
         if not config.is_file():
             self.info("Claude config not found; Claude MCP registration is optional")

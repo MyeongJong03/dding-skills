@@ -60,6 +60,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--shared-remote-used", action="store_true")
     parser.add_argument("--helper-workers-used", type=int)
     parser.add_argument("--local-ready-before-remote", action="store_true")
+    parser.add_argument("--session-count", type=int)
+    parser.add_argument("--session-bytes-read", type=int)
+    parser.add_argument("--session-bytes-written", type=int)
+    parser.add_argument("--closed-session-count", type=int)
     parser.add_argument("--tool-call-counts-json")
     parser.add_argument("--model-tooling-summary")
     parser.add_argument("--include-challenge-name", action="store_true")
@@ -146,6 +150,9 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
     resource_metrics = final.get("resource_metrics")
     if not isinstance(resource_metrics, dict):
         resource_metrics = {}
+    session_metrics = final.get("session_metrics")
+    if not isinstance(session_metrics, dict):
+        session_metrics = {}
 
     optional_ints = {
         "remote_wait_time_sec": getattr(args, "remote_wait_time_sec", None),
@@ -162,10 +169,16 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         "total_remote_wait_time_sec": getattr(args, "total_remote_wait_time_sec", None),
         "total_lease_held_sec": getattr(args, "total_lease_held_sec", None),
         "helper_workers_used": getattr(args, "helper_workers_used", None),
+        "session_count": getattr(args, "session_count", None),
+        "session_bytes_read": getattr(args, "session_bytes_read", None),
+        "session_bytes_written": getattr(args, "session_bytes_written", None),
+        "closed_session_count": getattr(args, "closed_session_count", None),
     }
     for key, value in optional_ints.items():
         if value is None and isinstance(resource_metrics.get(key), int):
             value = int(resource_metrics[key])
+        if value is None and isinstance(session_metrics.get(key), int):
+            value = int(session_metrics[key])
         if value is not None:
             record[key] = max(0, int(value))
 

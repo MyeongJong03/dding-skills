@@ -23,6 +23,7 @@ from tools.rsa_ctftool import register as register_rsa_ctftool
 from tools.sage_exec import register as register_sage_exec
 from tools.docker_exec import register as register_docker_exec
 from tools.dreamhack_vm import register as register_dreamhack_vm
+from tools.session_tools import register as register_session_tools
 
 register_file_analysis(mcp)
 register_trivy(mcp)
@@ -38,6 +39,7 @@ register_rsa_ctftool(mcp)
 register_sage_exec(mcp)
 register_docker_exec(mcp)
 register_dreamhack_vm(mcp)
+register_session_tools(mcp)
 
 if __name__ == "__main__":
     mcp.run()

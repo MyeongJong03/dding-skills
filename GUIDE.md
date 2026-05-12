@@ -32,14 +32,14 @@
   │     ├── Codex CLI (codex 명령어, primary)
   │     └── Claude Code (ctf 명령어, optional/legacy)
   │           └── 둘 다 동일한 생성물(CLAUDE.md + AGENTS.md) + Skills 공유
-  │                 ├── ctf_solver MCP / CTF Solver (15개 툴)
+  │                 ├── ctf_solver MCP / CTF Solver (one-shot + persistent session tools)
   │                 └── ReVa MCP (Ghidra MCP, 로컬 Ghidra 연결)
   │
   └── 윈도우 (WSL2 Ubuntu 24.04, RTX 5060)
         ├── Codex CLI (codex 명령어, primary)
         └── Claude Code (ctf 명령어, optional/legacy)
               └── 둘 다 동일한 생성물(CLAUDE.md + AGENTS.md) + Skills 공유
-                    ├── ctf_solver MCP / CTF Solver (15개 툴)
+                    ├── ctf_solver MCP / CTF Solver (one-shot + persistent session tools)
                     └── ReVa MCP (Ghidra Windows 네이티브)
 ```
 
@@ -76,13 +76,13 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 ```
 ~/ctf-solver/
 ├── server.py                     # MCP 서버 진입점
-├── tools/                        # MCP 툴 15개
+├── tools/                        # MCP 툴
 │   ├── binary_info.py
 │   ├── docker_exec.py
 │   ├── docker_pwn.py
 │   ├── dreamhack_vm.py
 │   └── ...
-├── ctf_solver_core/              # lifecycle 경로/락/스키마 공통 모듈
+├── ctf_solver_core/              # lifecycle 경로/락/스키마/session 공통 모듈
 ├── scripts/                      # doctor + lifecycle/finalization CLI
 │   ├── challenge_init.py
 │   ├── challenge_finalize.py
@@ -96,7 +96,8 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 ├── docs/
 │   ├── lifecycle.md
 │   ├── metrics.md
-│   └── platform-automation.md
+│   ├── platform-automation.md
+│   └── sessions.md
 ├── Dockerfile.ctf                # Docker 이미지 정의
 ├── requirements.txt
 ├── install.sh
@@ -356,7 +357,7 @@ url = "http://localhost:18080/mcp/message"
 
 MCP 서버명은 `ctf_solver`이고 표시명은 CTF Solver다. 실제 파라미터는 코드에서 생성한 [docs/tools.md](docs/tools.md)를 기준으로 삼고, README/GUIDE에는 긴 schema를 중복 유지하지 않는다.
 
-### ctf_solver 툴 (15개)
+### ctf_solver 툴 (21개)
 
 | # | 툴 | 용도 | 주요 파라미터 |
 | --- | --- | --- | --- |
@@ -375,6 +376,12 @@ MCP 서버명은 `ctf_solver`이고 표시명은 CTF Solver다. 실제 파라미
 | 13 | `rsa_ctftool` | RSA 자동 공격 (RsaCtfTool) | `n`, `e`, `ciphertext`, `publickey_path`, `attack`, `extra_flags` |
 | 14 | `trivy` | 의존성 CVE 스캔 | `file_path` |
 | 15 | `dreamhack_vm` | Dreamhack 서버 제어 | `challenge_id`, `action`, `session_id`, `csrf_token` |
+| 16 | `session_start` | persistent session 시작 | `kind`, `run_id`, `cwd`, `host`, `port` |
+| 17 | `session_write` | session stdin 쓰기 | `session_id`, `data`, `newline`, `encoding` |
+| 18 | `session_read` | bounded session output 읽기 | `session_id`, `timeout_ms`, `max_bytes` |
+| 19 | `session_expect` | 패턴까지 읽기 | `session_id`, `patterns`, `timeout_ms`, `max_bytes` |
+| 20 | `session_close` | session 종료 | `session_id`, `reason` |
+| 21 | `session_list` | session 목록/필터 | `run_id`, `challenge_id`, `include_closed` |
 
 최신 schema 재생성:
 
@@ -519,6 +526,19 @@ GitHub에 올릴 수 있는 것은 `metrics/summary.jsonl`, `metrics/dashboard.m
 
 Codex는 `~/CTF/AGENTS.md`, Claude는 `~/CTF/CLAUDE.md`를 읽는다. 두 파일은 `config/deploy.sh`가 같은 generated lifecycle enforcement content로 동기화한다.
 
+### Persistent sessions
+
+P1-1부터는 menu-driven `nc`, Python/Sage REPL, shell, Docker shell, long-running local server처럼 상태가 필요한 작업을 local session daemon으로 유지한다. Daemon은 `127.0.0.1`에만 bind하고, 상태는 `~/.ctf-solver/sessiond`, metadata는 `~/.ctf-solver/sessions`에 둔다.
+
+```bash
+sid=$(python3 scripts/session_start.py shell --run-id "$RUN_ID")
+python3 scripts/session_write.py "$sid" "echo hello"
+python3 scripts/session_expect.py "$sid" hello --timeout-ms 1000
+python3 scripts/session_close.py "$sid"
+```
+
+MCP 도구는 `session_start`, `session_write`, `session_read`, `session_expect`, `session_close`, `session_list`다. `challenge_finalize.py`는 기본적으로 해당 `run_id`의 session을 닫고 aggregate byte/count만 metrics에 반영한다. 명시적 handoff가 필요할 때만 `--keep-sessions`를 사용한다. 자세한 내용은 `docs/sessions.md`를 기준으로 한다.
+
 ### Platform resource automation
 
 P1-0.6부터는 여러 터미널/worker가 같은 플랫폼 리소스를 안전하게 공유하도록 policy, queue, lease scaffold를 사용한다. 실제 browser/session automation은 아직 구현하지 않고, login/session storage는 repo에 넣지 않는다.
@@ -543,7 +563,7 @@ python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCO
 
 ### Regression tests and secret scan
 
-P1 persistent session 변경 전에는 lifecycle/resource/metrics regression tests와 secret scan을 먼저 실행한다.
+lifecycle/resource/session 변경 후에는 regression tests와 secret scan을 실행한다.
 
 ```bash
 python3 -m pytest tests

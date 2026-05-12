@@ -22,6 +22,12 @@ MCP server name: `ctf_solver`
 | `python_exec` | `tools/python_exec.py` | `python_exec(code: str, timeout_seconds: int = 60) -> str` | Python 코드를 실행하고 결과를 반환합니다. requests, urllib 등 네트워크 라이브러리 사용 가능. CTF 공격 페이로드 실행에 활용합니다. |
 | `rsa_ctftool` | `tools/rsa_ctftool.py` | `rsa_ctftool(n: str = None, e: str = None, ciphertext: str = None, publickey_path: str = None, attack: str = 'all', extra_flags: str = '') -> str` | RSActfTool로 RSA 취약점을 자동 공격합니다. n, e: 모듈러스와 공개지수 (직접 입력) ciphertext: 복호화할 암호문 (hex 또는 정수) publickey_path: PEM 공개키 파일 경로 attack: 사용할 공격 (기본: all - 모든 공격 시도) |
 | `sage_exec` | `tools/sage_exec.py` | `sage_exec(code: str, timeout_seconds: int = 60) -> str` | SageMath 코드를 실행합니다. CTF crypto 문제에서 고급 수학 연산(ECC, 격자, 다항식, 소인수분해 등)에 사용합니다. |
+| `session_close` | `tools/session_tools.py` | `session_close(session_id: str, reason: str = 'closed') -> str` | Close one persistent session and terminate its child process safely. |
+| `session_expect` | `tools/session_tools.py` | `session_expect(session_id: str, patterns: list[str], timeout_ms: int = 1000, max_bytes: int = 8000) -> str` | Read until one literal pattern appears or timeout expires. Returns the matched pattern index, timeout status, and bounded output. |
+| `session_list` | `tools/session_tools.py` | `session_list(run_id: str = None, challenge_id: str = None, include_closed: bool = False) -> str` | List persistent sessions, optionally filtered by run_id or challenge_id. Closed sessions are hidden unless include_closed is true. |
+| `session_read` | `tools/session_tools.py` | `session_read(session_id: str, timeout_ms: int = 1000, max_bytes: int = 8000) -> str` | Read bounded output from a persistent session without closing it. Use timeout_ms and max_bytes to avoid blocking or large transcripts. |
+| `session_start` | `tools/session_tools.py` | `session_start(kind: str, command: str = None, cwd: str = None, run_id: str = None, challenge_id: str = None, worker_id: str = None, host: str = None, port: str = None, image: str = None, workspace: str = None, timeout_ms: int = 1000, env_json: str = None) -> str` | Start a persistent local session via the loopback-only session daemon. kind: shell, python, sage, nc, or docker-shell. Associate run_id/challenge_id when solving a tracked challenge. |
+| `session_write` | `tools/session_tools.py` | `session_write(session_id: str, data: str, newline: bool = True, encoding: str = 'text') -> str` | Write text or base64 data to a persistent session. newline defaults to true for menu prompts and REPL commands. |
 | `trivy` | `tools/trivy_scan.py` | `trivy(file_path: str) -> str` | Trivy를 사용하여 의존성 파일(package.json, requirements.txt 등)의 알려진 취약점(CVE)을 스캔합니다. |
 
 ## Details
@@ -200,6 +206,72 @@ attack: 사용할 공격 (기본: all - 모든 공격 시도)
 ```text
 SageMath 코드를 실행합니다.
 CTF crypto 문제에서 고급 수학 연산(ECC, 격자, 다항식, 소인수분해 등)에 사용합니다.
+```
+
+### `session_close`
+
+- Module: `tools/session_tools.py`
+- Signature: `session_close(session_id: str, reason: str = 'closed') -> str`
+- Docstring:
+
+```text
+Close one persistent session and terminate its child process safely.
+```
+
+### `session_expect`
+
+- Module: `tools/session_tools.py`
+- Signature: `session_expect(session_id: str, patterns: list[str], timeout_ms: int = 1000, max_bytes: int = 8000) -> str`
+- Docstring:
+
+```text
+Read until one literal pattern appears or timeout expires.
+Returns the matched pattern index, timeout status, and bounded output.
+```
+
+### `session_list`
+
+- Module: `tools/session_tools.py`
+- Signature: `session_list(run_id: str = None, challenge_id: str = None, include_closed: bool = False) -> str`
+- Docstring:
+
+```text
+List persistent sessions, optionally filtered by run_id or challenge_id.
+Closed sessions are hidden unless include_closed is true.
+```
+
+### `session_read`
+
+- Module: `tools/session_tools.py`
+- Signature: `session_read(session_id: str, timeout_ms: int = 1000, max_bytes: int = 8000) -> str`
+- Docstring:
+
+```text
+Read bounded output from a persistent session without closing it.
+Use timeout_ms and max_bytes to avoid blocking or large transcripts.
+```
+
+### `session_start`
+
+- Module: `tools/session_tools.py`
+- Signature: `session_start(kind: str, command: str = None, cwd: str = None, run_id: str = None, challenge_id: str = None, worker_id: str = None, host: str = None, port: str = None, image: str = None, workspace: str = None, timeout_ms: int = 1000, env_json: str = None) -> str`
+- Docstring:
+
+```text
+Start a persistent local session via the loopback-only session daemon.
+kind: shell, python, sage, nc, or docker-shell.
+Associate run_id/challenge_id when solving a tracked challenge.
+```
+
+### `session_write`
+
+- Module: `tools/session_tools.py`
+- Signature: `session_write(session_id: str, data: str, newline: bool = True, encoding: str = 'text') -> str`
+- Docstring:
+
+```text
+Write text or base64 data to a persistent session.
+newline defaults to true for menu prompts and REPL commands.
 ```
 
 ### `trivy`

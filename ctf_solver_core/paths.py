@@ -39,6 +39,14 @@ def queue_root() -> Path:
     return _env_path("CTF_QUEUE_ROOT", Path.home() / ".ctf-solver" / "queue")
 
 
+def session_root() -> Path:
+    return _env_path("CTF_SESSION_ROOT", Path.home() / ".ctf-solver" / "sessions")
+
+
+def sessiond_root() -> Path:
+    return _env_path("CTF_SESSIOND_ROOT", Path.home() / ".ctf-solver" / "sessiond")
+
+
 def solved_writeup_root() -> Path:
     return _env_path("CTF_SOLVED_WRITEUP_ROOT", Path.home() / "SolvedWriteUp")
 

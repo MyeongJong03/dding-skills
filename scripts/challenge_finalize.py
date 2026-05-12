@@ -29,6 +29,7 @@ from ctf_solver_core.schemas import (
     parse_iso,
     read_json,
 )
+from ctf_solver_core.session_client import close_sessions_for_run
 from cleanup_challenge import cleanup
 from generate_writeup import generate_writeup
 from git_sync_metrics import git_sync
@@ -53,6 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--git-sync", action="store_true")
     parser.add_argument("--no-push", action="store_true")
     parser.add_argument("--keep-lease", action="store_true", help="do not release active resource leases for this run")
+    parser.add_argument("--keep-sessions", action="store_true", help="do not close persistent sessions for this run")
     parser.add_argument("--force", action="store_true", help="replace an existing finalization for this run")
     parser.add_argument("--dry-run", action="store_true")
     return parser
@@ -153,6 +155,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 "archived_exploits": existing.get("archived_exploits") or [],
                 "writeup": existing.get("writeup") or {},
                 "cleanup": existing.get("cleanup") or {},
+                "sessions": existing.get("sessions") or {},
                 "resource_release": existing.get("resource_release") or {},
                 "queue": existing.get("queue") or {},
                 "metrics": {"duplicate_skipped": True, "reason": "already finalized"},
@@ -187,6 +190,42 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 dry_run=args.dry_run,
             )
             cleanup_result = cleanup(cleanup_args)
+
+        session_result: dict[str, object] | None = None
+        if getattr(args, "keep_sessions", False):
+            session_result = {
+                "ok": True,
+                "reason": "kept_by_request",
+                "session_count": 0,
+                "closed_session_count": 0,
+                "session_bytes_read": 0,
+                "session_bytes_written": 0,
+                "errors": [],
+            }
+        elif args.dry_run:
+            session_result = {
+                "ok": True,
+                "reason": "dry_run",
+                "session_count": 0,
+                "closed_session_count": 0,
+                "session_bytes_read": 0,
+                "session_bytes_written": 0,
+                "errors": [],
+            }
+        else:
+            try:
+                session_result = {"ok": True, **close_sessions_for_run(run_id)}
+            except Exception as exc:
+                session_result = {
+                    "ok": False,
+                    "reason": "session_close_failed",
+                    "warning": str(exc),
+                    "session_count": 0,
+                    "closed_session_count": 0,
+                    "session_bytes_read": 0,
+                    "session_bytes_written": 0,
+                    "errors": [str(exc)],
+                }
 
         lease_release_result: dict[str, object] | None = None
         queue_result: dict[str, object] | None = None
@@ -286,6 +325,12 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "stale_lease_reclaimed_count": 0,
             "total_lease_held_sec": int((lease_release_result or {}).get("total_lease_held_sec") or 0),
         }
+        session_metrics = {
+            "session_count": int((session_result or {}).get("session_count") or 0),
+            "closed_session_count": int((session_result or {}).get("closed_session_count") or 0),
+            "session_bytes_read": int((session_result or {}).get("session_bytes_read") or 0),
+            "session_bytes_written": int((session_result or {}).get("session_bytes_written") or 0),
+        }
 
         final_record = {
             "schema_version": 1,
@@ -308,6 +353,9 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "writeup_generated": bool(writeup_result and writeup_result.get("generated")),
             "exploit_included": bool(writeup_result and writeup_result.get("exploit_included")),
             "cleanup": cleanup_result or {},
+            "sessions": session_result or {},
+            "session_metrics": session_metrics,
+            "closed_session_count": session_metrics["closed_session_count"],
             "resource_release": lease_release_result or {},
             "resource_warnings": resource_warnings,
             "resource_metrics": resource_metrics,
@@ -361,6 +409,10 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 shared_remote_used=False,
                 helper_workers_used=None,
                 local_ready_before_remote=False,
+                session_count=session_metrics["session_count"],
+                session_bytes_read=session_metrics["session_bytes_read"],
+                session_bytes_written=session_metrics["session_bytes_written"],
+                closed_session_count=session_metrics["closed_session_count"],
                 tool_call_counts_json=None,
                 model_tooling_summary=None,
                 include_challenge_name=False,
@@ -391,6 +443,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
         "archived_exploits": archived_exploits,
         "writeup": writeup_result,
         "cleanup": cleanup_result,
+        "sessions": session_result,
         "resource_release": lease_release_result,
         "queue": queue_result,
         "metrics": metrics_result,

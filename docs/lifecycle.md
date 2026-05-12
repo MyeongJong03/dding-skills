@@ -35,6 +35,10 @@ By default finalization releases active remote leases for the run and marks a
 matching queue item as `finalized`. Use `--keep-lease` only for intentional
 handoff.
 
+By default finalization also closes active persistent sessions associated with
+the run and records aggregate session counters in `finalization.json`. Use
+`--keep-sessions` only for explicit handoff.
+
 ## Multi-Terminal Run ID Discipline
 
 There is no supported global "current challenge". Each terminal/session must keep its own `challenge_id`, `run_id`, and `run_dir`.
@@ -85,6 +89,8 @@ Defaults are portable and may be overridden with environment variables:
 | Lock root | `Path.home() / ".ctf-solver" / "locks"` | `CTF_LOCK_ROOT` |
 | Lease root | `Path.home() / ".ctf-solver" / "leases"` | `CTF_LEASE_ROOT` |
 | Queue root | `Path.home() / ".ctf-solver" / "queue"` | `CTF_QUEUE_ROOT` |
+| Session root | `Path.home() / ".ctf-solver" / "sessions"` | `CTF_SESSION_ROOT` |
+| Session daemon root | `Path.home() / ".ctf-solver" / "sessiond"` | `CTF_SESSIOND_ROOT` |
 | Local writeup root | `Path.home() / "SolvedWriteUp"` | `CTF_SOLVED_WRITEUP_ROOT` |
 | Public metrics root | `repo_root / "metrics"` | `CTF_SOLVER_REPO_ROOT` for repo root |
 
@@ -129,6 +135,10 @@ metrics/dashboard.md
 
 Public metrics may include timestamp, platform, event, category, status, duration, tool counts, cleanup bytes, writeup boolean, and exploit-included boolean. Public metrics must not include flags, exploit code, raw transcripts, cookies, tokens, account metadata, or private absolute paths.
 
+Session metrics are public-safe aggregate counters only: session count, closed
+session count, and byte counters. Session commands, transcripts, logs, flags,
+and private paths are not public metrics.
+
 Each public metrics entry includes a `run_id` so `scripts/update_metrics.py` can prevent duplicate appends. Re-running metrics update for the same `run_id` is skipped by default; use `--replace` or `--force` to replace the existing entry.
 
 ## Public-Safe Metrics Policy
@@ -146,7 +156,7 @@ Run `python3 scripts/update_metrics.py --check` before git sync or release hando
 
 ## Regression Tests And Secret Scan
 
-Run the regression suite before P1 persistent session MCP changes:
+Run the regression suite after lifecycle, resource, or persistent session changes:
 
 ```bash
 python3 -m pytest tests
@@ -180,3 +190,5 @@ CTF_AUTO_PUSH=1 python3 scripts/git_sync_metrics.py --push
 ```
 
 `git_sync_metrics.py` only stages public-safe repo paths. It does not stage `~/SolvedWriteUp`, private run logs, flags, copied writeup exploits, or raw transcripts.
+
+Persistent session details and examples are documented in `docs/sessions.md`.

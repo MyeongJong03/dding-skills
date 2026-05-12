@@ -45,10 +45,12 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
     writeups = tmp_path / "writeups"
     leases = tmp_path / "leases"
     queue = tmp_path / "queue"
+    sessions = tmp_path / "sessions"
+    sessiond = tmp_path / "sessiond"
     solver_repo = tmp_path / "solver-repo"
     policy = tmp_path / "platforms.yaml"
 
-    for path in (home, work, runs, locks, writeups, leases, queue, solver_repo / "metrics"):
+    for path in (home, work, runs, locks, writeups, leases, queue, sessions, sessiond, solver_repo / "metrics"):
         path.mkdir(parents=True, exist_ok=True)
     _write_platform_config(policy)
 
@@ -60,6 +62,8 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         "CTF_SOLVED_WRITEUP_ROOT": str(writeups),
         "CTF_LEASE_ROOT": str(leases),
         "CTF_QUEUE_ROOT": str(queue),
+        "CTF_SESSION_ROOT": str(sessions),
+        "CTF_SESSIOND_ROOT": str(sessiond),
         "CTF_SOLVER_REPO_ROOT": str(solver_repo),
         "CTF_PLATFORM_CONFIG": str(policy),
         "CTF_METRICS_MODE": "public",
@@ -77,6 +81,8 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         writeups=writeups,
         leases=leases,
         queue=queue,
+        sessions=sessions,
+        sessiond=sessiond,
         solver_repo=solver_repo,
         policy=policy,
         env={**os.environ, **env_values},

@@ -27,7 +27,8 @@
   - PWN/REV 문제 시 Ghidra가 켜져 있어야 사용 가능 (ghidra 명령어로 실행)
 - **ctf_solver**: python_exec, sage_exec, docker_pwn, docker_exec, netcat_interact,
   rsa_ctftool, binary_info, file_analysis, port_scan, hash_crack, http_request,
-  cve_lookup, dns_lookup, trivy, dreamhack_vm
+  cve_lookup, dns_lookup, trivy, dreamhack_vm, session_start, session_write,
+  session_read, session_expect, session_close, session_list
   - Codex에서 MCP가 직접 연결되지 않는 환경이면 같은 `server.py`와 `tools/*.py`를 CLI/Python helper처럼 사용한다.
   - docker_exec/docker_pwn은 persistent workspace(/workspace)를 공유함
   - sage_exec 기본 타임아웃 60초. LLL/Coppersmith 등 무거운 연산은 timeout_seconds 늘릴 것
@@ -50,7 +51,18 @@
 - Git sync may update only ctf-solver repo `metrics/`, `skills/`, `memory/`, `docs/`, `config/`, `scripts/`, `tools/`, and `ctf_solver_core/` plus top-level repo docs/config files.
 - In multi-terminal operation, do not mix artifacts from different `run_id` values.
 - If unsure whether a challenge is complete, ask the user, or finalize as `manual_stop`/`skipped` only when explicitly directed.
-- P1 persistent sessions, MCP persistent sessions, GDB sessions, and verifier full implementation are not part of this lifecycle step.
+- GDB-specific sessions, browser automation, and verifier full implementation are future work.
+
+## Persistent Session Rules
+- Use persistent sessions for interactive `nc` menus, Python/Sage REPL work, shell state, Docker shell state, and long-running local helper processes.
+- Associate sessions with `run_id` when available.
+- Do not mix sessions across different `run_id` values.
+- Use bounded reads and bounded expects; always set a reasonable `timeout_ms` and `max_bytes`.
+- Prefer `session_expect` for menu prompts, leak parsing, and REPL prompts.
+- Use one-shot tools for simple non-interactive commands.
+- Close sessions during challenge finalization unless the user explicitly requests keeping them.
+- Never put cookies, bearer tokens, API keys, OAuth tokens, passwords, private keys, account IDs, or private server URLs into session logs.
+- Do not store session transcripts, flags, exploit code, or private run logs in the repo.
 
 ## Platform Resource Rules
 - Platform/server constraints are policy-driven. Use `CTF_PLATFORM_CONFIG` or `config/platforms.example.yaml` as the schema reference, and never store cookies, session tokens, passwords, OAuth data, account IDs, or private server URLs in the repo.
