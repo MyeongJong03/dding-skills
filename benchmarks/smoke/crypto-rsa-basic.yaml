@@ -1,0 +1,10 @@
+benchmark_id: crypto-rsa-basic
+category: crypto
+platform: smoke
+event: smoke
+local_capable: true
+remote_required: false
+difficulty: smoke
+timeout_sec: 300
+tags: [crypto, rsa, arithmetic, local-only]
+notes: Synthetic RSA arithmetic benchmark metadata for metrics pipeline checks.

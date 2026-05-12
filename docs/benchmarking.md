@@ -70,6 +70,32 @@ python3 scripts/performance_report.py --json
 
 `pass@1` is the percentage of benchmark items solved on attempt 1. `pass@3` is the percentage solved by attempt 3. The dashboard also reports solve, abandon, timeout, verifier success, and time-to-flag aggregates by category and platform/event.
 
+## Public Smoke Pack
+
+`benchmarks/smoke/*.yaml` contains fixed public-safe benchmark definitions for
+pipeline testing. These examples are synthetic and illustrative. They are meant
+to keep `benchmark_report.py`, `performance_report.py`, and regression tests
+stable; they are not actual solver evaluation tasks.
+
+The smoke pack must stay local-only and deterministic. Do not add live CTF
+targets, browser runs, Docker exploit runs, GDB sessions, provider calls, raw
+outputs, copied challenge statements, private file mappings, or private URLs.
+
+Private benchmark packs may contain real event names, local fixture wiring, or
+private challenge naming, but they must live outside the repo under
+`CTF_BENCHMARK_ROOT`.
+
+Use the smoke fixtures to compare before and after feature changes:
+
+```bash
+python3 scripts/benchmark_report.py --json
+python3 scripts/ai_usage_report.py --json
+python3 scripts/performance_report.py --json
+```
+
+Compare pass@1, pass@3, solve rate, verifier success rate, time-to-flag
+aggregates, and token/cost totals.
+
 ## Do Not Commit
 
 - private benchmark files

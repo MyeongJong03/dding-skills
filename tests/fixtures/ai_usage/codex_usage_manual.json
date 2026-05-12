@@ -1,0 +1,37 @@
+{
+  "fixture_kind": "redacted-ai-usage",
+  "records": [
+    {
+      "run_id": "fixture-codex-pwn-1",
+      "provider": "codex",
+      "model": "example-model",
+      "category": "pwn",
+      "platform": "smoke",
+      "event": "smoke",
+      "status": "abandoned",
+      "started_at": "2026-01-01T00:10:00Z",
+      "duration_sec": 150,
+      "input_tokens": 800,
+      "output_tokens": 180,
+      "cache_read_tokens": 40,
+      "cache_creation_tokens": 10,
+      "cost_usd": 0.05
+    },
+    {
+      "run_id": "fixture-manual-crypto-1",
+      "provider": "manual",
+      "model": "example-model",
+      "category": "crypto",
+      "platform": "smoke",
+      "event": "smoke",
+      "status": "solved",
+      "started_at": "2026-01-01T00:20:00Z",
+      "duration_sec": 90,
+      "usage": {
+        "prompt_tokens": 500,
+        "completion_tokens": 100
+      },
+      "cost_usd": 0.0
+    }
+  ]
+}

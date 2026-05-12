@@ -1,0 +1,10 @@
+benchmark_id: pwn-ret2win
+category: pwn
+platform: smoke
+event: smoke
+local_capable: true
+remote_required: false
+difficulty: smoke
+timeout_sec: 300
+tags: [pwn, ret2win, local-only]
+notes: Synthetic native-control-flow benchmark metadata only, with no runtime runner.

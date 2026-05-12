@@ -1,0 +1,10 @@
+benchmark_id: misc-encoding-basic
+category: misc
+platform: smoke
+event: smoke
+local_capable: true
+remote_required: false
+difficulty: smoke
+timeout_sec: 300
+tags: [misc, encoding, local-only]
+notes: Synthetic encoding-puzzle benchmark metadata for public report checks.

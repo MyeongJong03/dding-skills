@@ -1,0 +1,29 @@
+{
+  "fixture_kind": "redacted-ai-usage",
+  "provider": "claude",
+  "model": "example-model",
+  "category": "web",
+  "platform": "smoke",
+  "event": "smoke",
+  "projects": [
+    {
+      "name": "smoke-public-fixture",
+      "sessions": [
+        {
+          "run_id": "fixture-claude-web-1",
+          "status": "solved",
+          "started_at": "2026-01-01T00:00:00Z",
+          "ended_at": "2026-01-01T00:03:00Z",
+          "duration_sec": 180,
+          "usage": {
+            "input_tokens": 1200,
+            "output_tokens": 240,
+            "cache_read_input_tokens": 80,
+            "cache_creation_input_tokens": 20
+          },
+          "costUSD": 0.12
+        }
+      ]
+    }
+  ]
+}

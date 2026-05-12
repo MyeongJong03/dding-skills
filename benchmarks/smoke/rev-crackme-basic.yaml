@@ -1,0 +1,10 @@
+benchmark_id: rev-crackme-basic
+category: rev
+platform: smoke
+event: smoke
+local_capable: true
+remote_required: false
+difficulty: smoke
+timeout_sec: 300
+tags: [rev, crackme, local-only]
+notes: Synthetic validator-reversing benchmark metadata only, with no binary path.

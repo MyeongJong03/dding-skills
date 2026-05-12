@@ -1,0 +1,10 @@
+benchmark_id: forensics-metadata-basic
+category: forensics
+platform: smoke
+event: smoke
+local_capable: true
+remote_required: false
+difficulty: smoke
+timeout_sec: 300
+tags: [forensics, metadata, local-only]
+notes: Synthetic metadata-analysis benchmark without sample files or raw output.

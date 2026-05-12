@@ -1,0 +1,10 @@
+benchmark_id: osint-domain-basic
+category: osint
+platform: smoke
+event: smoke
+local_capable: true
+remote_required: false
+difficulty: smoke
+timeout_sec: 300
+tags: [osint, lookup, local-only]
+notes: Synthetic public-record lookup benchmark with no real target, handle, or URL.

@@ -1,0 +1,10 @@
+benchmark_id: web-xss-callback
+category: web
+platform: smoke
+event: smoke
+local_capable: true
+remote_required: false
+difficulty: smoke
+timeout_sec: 300
+tags: [web, xss, callback, local-only]
+notes: Synthetic callback-flow benchmark for pipeline checks using only dummy local evidence.
