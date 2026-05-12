@@ -178,6 +178,21 @@ claude mcp add --scope user ctf_solver \
 Browser artifacts, including screenshots, stay under
 `CTF_BROWSER_ARTIFACT_ROOT` and are local-only.
 
+## Using Callback Listeners
+
+For XSS/admin bot/SSRF/CSP leak work, start a callback listener and pass its
+URL into browser actions or payload snippets:
+
+```bash
+python3 scripts/callback_start.py --run-id "$RUN_ID" --json
+python3 scripts/web_payload_helper.py --callback-url "$CALLBACK_URL" --json
+python3 scripts/callback_wait.py --listener-id "$LISTENER_ID" --timeout-sec 15 --json
+```
+
+Callback listeners are loopback-only by default, store redacted hit logs under
+`CTF_CALLBACK_ROOT`, and are closed by `challenge_finalize.py` unless
+`--keep-callbacks` is supplied. See `docs/callback-listener.md`.
+
 ## Finalize Cleanup
 
 `scripts/challenge_finalize.py` closes browser sessions linked to the run by

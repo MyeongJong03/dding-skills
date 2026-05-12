@@ -19,6 +19,8 @@ from ctf_solver_core.paths import (
     browser_artifact_root,
     browser_root,
     browser_state_root,
+    callback_root,
+    callbackd_root,
     download_root,
     display_path,
     is_inside_repo,
@@ -36,6 +38,8 @@ from ctf_solver_core.paths import (
 from ctf_solver_core.browser_actions import active_browser_session_count
 from ctf_solver_core.browser_client import status as browser_daemon_status
 from ctf_solver_core.browser_state import browser_profile_count
+from ctf_solver_core.callback_client import status as callback_daemon_status
+from ctf_solver_core.callbacks import active_listener_count
 from ctf_solver_core.platform_automation import download_metadata_count, platform_server_record_count
 from ctf_solver_core.platform_adapters import get_adapter
 from ctf_solver_core.platforms import platform_config_path, validate_platform_config
@@ -280,6 +284,14 @@ class Doctor:
             "scripts/browser_cookies.py",
             "scripts/browser_close.py",
             "scripts/browser_list.py",
+            "scripts/callback_daemon.py",
+            "scripts/callback_start.py",
+            "scripts/callback_url.py",
+            "scripts/callback_hits.py",
+            "scripts/callback_wait.py",
+            "scripts/callback_close.py",
+            "scripts/callback_list.py",
+            "scripts/web_payload_helper.py",
             "scripts/browser_state_init.py",
             "scripts/browser_state_check.py",
             "scripts/platform_discover.py",
@@ -316,6 +328,9 @@ class Doctor:
             "ctf_solver_core/browser_actions.py",
             "ctf_solver_core/browser_client.py",
             "ctf_solver_core/browser_daemon.py",
+            "ctf_solver_core/callbacks.py",
+            "ctf_solver_core/callback_client.py",
+            "ctf_solver_core/callback_daemon.py",
             "ctf_solver_core/browser_state.py",
             "ctf_solver_core/platform_automation.py",
             "ctf_solver_core/platform_adapters.py",
@@ -324,6 +339,7 @@ class Doctor:
             "docs/platform-automation.md",
             "docs/browser-platform-automation.md",
             "docs/browser-actions.md",
+            "docs/callback-listener.md",
             "docs/ctfd-adapter.md",
             "docs/worker-runner.md",
             "docs/sessions.md",
@@ -410,6 +426,8 @@ class Doctor:
         browser = browser_root()
         browser_artifacts = browser_artifact_root()
         browser_states = browser_state_root()
+        callbacks = callback_root()
+        callbackd = callbackd_root()
         platform_auto = platform_automation_root()
         downloads = download_root()
         self.info(f"writeup root: {display_path(writeup_root)}")
@@ -423,6 +441,8 @@ class Doctor:
         self.info(f"browser root: {display_path(browser)}")
         self.info(f"browser artifact root: {display_path(browser_artifacts)}")
         self.info(f"browser state root: {display_path(browser_states)}")
+        self.info(f"callback root: {display_path(callbacks)}")
+        self.info(f"callback daemon root: {display_path(callbackd)}")
         self.info(f"platform automation root: {display_path(platform_auto)}")
         self.info(f"download root: {display_path(downloads)}")
 
@@ -451,6 +471,10 @@ class Doctor:
             )
         if is_inside_repo(browser_states):
             self.warn("browser state root is inside repo; prefer ~/.ctf-solver/browser-states or CTF_BROWSER_STATE_ROOT outside repo")
+        if is_inside_repo(callbacks):
+            self.warn("callback root is inside repo; prefer ~/.ctf-solver/callbacks or CTF_CALLBACK_ROOT outside repo")
+        if is_inside_repo(callbackd):
+            self.warn("callback daemon root is inside repo; prefer ~/.ctf-solver/callbackd or CTF_CALLBACKD_ROOT outside repo")
         if is_inside_repo(platform_auto):
             self.warn("platform automation root is inside repo; prefer ~/.ctf-solver/platforms or CTF_PLATFORM_AUTOMATION_ROOT outside repo")
         if is_inside_repo(downloads):
@@ -473,6 +497,15 @@ class Doctor:
             self.info(f"active browser session metadata count: {active_browser_session_count()}")
         except Exception as exc:
             self.warn(f"could not inspect browser daemon safely: {exc}")
+        try:
+            daemon = callback_daemon_status()
+            if daemon.get("running"):
+                self.info(f"callback daemon running pid={daemon.get('pid')} {daemon.get('host')}:{daemon.get('port')}")
+            else:
+                self.info("callback daemon not running (optional)")
+            self.info(f"active callback listener metadata count: {active_listener_count()}")
+        except Exception as exc:
+            self.warn(f"could not inspect callback daemon safely: {exc}")
         try:
             active_claims = list_claims(include_stale=False)
             stale_claims = detect_stale_claims()

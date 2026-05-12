@@ -63,6 +63,21 @@ python3 scripts/verify_run.py \
 The stored preview is redacted and bounded by default. The raw flag value is not
 stored in `verifier.json`.
 
+Manual mode can also verify callback listener hits without pasting raw request
+data:
+
+```bash
+python3 scripts/verify_run.py \
+  --run-dir <run-dir> \
+  --mode manual \
+  --callback-listener-id <listener_id> \
+  --callback-min-hits 1 \
+  --local
+```
+
+The verifier reads redacted hit summaries from the local callback root and
+stores only aggregate hit counts and public-safe hit summaries.
+
 ## Local Vs Remote
 
 Use `--local` for local proof and `--remote` for remote target proof. If neither
@@ -106,6 +121,7 @@ Forbidden public data:
 - raw stdout/stderr or session transcripts
 - private absolute paths
 - cookies, tokens, API keys, OAuth data, passwords, private keys
+- callback URLs, headers, bodies, hit logs, or token-like values
 
 Writeups remain local-only under `CTF_SOLVED_WRITEUP_ROOT` or `~/SolvedWriteUp`
 and are not pushed to GitHub by the lifecycle tools.

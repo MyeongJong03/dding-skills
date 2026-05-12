@@ -31,7 +31,8 @@
   session_read, session_expect, session_close, session_list, verify_run,
   browser_start, browser_goto, browser_click, browser_fill, browser_eval,
   browser_upload, browser_screenshot, browser_console, browser_network,
-  browser_cookies, browser_close, browser_list
+  browser_cookies, browser_close, browser_list, callback_start, callback_url,
+  callback_hits, callback_wait, callback_close, callback_list, web_payload_helper
   - Codex에서 MCP가 직접 연결되지 않는 환경이면 같은 `server.py`와 `tools/*.py`를 CLI/Python helper처럼 사용한다.
   - docker_exec/docker_pwn은 persistent workspace(/workspace)를 공유함
   - sage_exec 기본 타임아웃 60초. LLL/Coppersmith 등 무거운 연산은 timeout_seconds 늘릴 것
@@ -76,6 +77,18 @@
 - Close sessions during challenge finalization unless the user explicitly requests keeping them.
 - Never put cookies, bearer tokens, API keys, OAuth tokens, passwords, private keys, account IDs, or private server URLs into session logs.
 - Do not store session transcripts, flags, exploit code, or private run logs in the repo.
+
+## Callback Listener Rules
+- Use callback listeners for XSS, admin bot, SSRF, CSP leak, blind exfil, CSS exfil, and webhook-style Web CTF challenges.
+- Associate listeners with `run_id` when available.
+- Default listener bind is `127.0.0.1`; do not bind publicly unless the user explicitly configures a public bind or external tunnel.
+- Do not auto-start ngrok, cloudflared, bore, or other tunnel providers.
+- Manual external callback base URLs may be registered as metadata, but do not store private URLs with sensitive query values.
+- Do not log raw cookies, bearer headers, tokens, flags, passwords, API keys, OAuth values, or private request bodies.
+- Use `callback_wait` to confirm bot/admin/browser hits and `callback_hits` only for redacted bounded summaries.
+- Use redacted callback summaries as verifier evidence when useful.
+- Close callback listeners during finalize unless explicitly keeping them.
+- Do not auto-push callback logs, writeups, exploit code, or private hit artifacts.
 
 ## Platform Resource Rules
 - Platform/server constraints are policy-driven. Use `CTF_PLATFORM_CONFIG` or `config/platforms.example.yaml` as the schema reference, and never store cookies, session tokens, passwords, OAuth data, account IDs, or private server URLs in the repo.

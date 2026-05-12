@@ -32,14 +32,14 @@
   │     ├── Codex CLI (codex 명령어, primary)
   │     └── Claude Code (ctf 명령어, optional/legacy)
   │           └── 둘 다 동일한 생성물(CLAUDE.md + AGENTS.md) + Skills 공유
-  │                 ├── ctf_solver MCP / CTF Solver (one-shot + persistent session tools)
+│                 ├── ctf_solver MCP / CTF Solver (one-shot + session/browser/callback tools)
   │                 └── ReVa MCP (Ghidra MCP, 로컬 Ghidra 연결)
   │
   └── 윈도우 (WSL2 Ubuntu 24.04, RTX 5060)
         ├── Codex CLI (codex 명령어, primary)
         └── Claude Code (ctf 명령어, optional/legacy)
               └── 둘 다 동일한 생성물(CLAUDE.md + AGENTS.md) + Skills 공유
-                    ├── ctf_solver MCP / CTF Solver (one-shot + persistent session tools)
+                    ├── ctf_solver MCP / CTF Solver (one-shot + session/browser/callback tools)
                     └── ReVa MCP (Ghidra Windows 네이티브)
 ```
 
@@ -82,7 +82,7 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │   ├── docker_pwn.py
 │   ├── dreamhack_vm.py
 │   └── ...
-├── ctf_solver_core/              # lifecycle 경로/락/스키마/session/browser/platform 공통 모듈
+├── ctf_solver_core/              # lifecycle 경로/락/스키마/session/browser/callback/platform 공통 모듈
 ├── scripts/                      # doctor + lifecycle/finalization CLI
 │   ├── challenge_init.py
 │   ├── challenge_finalize.py
@@ -93,6 +93,8 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │   ├── queue_next.py / queue_update.py / queue_history.py
 │   ├── browser_state_init.py / browser_state_check.py
 │   ├── browser_start.py / browser_goto.py / browser_eval.py / browser_close.py
+│   ├── callback_start.py / callback_wait.py / callback_hits.py / callback_close.py
+│   ├── callback_url.py / callback_list.py / web_payload_helper.py
 │   ├── platform_discover.py / platform_download.py / platform_submit.py
 │   ├── platform_server_acquire.py / platform_server_release.py / platform_server_status.py
 │   └── resource_acquire.py / resource_heartbeat.py / resource_reclaim_stale.py / resource_release.py
@@ -102,6 +104,7 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │   ├── metrics.md
 │   ├── platform-automation.md
 │   ├── browser-platform-automation.md
+│   ├── callback-listener.md
 │   └── sessions.md
 ├── Dockerfile.ctf                # Docker 이미지 정의
 ├── requirements.txt
@@ -362,7 +365,7 @@ url = "http://localhost:18080/mcp/message"
 
 MCP 서버명은 `ctf_solver`이고 표시명은 CTF Solver다. 실제 파라미터는 코드에서 생성한 [docs/tools.md](docs/tools.md)를 기준으로 삼고, README/GUIDE에는 긴 schema를 중복 유지하지 않는다.
 
-### ctf_solver 툴 (22개)
+### ctf_solver 대표 툴
 
 | # | 툴 | 용도 | 주요 파라미터 |
 | --- | --- | --- | --- |
@@ -388,6 +391,13 @@ MCP 서버명은 `ctf_solver`이고 표시명은 CTF Solver다. 실제 파라미
 | 20 | `session_close` | session 종료 | `session_id`, `reason` |
 | 21 | `session_list` | session 목록/필터 | `run_id`, `challenge_id`, `include_closed` |
 | 22 | `verify_run` | solve evidence 검증 | `mode`, `run_dir`, `command`, `session_id`, `flag_regex` |
+| 23 | `callback_start` | local callback listener 시작 | `run_id`, `challenge_id`, `host`, `external_base_url` |
+| 24 | `callback_url` | callback URL 조회 | `listener_id`, `external`, `path` |
+| 25 | `callback_wait` | callback hit 대기 | `listener_id`, `timeout_sec`, `min_hits` |
+| 26 | `callback_hits` | redacted hit 조회 | `listener_id`, `since_hit_id`, `limit` |
+| 27 | `callback_close` | callback listener 종료 | `listener_id`, `reason` |
+| 28 | `callback_list` | listener 목록/필터 | `run_id`, `challenge_id`, `include_closed` |
+| 29 | `web_payload_helper` | callback payload snippet 생성 | `callback_url` |
 
 최신 schema 재생성:
 
@@ -589,6 +599,21 @@ python3 scripts/doctor.py
 Browser session metadata는 `CTF_BROWSER_ROOT` 또는 `~/.ctf-solver/browser`, screenshot/artifact는 `CTF_BROWSER_ARTIFACT_ROOT` 또는 `~/.ctf-solver/browser-artifacts`에 둔다. 둘 다 repo 밖 local-only여야 한다. Cookie 값, storage_state 내용, raw network body는 출력하지 않고 redacted summary만 사용한다. `challenge_finalize.py`는 기본적으로 해당 `run_id`의 browser session을 닫고 aggregate count만 metrics에 반영한다. 명시적 handoff가 필요할 때만 `--keep-browser-sessions`를 사용한다. 자세한 내용은 `docs/browser-actions.md`를 기준으로 한다.
 
 Browser E2E regression은 data URL, local HTML, mock loopback server만 사용한다. 실제 외부 CTF 사이트 접속 테스트는 만들지 않는다.
+
+### Web callback listener
+
+P1-7부터는 XSS/admin bot/SSRF/CSP leak/CSS exfil처럼 blind hit 확인이 필요한 Web CTF에서 local callback listener를 사용한다. 기본 bind는 `127.0.0.1`이고, 상태는 `CTF_CALLBACKD_ROOT` 또는 `~/.ctf-solver/callbackd`, hit log는 `CTF_CALLBACK_ROOT` 또는 `~/.ctf-solver/callbacks`에 둔다.
+
+```bash
+cb=$(python3 scripts/callback_start.py --run-id "$RUN_ID" --json)
+url=$(python3 scripts/callback_url.py --listener-id "$LISTENER_ID")
+python3 scripts/web_payload_helper.py --callback-url "$url" --json
+python3 scripts/callback_wait.py --listener-id "$LISTENER_ID" --timeout-sec 15 --json
+python3 scripts/callback_hits.py --listener-id "$LISTENER_ID" --json
+python3 scripts/callback_close.py --listener-id "$LISTENER_ID" --json
+```
+
+외부 tunnel은 자동 실행하지 않는다. 필요한 경우 사용자가 만든 external base URL만 `--external-base-url`로 등록한다. Header/query/body preview는 bounded/redacted 처리되며, cookie/auth/token/flag-like 값은 raw로 출력하지 않는다. `challenge_finalize.py`는 기본적으로 해당 `run_id`의 callback listener를 닫고 aggregate count만 metrics에 반영한다. 명시적 handoff가 필요할 때만 `--keep-callbacks`를 사용한다. 자세한 내용은 `docs/callback-listener.md`를 기준으로 한다.
 
 ### Platform resource automation
 

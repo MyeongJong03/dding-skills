@@ -9,7 +9,7 @@ CTF 문제 풀이를 위한 Codex-first, Claude-compatible AI 에이전트 세�
 dding-skills/
 ├── server.py              # MCP 서버 진입점
 ├── tools/                 # MCP 툴
-├── ctf_solver_core/       # lifecycle path/lock/schema/session/browser/platform helpers
+├── ctf_solver_core/       # lifecycle path/lock/schema/session/browser/callback/platform helpers
 ├── scripts/               # doctor + lifecycle/finalization CLIs
 ├── metrics/               # public-safe metrics and dashboard
 ├── docs/                  # tools/lifecycle/metrics/platform/browser automation docs
@@ -38,7 +38,8 @@ Codex (primary)
   │
   └─ MCP/CLI helper 호출
          └─ ctf_solver (CTF Solver) ───→  server.py → tools/*.py
-                                      └─ persistent session daemon (127.0.0.1)
+                                      ├─ persistent session daemon (127.0.0.1)
+                                      └─ web callback listener daemon (127.0.0.1)
 ```
 
 `~/CTF/CLAUDE.md`는 심볼릭 링크가 아니라 `config/deploy.sh`가 `config/{mac|windows}/env.md`와 `config/CLAUDE.base.md`를 합쳐 생성하는 실제 파일입니다.
@@ -204,6 +205,8 @@ bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 | `CTF_BROWSER_ROOT` | browser action session/daemon metadata 루트 | `~/.ctf-solver/browser` |
 | `CTF_BROWSER_ARTIFACT_ROOT` | browser action screenshot/artifact 루트 | `~/.ctf-solver/browser-artifacts` |
 | `CTF_BROWSER_STATE_ROOT` | browser/session profile metadata 루트 | `~/.ctf-solver/browser-states` |
+| `CTF_CALLBACK_ROOT` | callback listener metadata/hit log 루트 | `~/.ctf-solver/callbacks` |
+| `CTF_CALLBACKD_ROOT` | callback daemon state 루트 | `~/.ctf-solver/callbackd` |
 | `CTF_PLATFORM_AUTOMATION_ROOT` | platform server/session scaffold state 루트 | `~/.ctf-solver/platforms` |
 | `CTF_DOWNLOAD_ROOT` | downloaded private challenge file 루트 | `~/CTF/downloads` |
 | `CTF_PLATFORM_CONFIG` | repo 밖 platform policy YAML | unset (`config/platforms.example.yaml` for schema/example) |
@@ -250,6 +253,8 @@ MCP tool `verify_run`도 command/session/manual mode를 지원합니다. Public 
 여러 터미널/worker가 같은 대회 리소스를 공유할 때는 platform policy, queue, lease helper를 사용합니다. THCON처럼 한 세션에서 VM/server 1개만 가능한 플랫폼은 `max_active_leases: 1`로 표현하고, remote lease를 못 받은 worker는 idle하지 않고 local-capable 문제의 triage/analysis/exploit planning을 먼저 진행합니다. `local_exploit_ready=true` 문제는 remote capacity가 풀릴 때 우선순위를 받습니다.
 
 P1-4 browser/platform scaffold는 로그인 세션 metadata 등록, mock/local discovery, download, server acquire/release/status, submission policy gate를 제공합니다. P1-6 browser action scaffold는 optional Playwright 기반 DOM 조작, local-only screenshot, console/network/cookie redaction, run_id 기반 session cleanup을 제공합니다. 실제 사이트 adapter, live browser login, live smoke test, full browser solver는 다음 단계입니다. 자세한 내용은 [docs/browser-platform-automation.md](docs/browser-platform-automation.md)와 [docs/browser-actions.md](docs/browser-actions.md)를 봅니다.
+
+P1-7 web callback listener는 XSS/admin bot/SSRF/CSP leak/CSS exfil 같은 Web CTF에서 loopback-only callback hit를 수집합니다. 기본 bind는 `127.0.0.1`이고, 외부 tunnel은 자동 실행하지 않습니다. 수동 tunnel base URL은 metadata로만 등록할 수 있습니다. Hit header/query/body preview는 bounded/redacted 처리되고, finalize/verifier/writeup/metrics에는 public-safe summary만 연결됩니다. 자세한 내용은 [docs/callback-listener.md](docs/callback-listener.md)를 봅니다.
 
 ### Browser Runtime Validation
 

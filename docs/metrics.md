@@ -38,6 +38,11 @@
 - optional `browser_actions_count`
 - optional `browser_screenshot_count`
 - optional `browser_network_event_count`
+- optional `callback_listener_count`
+- optional `closed_callback_listener_count`
+- optional `callback_hit_count`
+- optional `callback_wait_success`
+- optional `callback_wait_duration_sec`
 - optional `worker_id_hash`
 - optional `worker_count`
 - optional `worker_action_count`
@@ -79,6 +84,7 @@ Do not put the following in public metrics:
 - raw worker ID or hostname
 - browser storage state paths or contents
 - browser action URLs, screenshot paths, network bodies, or raw console output
+- callback URLs, headers, bodies, cookies, token-like values, flags, hit logs, or private callback paths
 - downloaded private challenge file absolute paths
 - raw platform response bodies
 

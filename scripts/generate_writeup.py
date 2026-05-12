@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from ctf_solver_core.paths import display_path, resolve_path, solved_writeup_root
+from ctf_solver_core.callback_client import callback_summary
 from ctf_solver_core.schemas import (
     CATEGORIES,
     PLATFORMS,
@@ -142,7 +143,30 @@ def _exploit_sections(exploit_paths: list[Path], copied: list[Path]) -> tuple[li
 def _verification_section(run_dir: Path | None) -> list[str]:
     verifier = load_verifier_result(run_dir) if run_dir else None
     summary = verifier_summary(verifier, include_preview=True)
+    callback_lines: list[str] = []
+    if run_dir:
+        metadata = _load_metadata(run_dir)
+        run_id = str(metadata.get("run_id") or run_dir.name)
+        callbacks = callback_summary(run_id)
+        if int(callbacks.get("listener_count") or 0):
+            callback_lines.extend(
+                [
+                    "",
+                    "Callback evidence summary:",
+                    "",
+                    f"- Listener count: `{callbacks.get('listener_count')}`",
+                    f"- Hit count: `{callbacks.get('callback_hit_count')}`",
+                ]
+            )
+            for item in callbacks.get("listeners") or []:
+                if isinstance(item, dict):
+                    callback_lines.append(
+                        f"- Listener `{item.get('listener_id')}` status `{item.get('status')}` hits `{item.get('hit_count')}`"
+                    )
+            callback_lines.append("")
     if not summary:
+        if callback_lines:
+            return callback_lines
         return ["TODO: paste local/remote verification evidence without raw secrets beyond the local-only flag if needed.", ""]
 
     lines = [
@@ -160,6 +184,7 @@ def _verification_section(run_dir: Path | None) -> list[str]:
     if preview:
         fence = _fence_for(preview)
         lines.extend(["", "Redacted bounded output preview:", "", fence, preview, fence])
+    lines.extend(callback_lines)
     lines.append("")
     return lines
 

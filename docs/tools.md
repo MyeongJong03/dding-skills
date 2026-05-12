@@ -21,6 +21,12 @@ MCP server name: `ctf_solver`
 | `browser_screenshot` | `tools/browser_actions.py` | `browser_screenshot(browser_session_id: str, name: str = None, full_page: bool = False) -> str` | Save a screenshot under the local-only browser artifact root, never in the repo by default. |
 | `browser_start` | `tools/browser_actions.py` | `browser_start(run_id: str = None, challenge_id: str = None, worker_id: str = None, platform: str = None, event: str = None, profile: str = None, storage_state: str = None, browser_type: str = 'chromium', headless: bool = True) -> str` | Start a local-only Playwright browser session via the loopback browser daemon. Use run_id/challenge_id to isolate concurrent CTF work. Playwright is optional; missing installs return reason=playwright_not_installed. |
 | `browser_upload` | `tools/browser_actions.py` | `browser_upload(browser_session_id: str, selector: str, files: list[str], timeout_ms: int = 10000) -> str` | Upload one or more local files through a file input. Output includes only file counts. |
+| `callback_close` | `tools/callbacks.py` | `callback_close(listener_id: str, reason: str = 'closed') -> str` | Close one callback listener and persist local-only closed metadata. |
+| `callback_hits` | `tools/callbacks.py` | `callback_hits(listener_id: str, since_hit_id: str = None, limit: int = 20) -> str` | Return bounded, redacted callback hits. Cookies, auth headers, token-like query/body fields, and flag-like values are redacted. |
+| `callback_list` | `tools/callbacks.py` | `callback_list(run_id: str = None, challenge_id: str = None, include_closed: bool = False) -> str` | List callback listeners, optionally filtered by run_id or challenge_id. Closed listeners are hidden unless include_closed is true. |
+| `callback_start` | `tools/callbacks.py` | `callback_start(run_id: str = None, challenge_id: str = None, worker_id: str = None, host: str = '127.0.0.1', port: str = None, external_base_url: str = None, token_path: str = None, allow_public_bind: bool = False) -> str` | Start a local-only web callback listener through the loopback callback daemon. Default bind is 127.0.0.1. Public binds require allow_public_bind. External URLs are metadata only and must be supplied manually. |
+| `callback_url` | `tools/callbacks.py` | `callback_url(listener_id: str, external: bool = False, path: str = None) -> str` | Return a local or manually configured external callback URL for a listener. No tunnel provider is started. |
+| `callback_wait` | `tools/callbacks.py` | `callback_wait(listener_id: str, timeout_sec: float = 30, pattern: str = None, min_hits: int = 1) -> str` | Wait for callback hits without busy looping. Pattern matching is performed over redacted hit summaries. |
 | `cve_lookup` | `tools/cve_lookup.py` | `cve_lookup(cve_id: str) -> str` | CVE ID로 상세 정보, 공격 벡터, PoC 정보를 조회합니다. NVD API와 GitHub Advisory를 활용합니다. |
 | `dns_lookup` | `tools/dns_lookup.py` | `dns_lookup(domain: str, record_type: str = 'A', subdomain_wordlist: list = None) -> str` | DNS 레코드 조회 및 서브도메인 열거를 수행합니다. record_type: A, AAAA, MX, TXT, CNAME, NS 등 subdomain_wordlist: 서브도메인 열거 시 시도할 단어 목록 |
 | `docker_exec` | `tools/docker_exec.py` | `docker_exec(code: str, binary_path: str = None, timeout_seconds: int = 60) -> str` | Linux CTF 환경(Docker)에서 코드를 실행합니다. PWN/REV 문제에서 Linux ELF 바이너리 실행, GDB 디버깅, pwntools 익스플로잇에 사용합니다. /workspace 디렉토리는 호출 간 파일이 유지됩니다. binary_path: 로컬 바이너리 경로 (지정 시 /workspace/로 복사됨) code: 실행할 bash 또는 python3 코드 |
@@ -41,7 +47,8 @@ MCP server name: `ctf_solver`
 | `session_start` | `tools/session_tools.py` | `session_start(kind: str, command: str = None, cwd: str = None, run_id: str = None, challenge_id: str = None, worker_id: str = None, host: str = None, port: str = None, image: str = None, workspace: str = None, timeout_ms: int = 1000, env_json: str = None) -> str` | Start a persistent local session via the loopback-only session daemon. kind: shell, python, sage, nc, or docker-shell. Associate run_id/challenge_id when solving a tracked challenge. |
 | `session_write` | `tools/session_tools.py` | `session_write(session_id: str, data: str, newline: bool = True, encoding: str = 'text') -> str` | Write text or base64 data to a persistent session. newline defaults to true for menu prompts and REPL commands. |
 | `trivy` | `tools/trivy_scan.py` | `trivy(file_path: str) -> str` | Trivy를 사용하여 의존성 파일(package.json, requirements.txt 등)의 알려진 취약점(CVE)을 스캔합니다. |
-| `verify_run` | `tools/verify_run.py` | `verify_run(mode: str, run_dir: str = None, command: str = None, cwd: str = None, timeout_sec: int = 30, retries: int = 0, flag_regex: str = None, success_regex: str = None, fail_regex: str = None, session_id: str = None, session_input: str = None, expect: list[str] = None, evidence_text: str = None, target: str = 'unknown', local: bool = False, remote: bool = False, label: str = '', save: bool = True, save_evidence: bool = False, max_output_bytes: int = 8000) -> str` | Verify solve evidence for a tracked challenge run. Supports command, session, and manual modes. Output is bounded and redacted; raw flag values and raw transcripts are not returned by default. |
+| `verify_run` | `tools/verify_run.py` | `verify_run(mode: str, run_dir: str = None, command: str = None, cwd: str = None, timeout_sec: int = 30, retries: int = 0, flag_regex: str = None, success_regex: str = None, fail_regex: str = None, session_id: str = None, session_input: str = None, expect: list[str] = None, evidence_text: str = None, callback_listener_id: str = None, callback_pattern: str = None, callback_min_hits: int = 1, target: str = 'unknown', local: bool = False, remote: bool = False, label: str = '', save: bool = True, save_evidence: bool = False, max_output_bytes: int = 8000) -> str` | Verify solve evidence for a tracked challenge run. Supports command, session, and manual modes. Output is bounded and redacted; raw flag values and raw transcripts are not returned by default. |
+| `web_payload_helper` | `tools/callbacks.py` | `web_payload_helper(callback_url: str) -> str` | Generate simple XSS/SSRF/CSS callback payload snippets for a supplied URL. This is a helper scaffold only and does not run an exploit or tunnel. |
 
 ## Details
 
@@ -178,6 +185,72 @@ missing installs return reason=playwright_not_installed.
 
 ```text
 Upload one or more local files through a file input. Output includes only file counts.
+```
+
+### `callback_close`
+
+- Module: `tools/callbacks.py`
+- Signature: `callback_close(listener_id: str, reason: str = 'closed') -> str`
+- Docstring:
+
+```text
+Close one callback listener and persist local-only closed metadata.
+```
+
+### `callback_hits`
+
+- Module: `tools/callbacks.py`
+- Signature: `callback_hits(listener_id: str, since_hit_id: str = None, limit: int = 20) -> str`
+- Docstring:
+
+```text
+Return bounded, redacted callback hits. Cookies, auth headers, token-like
+query/body fields, and flag-like values are redacted.
+```
+
+### `callback_list`
+
+- Module: `tools/callbacks.py`
+- Signature: `callback_list(run_id: str = None, challenge_id: str = None, include_closed: bool = False) -> str`
+- Docstring:
+
+```text
+List callback listeners, optionally filtered by run_id or challenge_id.
+Closed listeners are hidden unless include_closed is true.
+```
+
+### `callback_start`
+
+- Module: `tools/callbacks.py`
+- Signature: `callback_start(run_id: str = None, challenge_id: str = None, worker_id: str = None, host: str = '127.0.0.1', port: str = None, external_base_url: str = None, token_path: str = None, allow_public_bind: bool = False) -> str`
+- Docstring:
+
+```text
+Start a local-only web callback listener through the loopback callback daemon.
+Default bind is 127.0.0.1. Public binds require allow_public_bind.
+External URLs are metadata only and must be supplied manually.
+```
+
+### `callback_url`
+
+- Module: `tools/callbacks.py`
+- Signature: `callback_url(listener_id: str, external: bool = False, path: str = None) -> str`
+- Docstring:
+
+```text
+Return a local or manually configured external callback URL for a listener.
+No tunnel provider is started.
+```
+
+### `callback_wait`
+
+- Module: `tools/callbacks.py`
+- Signature: `callback_wait(listener_id: str, timeout_sec: float = 30, pattern: str = None, min_hits: int = 1) -> str`
+- Docstring:
+
+```text
+Wait for callback hits without busy looping. Pattern matching is performed
+over redacted hit summaries.
 ```
 
 ### `cve_lookup`
@@ -425,11 +498,22 @@ Trivy를 사용하여 의존성 파일(package.json, requirements.txt 등)의
 ### `verify_run`
 
 - Module: `tools/verify_run.py`
-- Signature: `verify_run(mode: str, run_dir: str = None, command: str = None, cwd: str = None, timeout_sec: int = 30, retries: int = 0, flag_regex: str = None, success_regex: str = None, fail_regex: str = None, session_id: str = None, session_input: str = None, expect: list[str] = None, evidence_text: str = None, target: str = 'unknown', local: bool = False, remote: bool = False, label: str = '', save: bool = True, save_evidence: bool = False, max_output_bytes: int = 8000) -> str`
+- Signature: `verify_run(mode: str, run_dir: str = None, command: str = None, cwd: str = None, timeout_sec: int = 30, retries: int = 0, flag_regex: str = None, success_regex: str = None, fail_regex: str = None, session_id: str = None, session_input: str = None, expect: list[str] = None, evidence_text: str = None, callback_listener_id: str = None, callback_pattern: str = None, callback_min_hits: int = 1, target: str = 'unknown', local: bool = False, remote: bool = False, label: str = '', save: bool = True, save_evidence: bool = False, max_output_bytes: int = 8000) -> str`
 - Docstring:
 
 ```text
 Verify solve evidence for a tracked challenge run.
 Supports command, session, and manual modes. Output is bounded and redacted;
 raw flag values and raw transcripts are not returned by default.
+```
+
+### `web_payload_helper`
+
+- Module: `tools/callbacks.py`
+- Signature: `web_payload_helper(callback_url: str) -> str`
+- Docstring:
+
+```text
+Generate simple XSS/SSRF/CSS callback payload snippets for a supplied URL.
+This is a helper scaffold only and does not run an exploit or tunnel.
 ```

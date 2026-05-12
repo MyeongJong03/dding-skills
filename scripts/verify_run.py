@@ -31,6 +31,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--session-input")
     parser.add_argument("--expect", action="append", default=[])
     parser.add_argument("--evidence-text")
+    parser.add_argument("--callback-listener-id")
+    parser.add_argument("--callback-pattern")
+    parser.add_argument("--callback-min-hits", type=int, default=1)
     parser.add_argument("--local", action="store_true")
     parser.add_argument("--remote", action="store_true")
     parser.add_argument("--label", default="")
@@ -62,6 +65,9 @@ def main() -> int:
         session_input=args.session_input,
         expect=args.expect,
         evidence_text=args.evidence_text,
+        callback_listener_id=args.callback_listener_id,
+        callback_pattern=args.callback_pattern,
+        callback_min_hits=args.callback_min_hits,
         local=args.local,
         remote=args.remote,
         label=args.label,

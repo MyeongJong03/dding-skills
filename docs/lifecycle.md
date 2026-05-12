@@ -50,6 +50,10 @@ By default finalization closes browser action sessions associated with the run
 and records aggregate browser counters. Use `--keep-browser-sessions` only for
 explicit handoff.
 
+By default finalization closes callback listeners associated with the run and
+records aggregate callback counters. Use `--keep-callbacks` only for explicit
+handoff.
+
 ## Multi-Terminal Run ID Discipline
 
 There is no supported global "current challenge". Each terminal/session must keep its own `challenge_id`, `run_id`, and `run_dir`.
@@ -70,6 +74,8 @@ There is no supported global "current challenge". Each terminal/session must kee
 - Browser profile metadata uses `CTF_BROWSER_STATE_ROOT` or `~/.ctf-solver/browser-states`.
 - Browser action session metadata uses `CTF_BROWSER_ROOT` or `~/.ctf-solver/browser`.
 - Browser screenshots/artifacts use `CTF_BROWSER_ARTIFACT_ROOT` or `~/.ctf-solver/browser-artifacts`.
+- Callback listener metadata and redacted hit logs use `CTF_CALLBACK_ROOT` or `~/.ctf-solver/callbacks`.
+- Callback daemon state uses `CTF_CALLBACKD_ROOT` or `~/.ctf-solver/callbackd`.
 - Platform automation records use `CTF_PLATFORM_AUTOMATION_ROOT` or `~/.ctf-solver/platforms`.
 - Downloaded private challenge files use `CTF_DOWNLOAD_ROOT` or `~/CTF/downloads`.
 - Metrics updates use a global metrics lock and atomic file replacement.
@@ -134,6 +140,8 @@ Defaults are portable and may be overridden with environment variables:
 | Browser action root | `Path.home() / ".ctf-solver" / "browser"` | `CTF_BROWSER_ROOT` |
 | Browser artifact root | `Path.home() / ".ctf-solver" / "browser-artifacts"` | `CTF_BROWSER_ARTIFACT_ROOT` |
 | Browser state root | `Path.home() / ".ctf-solver" / "browser-states"` | `CTF_BROWSER_STATE_ROOT` |
+| Callback root | `Path.home() / ".ctf-solver" / "callbacks"` | `CTF_CALLBACK_ROOT` |
+| Callback daemon root | `Path.home() / ".ctf-solver" / "callbackd"` | `CTF_CALLBACKD_ROOT` |
 | Platform automation root | `Path.home() / ".ctf-solver" / "platforms"` | `CTF_PLATFORM_AUTOMATION_ROOT` |
 | Download root | `Path.home() / "CTF" / "downloads"` | `CTF_DOWNLOAD_ROOT` |
 | Local writeup root | `Path.home() / "SolvedWriteUp"` | `CTF_SOLVED_WRITEUP_ROOT` |
@@ -197,6 +205,11 @@ Browser metrics are public-safe aggregate counters only: browser session count,
 closed browser session count, action count, screenshot count, and network event
 count. URLs, cookies, storage state paths, screenshot paths, console text, and
 network bodies are not public metrics.
+
+Callback metrics are public-safe aggregate counters only: listener count, closed
+listener count, hit count, wait success, and wait duration. Callback URLs,
+headers, bodies, cookies, tokens, flags, hit logs, and private paths are not
+public metrics.
 
 Worker metrics are optional public-safe aggregate fields only: worker count,
 worker action/wait counts, claim reclaim count, `auto_finalize_used`, and

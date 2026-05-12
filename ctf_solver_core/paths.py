@@ -63,6 +63,14 @@ def browser_state_root() -> Path:
     return _env_path("CTF_BROWSER_STATE_ROOT", Path.home() / ".ctf-solver" / "browser-states")
 
 
+def callback_root() -> Path:
+    return _env_path("CTF_CALLBACK_ROOT", Path.home() / ".ctf-solver" / "callbacks")
+
+
+def callbackd_root() -> Path:
+    return _env_path("CTF_CALLBACKD_ROOT", Path.home() / ".ctf-solver" / "callbackd")
+
+
 def platform_automation_root() -> Path:
     return _env_path("CTF_PLATFORM_AUTOMATION_ROOT", Path.home() / ".ctf-solver" / "platforms")
 

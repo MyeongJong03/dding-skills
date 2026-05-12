@@ -31,6 +31,7 @@ from ctf_solver_core.schemas import (
     read_json,
 )
 from ctf_solver_core.browser_client import close_browser_sessions_for_run
+from ctf_solver_core.callback_client import close_callback_listeners_for_run
 from ctf_solver_core.session_client import close_sessions_for_run
 from ctf_solver_core.verifier import load_verifier_result, verifier_summary
 from ctf_solver_core.worker import release_claim
@@ -65,6 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="do not close browser action sessions for this run",
     )
+    parser.add_argument("--keep-callbacks", action="store_true", help="do not close callback listeners for this run")
     parser.add_argument(
         "--require-verifier",
         action="store_true",
@@ -186,6 +188,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 "cleanup": existing.get("cleanup") or {},
                 "sessions": existing.get("sessions") or {},
                 "browser_sessions": existing.get("browser_sessions") or {},
+                "callbacks": existing.get("callbacks") or {},
                 "verifier": existing.get("verifier") or {},
                 "warnings": existing.get("warnings") or [],
                 "platform_server_release": existing.get("platform_server_release") or {},
@@ -297,6 +300,42 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                     "browser_actions_count": 0,
                     "browser_screenshot_count": 0,
                     "browser_network_event_count": 0,
+                    "errors": [str(exc)],
+                }
+
+        callback_result: dict[str, object] | None = None
+        if getattr(args, "keep_callbacks", False):
+            callback_result = {
+                "ok": True,
+                "reason": "kept_by_request",
+                "listener_count": 0,
+                "closed_callback_listener_count": 0,
+                "callback_hit_count": 0,
+                "callback_bytes_received": 0,
+                "errors": [],
+            }
+        elif args.dry_run:
+            callback_result = {
+                "ok": True,
+                "reason": "dry_run",
+                "listener_count": 0,
+                "closed_callback_listener_count": 0,
+                "callback_hit_count": 0,
+                "callback_bytes_received": 0,
+                "errors": [],
+            }
+        else:
+            try:
+                callback_result = {"ok": True, **close_callback_listeners_for_run(run_id)}
+            except Exception as exc:
+                callback_result = {
+                    "ok": False,
+                    "reason": "callback_close_failed",
+                    "warning": str(exc),
+                    "listener_count": 0,
+                    "closed_callback_listener_count": 0,
+                    "callback_hit_count": 0,
+                    "callback_bytes_received": 0,
                     "errors": [str(exc)],
                 }
 
@@ -461,6 +500,14 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "browser_screenshot_count": int((browser_session_result or {}).get("browser_screenshot_count") or 0),
             "browser_network_event_count": int((browser_session_result or {}).get("browser_network_event_count") or 0),
         }
+        callback_metrics = {
+            "callback_listener_count": int((callback_result or {}).get("listener_count") or 0),
+            "closed_callback_listener_count": int(
+                (callback_result or {}).get("closed_callback_listener_count") or 0
+            ),
+            "callback_hit_count": int((callback_result or {}).get("callback_hit_count") or 0),
+            "callback_bytes_received": int((callback_result or {}).get("callback_bytes_received") or 0),
+        }
 
         final_record = {
             "schema_version": 1,
@@ -489,6 +536,10 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "browser_sessions": browser_session_result or {},
             "browser_metrics": browser_metrics,
             "closed_browser_session_count": browser_metrics["closed_browser_session_count"],
+            "callbacks": callback_result or {},
+            "callback_metrics": callback_metrics,
+            "closed_callback_listener_count": callback_metrics["closed_callback_listener_count"],
+            "callback_hit_count": callback_metrics["callback_hit_count"],
             "verifier": verifier_info,
             "verifier_success": verifier_success,
             "verifier_flag_found": bool(verifier_info.get("flag_found")),
@@ -569,6 +620,11 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 browser_actions_count=browser_metrics["browser_actions_count"],
                 browser_screenshot_count=browser_metrics["browser_screenshot_count"],
                 browser_network_event_count=browser_metrics["browser_network_event_count"],
+                callback_listener_count=callback_metrics["callback_listener_count"],
+                closed_callback_listener_count=callback_metrics["closed_callback_listener_count"],
+                callback_hit_count=callback_metrics["callback_hit_count"],
+                callback_wait_success=None,
+                callback_wait_duration_sec=None,
                 worker_id_hash=None,
                 worker_count=None,
                 worker_action_count=None,
@@ -608,6 +664,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
         "cleanup": cleanup_result,
         "sessions": session_result,
         "browser_sessions": browser_session_result,
+        "callbacks": callback_result,
         "verifier": verifier_info,
         "warnings": verifier_warnings,
         "platform_server_release": platform_server_release_result,

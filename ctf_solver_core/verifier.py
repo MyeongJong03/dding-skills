@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 import re
 import signal
@@ -13,6 +14,7 @@ from typing import Any
 
 from ctf_solver_core.paths import resolve_path
 from ctf_solver_core.schemas import atomic_write_json, iso_now, read_json, utc_now
+from ctf_solver_core.callbacks import all_hits
 from ctf_solver_core.session_client import expect_session, read_session, write_session
 from ctf_solver_core.sessions import redact_text
 
@@ -272,6 +274,57 @@ def _verify_manual(
     }
 
 
+def _verify_callback(
+    *,
+    listener_id: str,
+    pattern: str | None,
+    min_hits: int,
+    flag_re: re.Pattern[str] | None,
+    success_re: re.Pattern[str] | None,
+    fail_re: re.Pattern[str] | None,
+) -> dict[str, Any]:
+    hits = all_hits(listener_id)
+    if pattern:
+        matched = [hit for hit in hits if pattern in json.dumps(hit, ensure_ascii=False, sort_keys=True)]
+    else:
+        matched = hits
+    summaries = [
+        hit.get("public_safe_summary")
+        for hit in matched[-max(1, min(5, int(min_hits))) :]
+        if isinstance(hit, dict) and isinstance(hit.get("public_safe_summary"), dict)
+    ]
+    evidence = json.dumps(
+        {
+            "callback_listener_id": listener_id,
+            "hit_count": len(hits),
+            "matched_count": len(matched),
+            "min_hits": max(1, int(min_hits)),
+            "pattern_configured": bool(pattern),
+            "summaries": summaries,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    success, flag_found, success_matched, fail_matched = _evaluate(
+        evidence,
+        flag_re=flag_re,
+        success_re=success_re,
+        fail_re=fail_re,
+        base_success=len(matched) >= max(1, int(min_hits)),
+    )
+    return {
+        "success": success,
+        "flag_found": flag_found,
+        "success_regex_matched": success_matched,
+        "fail_regex_matched": fail_matched,
+        "attempts": 1,
+        "return_code": None,
+        "stdout": evidence.encode("utf-8", errors="replace"),
+        "stderr": b"",
+        "errors": [],
+    }
+
+
 def _verify_session(
     *,
     session_id: str | None,
@@ -383,6 +436,9 @@ def verify_run(
     session_input: str | None = None,
     expect: list[str] | None = None,
     evidence_text: str | None = None,
+    callback_listener_id: str | None = None,
+    callback_pattern: str | None = None,
+    callback_min_hits: int = 1,
     target: str = "unknown",
     local: bool = False,
     remote: bool = False,
@@ -424,6 +480,15 @@ def verify_run(
             cwd=_default_cwd(resolved_run_dir, cwd, challenge),
             timeout_sec=timeout_sec,
             max_attempts=max_attempts,
+            flag_re=flag_re,
+            success_re=success_re,
+            fail_re=fail_re,
+        )
+    elif callback_listener_id and mode == "manual":
+        raw = _verify_callback(
+            listener_id=callback_listener_id,
+            pattern=callback_pattern,
+            min_hits=callback_min_hits,
             flag_re=flag_re,
             success_re=success_re,
             fail_re=fail_re,
