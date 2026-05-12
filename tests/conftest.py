@@ -104,6 +104,7 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
     browser_states = tmp_path / "browser-states"
     callbacks = tmp_path / "callbacks"
     callbackd = tmp_path / "callbackd"
+    web_workflows = tmp_path / "web-workflows"
     platform_auto = tmp_path / "platforms"
     downloads = tmp_path / "downloads"
     solver_repo = tmp_path / "solver-repo"
@@ -125,6 +126,7 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         browser_states,
         callbacks,
         callbackd,
+        web_workflows,
         platform_auto,
         downloads,
         solver_repo / "metrics",
@@ -148,6 +150,7 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         "CTF_BROWSER_STATE_ROOT": str(browser_states),
         "CTF_CALLBACK_ROOT": str(callbacks),
         "CTF_CALLBACKD_ROOT": str(callbackd),
+        "CTF_WEB_WORKFLOW_ROOT": str(web_workflows),
         "CTF_PLATFORM_AUTOMATION_ROOT": str(platform_auto),
         "CTF_DOWNLOAD_ROOT": str(downloads),
         "CTF_SOLVER_REPO_ROOT": str(solver_repo),
@@ -178,6 +181,7 @@ def temp_ctf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNames
         browser_states=browser_states,
         callbacks=callbacks,
         callbackd=callbackd,
+        web_workflows=web_workflows,
         platform_auto=platform_auto,
         downloads=downloads,
         solver_repo=solver_repo,

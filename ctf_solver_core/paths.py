@@ -71,6 +71,10 @@ def callbackd_root() -> Path:
     return _env_path("CTF_CALLBACKD_ROOT", Path.home() / ".ctf-solver" / "callbackd")
 
 
+def web_workflow_root() -> Path:
+    return _env_path("CTF_WEB_WORKFLOW_ROOT", Path.home() / ".ctf-solver" / "web-workflows")
+
+
 def platform_automation_root() -> Path:
     return _env_path("CTF_PLATFORM_AUTOMATION_ROOT", Path.home() / ".ctf-solver" / "platforms")
 

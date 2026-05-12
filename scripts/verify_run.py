@@ -34,6 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--callback-listener-id")
     parser.add_argument("--callback-pattern")
     parser.add_argument("--callback-min-hits", type=int, default=1)
+    parser.add_argument("--web-workflow-id")
     parser.add_argument("--local", action="store_true")
     parser.add_argument("--remote", action="store_true")
     parser.add_argument("--label", default="")
@@ -68,6 +69,7 @@ def main() -> int:
         callback_listener_id=args.callback_listener_id,
         callback_pattern=args.callback_pattern,
         callback_min_hits=args.callback_min_hits,
+        web_workflow_id=args.web_workflow_id,
         local=args.local,
         remote=args.remote,
         label=args.label,

@@ -32,14 +32,14 @@
   │     ├── Codex CLI (codex 명령어, primary)
   │     └── Claude Code (ctf 명령어, optional/legacy)
   │           └── 둘 다 동일한 생성물(CLAUDE.md + AGENTS.md) + Skills 공유
-│                 ├── ctf_solver MCP / CTF Solver (one-shot + session/browser/callback tools)
+  │                 ├── ctf_solver MCP / CTF Solver (one-shot + session/browser/callback/web workflow tools)
   │                 └── ReVa MCP (Ghidra MCP, 로컬 Ghidra 연결)
   │
   └── 윈도우 (WSL2 Ubuntu 24.04, RTX 5060)
         ├── Codex CLI (codex 명령어, primary)
         └── Claude Code (ctf 명령어, optional/legacy)
               └── 둘 다 동일한 생성물(CLAUDE.md + AGENTS.md) + Skills 공유
-                    ├── ctf_solver MCP / CTF Solver (one-shot + session/browser/callback tools)
+                    ├── ctf_solver MCP / CTF Solver (one-shot + session/browser/callback/web workflow tools)
                     └── ReVa MCP (Ghidra Windows 네이티브)
 ```
 
@@ -95,6 +95,8 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │   ├── browser_start.py / browser_goto.py / browser_eval.py / browser_close.py
 │   ├── callback_start.py / callback_wait.py / callback_hits.py / callback_close.py
 │   ├── callback_url.py / callback_list.py / web_payload_helper.py
+│   ├── web_workflow_init.py / web_payload_generate.py / web_callback_probe.py
+│   ├── web_browser_probe.py / web_evidence_collect.py / web_workflow_close.py
 │   ├── platform_discover.py / platform_download.py / platform_submit.py
 │   ├── platform_server_acquire.py / platform_server_release.py / platform_server_status.py
 │   └── resource_acquire.py / resource_heartbeat.py / resource_reclaim_stale.py / resource_release.py
@@ -105,6 +107,7 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │   ├── platform-automation.md
 │   ├── browser-platform-automation.md
 │   ├── callback-listener.md
+│   ├── web-exploit-workflow.md
 │   └── sessions.md
 ├── Dockerfile.ctf                # Docker 이미지 정의
 ├── requirements.txt

@@ -193,6 +193,18 @@ Callback listeners are loopback-only by default, store redacted hit logs under
 `CTF_CALLBACK_ROOT`, and are closed by `challenge_finalize.py` unless
 `--keep-callbacks` is supplied. See `docs/callback-listener.md`.
 
+For workflows that need browser actions and callback evidence tied together,
+prefer the higher-level web workflow scaffold:
+
+```bash
+python3 scripts/web_workflow_init.py --run-id "$RUN_ID" --start-browser --start-callback --json
+python3 scripts/web_browser_probe.py --workflow-id "$WORKFLOW_ID" --action goto --url 'data:text/html,<title>local</title>' --json
+python3 scripts/web_callback_probe.py --workflow-id "$WORKFLOW_ID" --wait-timeout-sec 15 --json
+python3 scripts/web_evidence_collect.py --workflow-id "$WORKFLOW_ID" --include-browser-summary --include-callback-summary --json
+```
+
+See `docs/web-exploit-workflow.md`.
+
 ## Finalize Cleanup
 
 `scripts/challenge_finalize.py` closes browser sessions linked to the run by

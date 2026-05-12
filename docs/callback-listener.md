@@ -94,6 +94,17 @@ Markdown image example:
 These snippets are helpers only. They do not submit payloads, launch browsers,
 or solve exploits automatically.
 
+For browser + callback + evidence orchestration, use the web workflow layer:
+
+```bash
+python3 scripts/web_workflow_init.py --run-id "$RUN_ID" --start-callback --json
+python3 scripts/web_payload_generate.py --workflow-id "$WORKFLOW_ID" --types img,script-fetch,css-url --json
+python3 scripts/web_callback_probe.py --workflow-id "$WORKFLOW_ID" --wait-timeout-sec 15 --json
+```
+
+The workflow layer stores redacted evidence under `CTF_WEB_WORKFLOW_ROOT` and
+does not start an external tunnel provider. See `docs/web-exploit-workflow.md`.
+
 ## Wait And Inspect
 
 Wait for a bot/admin/browser hit:
@@ -179,6 +190,10 @@ MCP server `ctf_solver` exposes:
 - `callback_close`
 - `callback_list`
 - `web_payload_helper`
+- `web_workflow_init`
+- `web_payload_generate`
+- `web_callback_probe`
+- `web_evidence_collect`
 
 ## Limitations
 

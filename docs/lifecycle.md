@@ -54,6 +54,10 @@ By default finalization closes callback listeners associated with the run and
 records aggregate callback counters. Use `--keep-callbacks` only for explicit
 handoff.
 
+By default finalization also collects redacted web workflow evidence and closes
+web workflows associated with the run. Use `--keep-web-workflows` only for
+explicit handoff.
+
 ## Multi-Terminal Run ID Discipline
 
 There is no supported global "current challenge". Each terminal/session must keep its own `challenge_id`, `run_id`, and `run_dir`.
@@ -76,6 +80,7 @@ There is no supported global "current challenge". Each terminal/session must kee
 - Browser screenshots/artifacts use `CTF_BROWSER_ARTIFACT_ROOT` or `~/.ctf-solver/browser-artifacts`.
 - Callback listener metadata and redacted hit logs use `CTF_CALLBACK_ROOT` or `~/.ctf-solver/callbacks`.
 - Callback daemon state uses `CTF_CALLBACKD_ROOT` or `~/.ctf-solver/callbackd`.
+- Web workflow metadata and redacted evidence use `CTF_WEB_WORKFLOW_ROOT` or `~/.ctf-solver/web-workflows`.
 - Platform automation records use `CTF_PLATFORM_AUTOMATION_ROOT` or `~/.ctf-solver/platforms`.
 - Downloaded private challenge files use `CTF_DOWNLOAD_ROOT` or `~/CTF/downloads`.
 - Metrics updates use a global metrics lock and atomic file replacement.
@@ -142,6 +147,7 @@ Defaults are portable and may be overridden with environment variables:
 | Browser state root | `Path.home() / ".ctf-solver" / "browser-states"` | `CTF_BROWSER_STATE_ROOT` |
 | Callback root | `Path.home() / ".ctf-solver" / "callbacks"` | `CTF_CALLBACK_ROOT` |
 | Callback daemon root | `Path.home() / ".ctf-solver" / "callbackd"` | `CTF_CALLBACKD_ROOT` |
+| Web workflow root | `Path.home() / ".ctf-solver" / "web-workflows"` | `CTF_WEB_WORKFLOW_ROOT` |
 | Platform automation root | `Path.home() / ".ctf-solver" / "platforms"` | `CTF_PLATFORM_AUTOMATION_ROOT` |
 | Download root | `Path.home() / "CTF" / "downloads"` | `CTF_DOWNLOAD_ROOT` |
 | Local writeup root | `Path.home() / "SolvedWriteUp"` | `CTF_SOLVED_WRITEUP_ROOT` |
@@ -170,6 +176,10 @@ Writeups may include the full final exploit code and local-only flag. They must 
 If `<run_dir>/verifier.json` exists, generated writeups include a Verification
 section with verifier ID, target, mode, attempts, duration, and a redacted
 bounded output preview.
+
+If web workflow evidence is available, generated writeups include a redacted
+workflow summary with workflow counts, payload counts, callback hit counts, and
+evidence bundle counts.
 
 ## Local-Only Writeup Policy
 

@@ -32,7 +32,9 @@
   browser_start, browser_goto, browser_click, browser_fill, browser_eval,
   browser_upload, browser_screenshot, browser_console, browser_network,
   browser_cookies, browser_close, browser_list, callback_start, callback_url,
-  callback_hits, callback_wait, callback_close, callback_list, web_payload_helper
+  callback_hits, callback_wait, callback_close, callback_list, web_payload_helper,
+  web_workflow_init, web_payload_generate, web_browser_probe, web_callback_probe,
+  web_evidence_collect, web_workflow_close, web_workflow_list
   - Codex에서 MCP가 직접 연결되지 않는 환경이면 같은 `server.py`와 `tools/*.py`를 CLI/Python helper처럼 사용한다.
   - docker_exec/docker_pwn은 persistent workspace(/workspace)를 공유함
   - sage_exec 기본 타임아웃 60초. LLL/Coppersmith 등 무거운 연산은 timeout_seconds 늘릴 것
@@ -89,6 +91,16 @@
 - Use redacted callback summaries as verifier evidence when useful.
 - Close callback listeners during finalize unless explicitly keeping them.
 - Do not auto-push callback logs, writeups, exploit code, or private hit artifacts.
+
+## Web Exploit Workflow Rules
+- For Web CTF involving XSS, bot/admin browser behavior, SSRF, CSP leak, CSS exfil, file upload, DOM parsing, or browser-only behavior, initialize a web workflow associated with `run_id`.
+- Prefer workflow-managed callback and browser sessions over ad hoc callback/browser commands when both are part of the same exploit path.
+- Generate payload snippets through the workflow as helpers; snippets alone are not proof of exploitability.
+- Use `web_callback_probe`/`callback_wait` and verifier evidence before claiming a solve.
+- Store workflow evidence under `CTF_WEB_WORKFLOW_ROOT` or the local-only default `~/.ctf-solver/web-workflows`; do not place evidence bundles in the repo.
+- Do not log raw cookies, tokens, flags, private request bodies, browser storage state contents, or secret-bearing callback URLs.
+- Close web workflows during finalize unless explicitly keeping them.
+- Do not auto-push writeups, exploit code, raw web evidence, callback logs, screenshots, or browser artifacts.
 
 ## Platform Resource Rules
 - Platform/server constraints are policy-driven. Use `CTF_PLATFORM_CONFIG` or `config/platforms.example.yaml` as the schema reference, and never store cookies, session tokens, passwords, OAuth data, account IDs, or private server URLs in the repo.

@@ -12,7 +12,7 @@ dding-skills/
 ├── ctf_solver_core/       # lifecycle path/lock/schema/session/browser/callback/platform helpers
 ├── scripts/               # doctor + lifecycle/finalization CLIs
 ├── metrics/               # public-safe metrics and dashboard
-├── docs/                  # tools/lifecycle/metrics/platform/browser automation docs
+├── docs/                  # tools/lifecycle/metrics/platform/browser/callback/web workflow docs
 ├── Dockerfile.ctf         # CTF PWN/REV용 Docker 이미지
 ├── install.sh             # 자동 설치 스크립트
 ├── skills/
@@ -39,7 +39,8 @@ Codex (primary)
   └─ MCP/CLI helper 호출
          └─ ctf_solver (CTF Solver) ───→  server.py → tools/*.py
                                       ├─ persistent session daemon (127.0.0.1)
-                                      └─ web callback listener daemon (127.0.0.1)
+                                      ├─ web callback listener daemon (127.0.0.1)
+                                      └─ web exploit workflow scaffold
 ```
 
 `~/CTF/CLAUDE.md`는 심볼릭 링크가 아니라 `config/deploy.sh`가 `config/{mac|windows}/env.md`와 `config/CLAUDE.base.md`를 합쳐 생성하는 실제 파일입니다.
@@ -207,6 +208,7 @@ bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 | `CTF_BROWSER_STATE_ROOT` | browser/session profile metadata 루트 | `~/.ctf-solver/browser-states` |
 | `CTF_CALLBACK_ROOT` | callback listener metadata/hit log 루트 | `~/.ctf-solver/callbacks` |
 | `CTF_CALLBACKD_ROOT` | callback daemon state 루트 | `~/.ctf-solver/callbackd` |
+| `CTF_WEB_WORKFLOW_ROOT` | web exploit workflow metadata/evidence 루트 | `~/.ctf-solver/web-workflows` |
 | `CTF_PLATFORM_AUTOMATION_ROOT` | platform server/session scaffold state 루트 | `~/.ctf-solver/platforms` |
 | `CTF_DOWNLOAD_ROOT` | downloaded private challenge file 루트 | `~/CTF/downloads` |
 | `CTF_PLATFORM_CONFIG` | repo 밖 platform policy YAML | unset (`config/platforms.example.yaml` for schema/example) |

@@ -439,6 +439,7 @@ def verify_run(
     callback_listener_id: str | None = None,
     callback_pattern: str | None = None,
     callback_min_hits: int = 1,
+    web_workflow_id: str | None = None,
     target: str = "unknown",
     local: bool = False,
     remote: bool = False,
@@ -484,6 +485,27 @@ def verify_run(
             success_re=success_re,
             fail_re=fail_re,
         )
+    elif web_workflow_id and mode == "manual":
+        from .web_workflow import workflow_verifier_evidence
+
+        workflow_evidence = workflow_verifier_evidence(web_workflow_id)
+        listener_id = str(workflow_evidence.get("callback_listener_id") or "")
+        if listener_id and not evidence_text:
+            raw = _verify_callback(
+                listener_id=listener_id,
+                pattern=callback_pattern,
+                min_hits=callback_min_hits,
+                flag_re=flag_re,
+                success_re=success_re,
+                fail_re=fail_re,
+            )
+        else:
+            raw = _verify_manual(
+                evidence_text=evidence_text or str(workflow_evidence.get("evidence_text") or ""),
+                flag_re=flag_re,
+                success_re=success_re,
+                fail_re=fail_re,
+            )
     elif callback_listener_id and mode == "manual":
         raw = _verify_callback(
             listener_id=callback_listener_id,
@@ -535,6 +557,7 @@ def verify_run(
         "challenge_id": str(challenge.get("challenge_id") or ""),
         "label": label or "",
         "mode": mode,
+        "web_workflow_id": web_workflow_id or "",
         "target": verifier_target,
         "success": bool(raw.get("success")),
         "flag_found": bool(raw.get("flag_found")),
@@ -551,6 +574,13 @@ def verify_run(
         "created_at": iso_now(),
         "errors": list(raw.get("errors") or []),
     }
+    if web_workflow_id and result["success"]:
+        try:
+            from .web_workflow import mark_workflow_verified
+
+            mark_workflow_verified(web_workflow_id, result)
+        except Exception as exc:
+            result["errors"] = [*list(result.get("errors") or []), f"web_workflow_mark_verified_failed:{exc}"]
 
     should_save = bool(resolved_run_dir) if save_result is None else bool(save_result)
     if should_save and resolved_run_dir:

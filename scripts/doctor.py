@@ -33,6 +33,7 @@ from ctf_solver_core.paths import (
     session_root,
     sessiond_root,
     solved_writeup_root,
+    web_workflow_root,
     worker_root,
 )
 from ctf_solver_core.browser_actions import active_browser_session_count
@@ -46,6 +47,7 @@ from ctf_solver_core.platforms import platform_config_path, validate_platform_co
 from ctf_solver_core.resources import detect_stale_leases, list_leases
 from ctf_solver_core.schemas import read_jsonl, validate_public_record
 from ctf_solver_core.session_client import status as session_daemon_status
+from ctf_solver_core.web_workflow import active_web_workflow_count
 from ctf_solver_core.worker import detect_stale_claims, list_claims
 
 HOME = Path.home()
@@ -292,6 +294,13 @@ class Doctor:
             "scripts/callback_close.py",
             "scripts/callback_list.py",
             "scripts/web_payload_helper.py",
+            "scripts/web_workflow_init.py",
+            "scripts/web_payload_generate.py",
+            "scripts/web_browser_probe.py",
+            "scripts/web_callback_probe.py",
+            "scripts/web_evidence_collect.py",
+            "scripts/web_workflow_close.py",
+            "scripts/web_workflow_list.py",
             "scripts/browser_state_init.py",
             "scripts/browser_state_check.py",
             "scripts/platform_discover.py",
@@ -331,6 +340,8 @@ class Doctor:
             "ctf_solver_core/callbacks.py",
             "ctf_solver_core/callback_client.py",
             "ctf_solver_core/callback_daemon.py",
+            "ctf_solver_core/web_workflow.py",
+            "ctf_solver_core/web_payloads.py",
             "ctf_solver_core/browser_state.py",
             "ctf_solver_core/platform_automation.py",
             "ctf_solver_core/platform_adapters.py",
@@ -340,6 +351,7 @@ class Doctor:
             "docs/browser-platform-automation.md",
             "docs/browser-actions.md",
             "docs/callback-listener.md",
+            "docs/web-exploit-workflow.md",
             "docs/ctfd-adapter.md",
             "docs/worker-runner.md",
             "docs/sessions.md",
@@ -428,6 +440,7 @@ class Doctor:
         browser_states = browser_state_root()
         callbacks = callback_root()
         callbackd = callbackd_root()
+        web_workflows = web_workflow_root()
         platform_auto = platform_automation_root()
         downloads = download_root()
         self.info(f"writeup root: {display_path(writeup_root)}")
@@ -443,6 +456,7 @@ class Doctor:
         self.info(f"browser state root: {display_path(browser_states)}")
         self.info(f"callback root: {display_path(callbacks)}")
         self.info(f"callback daemon root: {display_path(callbackd)}")
+        self.info(f"web workflow root: {display_path(web_workflows)}")
         self.info(f"platform automation root: {display_path(platform_auto)}")
         self.info(f"download root: {display_path(downloads)}")
 
@@ -475,6 +489,8 @@ class Doctor:
             self.warn("callback root is inside repo; prefer ~/.ctf-solver/callbacks or CTF_CALLBACK_ROOT outside repo")
         if is_inside_repo(callbackd):
             self.warn("callback daemon root is inside repo; prefer ~/.ctf-solver/callbackd or CTF_CALLBACKD_ROOT outside repo")
+        if is_inside_repo(web_workflows):
+            self.warn("web workflow root is inside repo; prefer ~/.ctf-solver/web-workflows or CTF_WEB_WORKFLOW_ROOT outside repo")
         if is_inside_repo(platform_auto):
             self.warn("platform automation root is inside repo; prefer ~/.ctf-solver/platforms or CTF_PLATFORM_AUTOMATION_ROOT outside repo")
         if is_inside_repo(downloads):
@@ -506,6 +522,10 @@ class Doctor:
             self.info(f"active callback listener metadata count: {active_listener_count()}")
         except Exception as exc:
             self.warn(f"could not inspect callback daemon safely: {exc}")
+        try:
+            self.info(f"active web workflow metadata count: {active_web_workflow_count()}")
+        except Exception as exc:
+            self.warn(f"could not inspect web workflows safely: {exc}")
         try:
             active_claims = list_claims(include_stale=False)
             stale_claims = detect_stale_claims()

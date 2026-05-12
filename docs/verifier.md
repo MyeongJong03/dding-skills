@@ -78,6 +78,20 @@ python3 scripts/verify_run.py \
 The verifier reads redacted hit summaries from the local callback root and
 stores only aggregate hit counts and public-safe hit summaries.
 
+Manual mode can also consume a web workflow summary:
+
+```bash
+python3 scripts/verify_run.py \
+  --run-dir <run-dir> \
+  --mode manual \
+  --web-workflow-id <workflow_id> \
+  --callback-min-hits 1 \
+  --local
+```
+
+If the workflow has a callback listener, verifier uses callback hit summaries.
+Otherwise it verifies against the redacted workflow evidence summary text.
+
 ## Local Vs Remote
 
 Use `--local` for local proof and `--remote` for remote target proof. If neither
@@ -122,6 +136,7 @@ Forbidden public data:
 - private absolute paths
 - cookies, tokens, API keys, OAuth data, passwords, private keys
 - callback URLs, headers, bodies, hit logs, or token-like values
+- raw web workflow evidence, browser artifact paths, or screenshots
 
 Writeups remain local-only under `CTF_SOLVED_WRITEUP_ROOT` or `~/SolvedWriteUp`
 and are not pushed to GitHub by the lifecycle tools.

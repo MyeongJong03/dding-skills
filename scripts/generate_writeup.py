@@ -25,6 +25,7 @@ from ctf_solver_core.schemas import (
     read_json,
 )
 from ctf_solver_core.verifier import load_verifier_result, verifier_summary
+from ctf_solver_core.web_workflow import web_evidence_summaries_for_run
 
 
 LANG_BY_SUFFIX = {
@@ -162,6 +163,24 @@ def _verification_section(run_dir: Path | None) -> list[str]:
                 if isinstance(item, dict):
                     callback_lines.append(
                         f"- Listener `{item.get('listener_id')}` status `{item.get('status')}` hits `{item.get('hit_count')}`"
+                    )
+            callback_lines.append("")
+        workflows = web_evidence_summaries_for_run(run_id)
+        if int(workflows.get("workflow_count") or 0):
+            callback_lines.extend(
+                [
+                    "",
+                    "Web workflow evidence summary:",
+                    "",
+                    f"- Workflow count: `{workflows.get('workflow_count')}`",
+                    f"- Evidence bundle count: `{workflows.get('evidence_count')}`",
+                ]
+            )
+            for item in workflows.get("workflows") or []:
+                if isinstance(item, dict):
+                    callback_lines.append(
+                        f"- Workflow `{item.get('workflow_id')}` status `{item.get('status')}` "
+                        f"payloads `{item.get('payload_count')}` callbacks `{item.get('callback_hit_count')}`"
                     )
             callback_lines.append("")
     if not summary:

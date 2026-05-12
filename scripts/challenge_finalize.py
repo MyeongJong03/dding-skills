@@ -34,6 +34,7 @@ from ctf_solver_core.browser_client import close_browser_sessions_for_run
 from ctf_solver_core.callback_client import close_callback_listeners_for_run
 from ctf_solver_core.session_client import close_sessions_for_run
 from ctf_solver_core.verifier import load_verifier_result, verifier_summary
+from ctf_solver_core.web_workflow import close_web_workflows_for_run, collect_web_evidence_for_run
 from ctf_solver_core.worker import release_claim
 from cleanup_challenge import cleanup
 from generate_writeup import generate_writeup
@@ -67,6 +68,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="do not close browser action sessions for this run",
     )
     parser.add_argument("--keep-callbacks", action="store_true", help="do not close callback listeners for this run")
+    parser.add_argument(
+        "--keep-web-workflows",
+        action="store_true",
+        help="do not collect and close web exploit workflows for this run",
+    )
     parser.add_argument(
         "--require-verifier",
         action="store_true",
@@ -189,6 +195,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 "sessions": existing.get("sessions") or {},
                 "browser_sessions": existing.get("browser_sessions") or {},
                 "callbacks": existing.get("callbacks") or {},
+                "web_workflows": existing.get("web_workflows") or {},
                 "verifier": existing.get("verifier") or {},
                 "warnings": existing.get("warnings") or [],
                 "platform_server_release": existing.get("platform_server_release") or {},
@@ -201,6 +208,12 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             }
 
         archived_exploits = _archive_exploits(run_dir, exploits, args.dry_run)
+
+        if args.generate_writeup and not getattr(args, "keep_web_workflows", False) and not args.dry_run:
+            try:
+                collect_web_evidence_for_run(run_id)
+            except Exception as exc:
+                verifier_warnings.append(f"web workflow pre-writeup evidence collect failed: {exc}")
 
         writeup_result: dict[str, object] | None = None
         if args.generate_writeup:
@@ -336,6 +349,51 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                     "closed_callback_listener_count": 0,
                     "callback_hit_count": 0,
                     "callback_bytes_received": 0,
+                    "errors": [str(exc)],
+                }
+
+        web_workflow_result: dict[str, object] | None = None
+        if getattr(args, "keep_web_workflows", False):
+            web_workflow_result = {
+                "ok": True,
+                "reason": "kept_by_request",
+                "web_workflow_count": 0,
+                "closed_web_workflow_count": 0,
+                "web_evidence_count": 0,
+                "web_payload_count": 0,
+                "web_browser_action_count": 0,
+                "web_callback_probe_success": False,
+                "web_evidence_collected": False,
+                "errors": [],
+            }
+        elif args.dry_run:
+            web_workflow_result = {
+                "ok": True,
+                "reason": "dry_run",
+                "web_workflow_count": 0,
+                "closed_web_workflow_count": 0,
+                "web_evidence_count": 0,
+                "web_payload_count": 0,
+                "web_browser_action_count": 0,
+                "web_callback_probe_success": False,
+                "web_evidence_collected": False,
+                "errors": [],
+            }
+        else:
+            try:
+                web_workflow_result = {"ok": True, **close_web_workflows_for_run(run_id)}
+            except Exception as exc:
+                web_workflow_result = {
+                    "ok": False,
+                    "reason": "web_workflow_close_failed",
+                    "warning": str(exc),
+                    "web_workflow_count": 0,
+                    "closed_web_workflow_count": 0,
+                    "web_evidence_count": 0,
+                    "web_payload_count": 0,
+                    "web_browser_action_count": 0,
+                    "web_callback_probe_success": False,
+                    "web_evidence_collected": False,
                     "errors": [str(exc)],
                 }
 
@@ -508,6 +566,15 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "callback_hit_count": int((callback_result or {}).get("callback_hit_count") or 0),
             "callback_bytes_received": int((callback_result or {}).get("callback_bytes_received") or 0),
         }
+        web_metrics = {
+            "web_workflow_count": int((web_workflow_result or {}).get("web_workflow_count") or 0),
+            "closed_web_workflow_count": int((web_workflow_result or {}).get("closed_web_workflow_count") or 0),
+            "web_evidence_count": int((web_workflow_result or {}).get("web_evidence_count") or 0),
+            "web_payload_count": int((web_workflow_result or {}).get("web_payload_count") or 0),
+            "web_browser_action_count": int((web_workflow_result or {}).get("web_browser_action_count") or 0),
+            "web_callback_probe_success": bool((web_workflow_result or {}).get("web_callback_probe_success")),
+            "web_evidence_collected": bool((web_workflow_result or {}).get("web_evidence_collected")),
+        }
 
         final_record = {
             "schema_version": 1,
@@ -540,6 +607,10 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "callback_metrics": callback_metrics,
             "closed_callback_listener_count": callback_metrics["closed_callback_listener_count"],
             "callback_hit_count": callback_metrics["callback_hit_count"],
+            "web_workflows": web_workflow_result or {},
+            "web_metrics": web_metrics,
+            "closed_web_workflow_count": web_metrics["closed_web_workflow_count"],
+            "web_evidence_count": web_metrics["web_evidence_count"],
             "verifier": verifier_info,
             "verifier_success": verifier_success,
             "verifier_flag_found": bool(verifier_info.get("flag_found")),
@@ -625,6 +696,11 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 callback_hit_count=callback_metrics["callback_hit_count"],
                 callback_wait_success=None,
                 callback_wait_duration_sec=None,
+                web_workflow_count=web_metrics["web_workflow_count"],
+                web_payload_count=web_metrics["web_payload_count"],
+                web_callback_probe_success=web_metrics["web_callback_probe_success"],
+                web_browser_action_count=web_metrics["web_browser_action_count"],
+                web_evidence_collected=web_metrics["web_evidence_collected"],
                 worker_id_hash=None,
                 worker_count=None,
                 worker_action_count=None,
@@ -665,6 +741,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
         "sessions": session_result,
         "browser_sessions": browser_session_result,
         "callbacks": callback_result,
+        "web_workflows": web_workflow_result,
         "verifier": verifier_info,
         "warnings": verifier_warnings,
         "platform_server_release": platform_server_release_result,

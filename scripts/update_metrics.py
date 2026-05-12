@@ -76,6 +76,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--callback-hit-count", type=int)
     parser.add_argument("--callback-wait-success", action="store_true")
     parser.add_argument("--callback-wait-duration-sec", type=float)
+    parser.add_argument("--web-workflow-count", type=int)
+    parser.add_argument("--web-payload-count", type=int)
+    parser.add_argument("--web-callback-probe-success", action="store_true")
+    parser.add_argument("--web-browser-action-count", type=int)
+    parser.add_argument("--web-evidence-collected", action="store_true")
     parser.add_argument("--worker-id-hash")
     parser.add_argument("--worker-count", type=int)
     parser.add_argument("--worker-action-count", type=int)
@@ -227,6 +232,9 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
     callback_metrics = final.get("callback_metrics")
     if not isinstance(callback_metrics, dict):
         callback_metrics = {}
+    web_metrics = final.get("web_metrics")
+    if not isinstance(web_metrics, dict):
+        web_metrics = {}
 
     optional_ints = {
         "remote_wait_time_sec": getattr(args, "remote_wait_time_sec", None),
@@ -256,6 +264,9 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         "callback_listener_count": getattr(args, "callback_listener_count", None),
         "closed_callback_listener_count": getattr(args, "closed_callback_listener_count", None),
         "callback_hit_count": getattr(args, "callback_hit_count", None),
+        "web_workflow_count": getattr(args, "web_workflow_count", None),
+        "web_payload_count": getattr(args, "web_payload_count", None),
+        "web_browser_action_count": getattr(args, "web_browser_action_count", None),
         "worker_count": getattr(args, "worker_count", None),
         "worker_action_count": getattr(args, "worker_action_count", None),
         "worker_wait_count": getattr(args, "worker_wait_count", None),
@@ -275,6 +286,8 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
             value = int(browser_metrics[key])
         if value is None and isinstance(callback_metrics.get(key), int):
             value = int(callback_metrics[key])
+        if value is None and isinstance(web_metrics.get(key), int):
+            value = int(web_metrics[key])
         if value is None and isinstance(worker_metrics.get(key), int):
             value = int(worker_metrics[key])
         if value is None and isinstance(platform_metrics.get(key), int):
@@ -311,6 +324,16 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         callback_wait_duration = float(callback_metrics["callback_wait_duration_sec"])
     if callback_wait_duration is not None:
         record["callback_wait_duration_sec"] = max(0.0, round(float(callback_wait_duration), 3))
+    web_callback_probe_success = bool(
+        getattr(args, "web_callback_probe_success", False) or web_metrics.get("web_callback_probe_success")
+    )
+    if web_callback_probe_success:
+        record["web_callback_probe_success"] = True
+    web_evidence_collected = bool(
+        getattr(args, "web_evidence_collected", False) or web_metrics.get("web_evidence_collected")
+    )
+    if web_evidence_collected:
+        record["web_evidence_collected"] = True
     server_acquire_attempted = bool(
         getattr(args, "server_acquire_attempted", False) or platform_metrics.get("server_acquire_attempted")
     )

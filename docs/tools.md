@@ -48,7 +48,14 @@ MCP server name: `ctf_solver`
 | `session_write` | `tools/session_tools.py` | `session_write(session_id: str, data: str, newline: bool = True, encoding: str = 'text') -> str` | Write text or base64 data to a persistent session. newline defaults to true for menu prompts and REPL commands. |
 | `trivy` | `tools/trivy_scan.py` | `trivy(file_path: str) -> str` | Trivy를 사용하여 의존성 파일(package.json, requirements.txt 등)의 알려진 취약점(CVE)을 스캔합니다. |
 | `verify_run` | `tools/verify_run.py` | `verify_run(mode: str, run_dir: str = None, command: str = None, cwd: str = None, timeout_sec: int = 30, retries: int = 0, flag_regex: str = None, success_regex: str = None, fail_regex: str = None, session_id: str = None, session_input: str = None, expect: list[str] = None, evidence_text: str = None, callback_listener_id: str = None, callback_pattern: str = None, callback_min_hits: int = 1, target: str = 'unknown', local: bool = False, remote: bool = False, label: str = '', save: bool = True, save_evidence: bool = False, max_output_bytes: int = 8000) -> str` | Verify solve evidence for a tracked challenge run. Supports command, session, and manual modes. Output is bounded and redacted; raw flag values and raw transcripts are not returned by default. |
+| `web_browser_probe` | `tools/web_workflow.py` | `web_browser_probe(workflow_id: str, action: str, url: str = None, selector: str = None, value: str = None, file: str = None, expression: str = None, timeout_ms: int = None) -> str` | Run one bounded browser action through the workflow browser session. Actions are non-destructive scaffolding operations only. |
+| `web_callback_probe` | `tools/web_workflow.py` | `web_callback_probe(workflow_id: str, wait_timeout_sec: float = 15, pattern: str = None, min_hits: int = 1) -> str` | Wait for workflow callback hits and store a redacted evidence summary. |
+| `web_evidence_collect` | `tools/web_workflow.py` | `web_evidence_collect(workflow_id: str, include_browser_summary: bool = False, include_callback_summary: bool = False, include_verifier_summary: bool = False) -> str` | Write a redacted local-only web workflow evidence bundle and summary. |
+| `web_payload_generate` | `tools/web_workflow.py` | `web_payload_generate(workflow_id: str = None, callback_url: str = None, types: str = None, target_param: str = None, encode: str = None) -> str` | Generate helper XSS/SSRF/CSP/CSS/file-upload payload snippets for a workflow callback URL. Snippets are helpers only and are not proof. |
 | `web_payload_helper` | `tools/callbacks.py` | `web_payload_helper(callback_url: str) -> str` | Generate simple XSS/SSRF/CSS callback payload snippets for a supplied URL. This is a helper scaffold only and does not run an exploit or tunnel. |
+| `web_workflow_close` | `tools/web_workflow.py` | `web_workflow_close(workflow_id: str, close_browser: bool = True, close_callback: bool = True, reason: str = 'closed') -> str` | Close a web workflow and associated browser/callback resources by default. |
+| `web_workflow_init` | `tools/web_workflow.py` | `web_workflow_init(run_id: str = None, challenge_id: str = None, worker_id: str = None, target_url: str = None, start_browser: bool = False, start_callback: bool = False, browser_profile: str = None, external_base_url: str = None) -> str` | Initialize a local-only web exploit workflow and optionally start a browser session and callback listener associated with run_id. |
+| `web_workflow_list` | `tools/web_workflow.py` | `web_workflow_list(run_id: str = None, challenge_id: str = None, include_closed: bool = False) -> str` | List web workflows, optionally filtered by run_id or challenge_id. |
 
 ## Details
 
@@ -507,6 +514,48 @@ Supports command, session, and manual modes. Output is bounded and redacted;
 raw flag values and raw transcripts are not returned by default.
 ```
 
+### `web_browser_probe`
+
+- Module: `tools/web_workflow.py`
+- Signature: `web_browser_probe(workflow_id: str, action: str, url: str = None, selector: str = None, value: str = None, file: str = None, expression: str = None, timeout_ms: int = None) -> str`
+- Docstring:
+
+```text
+Run one bounded browser action through the workflow browser session.
+Actions are non-destructive scaffolding operations only.
+```
+
+### `web_callback_probe`
+
+- Module: `tools/web_workflow.py`
+- Signature: `web_callback_probe(workflow_id: str, wait_timeout_sec: float = 15, pattern: str = None, min_hits: int = 1) -> str`
+- Docstring:
+
+```text
+Wait for workflow callback hits and store a redacted evidence summary.
+```
+
+### `web_evidence_collect`
+
+- Module: `tools/web_workflow.py`
+- Signature: `web_evidence_collect(workflow_id: str, include_browser_summary: bool = False, include_callback_summary: bool = False, include_verifier_summary: bool = False) -> str`
+- Docstring:
+
+```text
+Write a redacted local-only web workflow evidence bundle and summary.
+```
+
+### `web_payload_generate`
+
+- Module: `tools/web_workflow.py`
+- Signature: `web_payload_generate(workflow_id: str = None, callback_url: str = None, types: str = None, target_param: str = None, encode: str = None) -> str`
+- Docstring:
+
+```text
+Generate helper XSS/SSRF/CSP/CSS/file-upload payload snippets for a
+workflow callback URL. Snippets are helpers only and are not proof.
+```
+
 ### `web_payload_helper`
 
 - Module: `tools/callbacks.py`
@@ -516,4 +565,35 @@ raw flag values and raw transcripts are not returned by default.
 ```text
 Generate simple XSS/SSRF/CSS callback payload snippets for a supplied URL.
 This is a helper scaffold only and does not run an exploit or tunnel.
+```
+
+### `web_workflow_close`
+
+- Module: `tools/web_workflow.py`
+- Signature: `web_workflow_close(workflow_id: str, close_browser: bool = True, close_callback: bool = True, reason: str = 'closed') -> str`
+- Docstring:
+
+```text
+Close a web workflow and associated browser/callback resources by default.
+```
+
+### `web_workflow_init`
+
+- Module: `tools/web_workflow.py`
+- Signature: `web_workflow_init(run_id: str = None, challenge_id: str = None, worker_id: str = None, target_url: str = None, start_browser: bool = False, start_callback: bool = False, browser_profile: str = None, external_base_url: str = None) -> str`
+- Docstring:
+
+```text
+Initialize a local-only web exploit workflow and optionally start a
+browser session and callback listener associated with run_id.
+```
+
+### `web_workflow_list`
+
+- Module: `tools/web_workflow.py`
+- Signature: `web_workflow_list(run_id: str = None, challenge_id: str = None, include_closed: bool = False) -> str`
+- Docstring:
+
+```text
+List web workflows, optionally filtered by run_id or challenge_id.
 ```
