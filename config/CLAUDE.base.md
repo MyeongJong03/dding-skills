@@ -97,6 +97,8 @@
 - Register local browser/session profiles with `browser_state_init.py`; profile metadata lives under `CTF_BROWSER_STATE_ROOT` or `~/.ctf-solver/browser-states`.
 - `browser_state_check.py` may check metadata existence and storage-state file existence only; it must not read cookies or storage state contents.
 - Platform automation state lives under `CTF_PLATFORM_AUTOMATION_ROOT` or `~/.ctf-solver/platforms`; downloaded challenge private files live under `CTF_DOWNLOAD_ROOT` or `~/CTF/downloads`.
+- For CTFd-like platforms, use the generic CTFd adapter only when platform policy says `adapter: ctfd` or the user explicitly selects `--adapter ctfd`.
+- Do not assume custom CTFd server provisioning endpoints; generic CTFd server create/release is unsupported unless a future explicit hook is configured.
 - For platform discovery, respect `automation.allow_problem_discovery`; use mock/local fixtures for regression tests and do not add live-site tests.
 - For file downloads, respect `automation.allow_file_download` and store outside the repo by default.
 - For server create/release, obey resource leases. On `max_active_leases=1` platforms, never create a second server concurrently.
@@ -104,6 +106,9 @@
 - Only the primary worker may create, restart, or release servers, perform destructive platform actions, or submit flags.
 - Helper workers are read-only/non-destructive and may join active remotes only when platform sharing policy explicitly allows it.
 - Submission requires explicit `automation.allow_submission: true`; `ask` and disabled modes must not submit.
+- For CTFd submissions, require `automation.allow_submission: true` and primary worker role; never log the raw flag.
+- Do not log cookies, tokens, cookie headers, bearer headers, or browser storage state contents.
+- Store CTFd downloads outside the repo and queue discovered challenges before solving.
 - Finalize must release platform server records and resource leases unless `--keep-server` or `--keep-lease` is explicit.
 - Do not auto-push writeups. Public metrics may include only aggregate platform counters and must not include private paths, URLs, flags, cookies, tokens, or raw responses.
 - Real site adapters, Playwright login automation, live smoke tests, full browser solver, full exploit solver, and GDB-specific automation are explicit/manual future steps, not regression tests.

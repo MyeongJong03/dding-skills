@@ -27,6 +27,7 @@ platforms:
 
   - platform: thcon
     event: THCON
+    adapter: mock
     auth:
       mode: browser_profile
       session_profile: local-profile-placeholder
@@ -34,6 +35,30 @@ platforms:
       remote_server:
         provisioning: true
         max_active_leases: 1
+        lease_scope: event
+        release_required_before_next: true
+        sharing:
+          allowed: false
+          max_workers: 1
+          mode: exclusive
+          destructive_actions_require_primary: true
+    automation:
+      allow_problem_discovery: true
+      allow_file_download: true
+      allow_server_create: ask
+      allow_submission: ask
+
+  - platform: ctfd
+    event: local-fixture
+    adapter: ctfd
+    base_url: https://ctfd.example.invalid
+    auth:
+      mode: none
+      session_profile: local-profile-placeholder
+    resources:
+      remote_server:
+        provisioning: false
+        max_active_leases: 0
         lease_scope: event
         release_required_before_next: true
         sharing:

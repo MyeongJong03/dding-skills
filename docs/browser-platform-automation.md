@@ -1,10 +1,9 @@
 # Browser / Platform Automation
 
 P1-4 adds a safe scaffold for platform-driven CTF workflows. It does not log in
-to real sites, scrape Dreamhack/CTFd/THCON, run Playwright, submit flags by
-default, or solve challenges. It defines the local-only state model, adapter
-interfaces, mock adapter, and queue/resource/lifecycle hooks that later real
-adapters can use.
+to real sites, scrape Dreamhack/THCON, run Playwright, submit flags by default,
+or solve challenges. The generic CTFd adapter is fixture-first and does not use
+live network access unless a future manual smoke command explicitly opts in.
 
 ## Two Modes
 
@@ -68,7 +67,10 @@ command verifies only metadata existence and file existence.
 The `generic` adapter intentionally returns a clear not-implemented error. The
 `mock` adapter parses local JSON/HTML fixtures, copies local files, creates fake
 server records under the platform automation root, and simulates submission only
-when policy explicitly allows it.
+when policy explicitly allows it. The `ctfd` adapter parses CTFd-like local
+JSON/HTML fixtures, normalizes CTFd challenge records, copies local attachment
+fixtures, blocks server provisioning, and keeps live network behavior opt-in
+manual-only.
 
 ## Discovery
 
@@ -80,6 +82,14 @@ python3 scripts/platform_discover.py \
   --event THCON \
   --adapter mock \
   --source fixtures/challenges.json \
+  --queue \
+  --json
+
+python3 scripts/platform_discover.py \
+  --platform ctfd \
+  --event local-fixture \
+  --adapter ctfd \
+  --source fixtures/ctfd-challenges.json \
   --queue \
   --json
 ```
@@ -113,7 +123,13 @@ with platform, event, challenge id, relative file names, sizes, SHA-256 hashes,
 total size, combined SHA-256, and timestamp. It does not write cookies, tokens,
 URLs with secrets, or private absolute paths to public metrics.
 
+For CTFd fixtures, file entries may be local paths relative to the fixture file
+or dictionaries with `name` and `path`/`source`. HTTP file URLs are refused in
+fixture mode; live download support belongs to a manual opt-in phase.
+
 Repo-internal destinations are refused unless `--allow-repo-dest` is explicit.
+
+See `docs/ctfd-adapter.md` for CTFd-specific fixture and command examples.
 
 ## Server Acquire / Release
 
@@ -208,10 +224,13 @@ Public metrics may include:
 - `platform_discovery_count`
 - `downloaded_file_count`
 - `downloaded_bytes`
+- `ctfd_challenge_count`
+- `ctfd_download_count`
 - `server_acquire_attempted`
 - `server_acquire_success`
 - `server_release_count`
 - `submission_attempted`
+- `ctfd_submit_attempted`
 - `submission_policy`
 - `platform_adapter`
 
@@ -221,17 +240,19 @@ downloaded file absolute paths, writeups, exploit code, or transcripts.
 ## Manual Smoke Tests
 
 `platform_smoke_test.py` is dry-run only by default. It prints planned checks for
-a future real adapter and does not perform live network activity.
+manual adapter validation and does not perform live network activity.
 
 ```bash
 python3 scripts/platform_smoke_test.py --platform thcon --event THCON --adapter generic
 ```
 
-Live adapter smoke tests are future manual work and must not be regression tests.
+Live CTFd smoke tests are future manual work, must require `--live`, and must not
+be regression tests.
 
 ## Limitations
 
-- Real Dreamhack, CTFd, THCON-like adapters are future work.
+- Real Dreamhack and THCON-like adapters are future work.
+- CTFd live network access is a manual opt-in future path.
 - Playwright login automation is optional future work.
 - No live network regression tests.
 - No default flag auto-submit.

@@ -26,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--profile")
     parser.add_argument("--dest")
     parser.add_argument("--policy")
-    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local"])
+    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local", "ctfd"])
     parser.add_argument("--allow-repo-dest", action="store_true")
     parser.add_argument("--json", action="store_true")
     return parser

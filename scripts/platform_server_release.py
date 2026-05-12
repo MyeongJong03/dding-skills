@@ -26,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--server-id")
     parser.add_argument("--reason", default="manual_release")
     parser.add_argument("--role", default="primary", choices=["primary", "helper"])
-    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local"])
+    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local", "ctfd"])
     parser.add_argument("--json", action="store_true")
     return parser
 

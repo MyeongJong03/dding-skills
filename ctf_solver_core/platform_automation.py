@@ -47,6 +47,12 @@ def _policy_value(value: bool | str) -> str:
     return "false"
 
 
+def _select_adapter_name(policy: PlatformPolicy, requested: str) -> str:
+    if requested in {"", "generic"} and policy.adapter:
+        return policy.adapter
+    return requested
+
+
 def _policy_gate(
     policy: PlatformPolicy,
     field: str,
@@ -129,7 +135,7 @@ def discover_challenges(
     blocked = _policy_gate(policy, "allow_problem_discovery")
     if blocked:
         return blocked
-    adapter = get_adapter(adapter_name)
+    adapter = get_adapter(_select_adapter_name(policy, adapter_name))
     try:
         challenges = adapter.discover_challenges(platform=platform, event=event, source=source)
     except PlatformAdapterError as exc:
@@ -217,7 +223,7 @@ def download_files(
             "reason": "download_dest_inside_repo",
             "dest": display_path(destination),
         }
-    adapter = get_adapter(adapter_name)
+    adapter = get_adapter(_select_adapter_name(policy, adapter_name))
     try:
         files = adapter.download_files(
             platform=platform,
@@ -304,7 +310,7 @@ def acquire_platform_server(
     if blocked:
         return {**blocked, "server_acquired": False}
 
-    adapter = get_adapter(adapter_name)
+    adapter = get_adapter(_select_adapter_name(policy, adapter_name))
     lease_result = acquire_remote_server(
         policy,
         challenge_id=challenge_id,
@@ -413,7 +419,8 @@ def release_platform_server(
 ) -> dict[str, object]:
     if role != "primary":
         return {"ok": False, "reason": "primary_role_required", "server_release_count": 0}
-    adapter = get_adapter(adapter_name)
+    policy = get_platform_policy(platform, event)
+    adapter = get_adapter(_select_adapter_name(policy, adapter_name))
     server_result: dict[str, object]
     try:
         with DirectoryLock("platform-automation", "release platform server record", wait_seconds=30):
@@ -469,7 +476,8 @@ def server_status(
     run_id: str | None = None,
     lease_id: str | None = None,
 ) -> dict[str, object]:
-    adapter = get_adapter(adapter_name)
+    policy = get_platform_policy(platform, event)
+    adapter = get_adapter(_select_adapter_name(policy, adapter_name))
     try:
         adapter_status = adapter.server_status(
             platform=platform,
@@ -530,7 +538,7 @@ def submit_flag(
             public_safe_metadata={"submission_policy": blocked.get("policy")},
         )
         return {**blocked, "submitted": False, "flag_redacted": "<redacted>"}
-    adapter = get_adapter(adapter_name)
+    adapter = get_adapter(_select_adapter_name(policy, adapter_name))
     try:
         result = adapter.submit_flag(
             platform=platform,
@@ -557,6 +565,7 @@ def submit_flag(
         "challenge_id": challenge_id,
         "run_id": run_id or "",
         "accepted": bool(result.get("accepted")),
+        "reason": result.get("reason") or "",
         "flag_redacted": "<redacted>",
     }
 

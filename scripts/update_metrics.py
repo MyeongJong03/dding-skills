@@ -76,9 +76,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--platform-discovery-count", type=int)
     parser.add_argument("--downloaded-file-count", type=int)
     parser.add_argument("--downloaded-bytes", type=int)
+    parser.add_argument("--ctfd-challenge-count", type=int)
+    parser.add_argument("--ctfd-download-count", type=int)
     parser.add_argument("--server-acquire-attempted", action="store_true")
     parser.add_argument("--server-acquire-success", action="store_true")
     parser.add_argument("--submission-attempted", action="store_true")
+    parser.add_argument("--ctfd-submit-attempted", action="store_true")
     parser.add_argument("--submission-policy")
     parser.add_argument("--platform-adapter")
     parser.add_argument("--verifier-success", action="store_true")
@@ -236,6 +239,8 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         "platform_discovery_count": getattr(args, "platform_discovery_count", None),
         "downloaded_file_count": getattr(args, "downloaded_file_count", None),
         "downloaded_bytes": getattr(args, "downloaded_bytes", None),
+        "ctfd_challenge_count": getattr(args, "ctfd_challenge_count", None),
+        "ctfd_download_count": getattr(args, "ctfd_download_count", None),
     }
     for key, value in optional_ints.items():
         if value is None and isinstance(resource_metrics.get(key), int):
@@ -277,12 +282,17 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
     submission_attempted = bool(
         getattr(args, "submission_attempted", False) or platform_metrics.get("submission_attempted")
     )
+    ctfd_submit_attempted = bool(
+        getattr(args, "ctfd_submit_attempted", False) or platform_metrics.get("ctfd_submit_attempted")
+    )
     if server_acquire_attempted:
         record["server_acquire_attempted"] = True
     if server_acquire_success:
         record["server_acquire_success"] = True
     if submission_attempted:
         record["submission_attempted"] = True
+    if ctfd_submit_attempted:
+        record["ctfd_submit_attempted"] = True
     submission_policy = str(getattr(args, "submission_policy", "") or platform_metrics.get("submission_policy") or "")
     if submission_policy:
         record["submission_policy"] = submission_policy

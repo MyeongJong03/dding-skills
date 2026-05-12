@@ -169,6 +169,8 @@ class AutomationPolicy:
 class PlatformPolicy:
     platform: str
     event: str = "unknown"
+    base_url: str = ""
+    adapter: str = ""
     auth: AuthPolicy = field(default_factory=AuthPolicy)
     resources: ResourcePolicy = field(default_factory=ResourcePolicy)
     automation: AutomationPolicy = field(default_factory=AutomationPolicy)
@@ -227,6 +229,8 @@ def _policy_from_dict(raw: dict[str, object], source_path: Path) -> PlatformPoli
     return PlatformPolicy(
         platform=str(raw.get("platform") or "unknown"),
         event=str(raw.get("event") or "unknown"),
+        base_url=str(raw.get("base_url") or ""),
+        adapter=str(raw.get("adapter") or ""),
         auth=AuthPolicy(
             mode=str(auth.get("mode") or "manual"),
             session_profile=str(auth.get("session_profile") or "placeholder"),

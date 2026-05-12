@@ -23,7 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--challenge-id")
     parser.add_argument("--run-id")
     parser.add_argument("--lease-id")
-    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local"])
+    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local", "ctfd"])
     parser.add_argument("--json", action="store_true")
     return parser
 

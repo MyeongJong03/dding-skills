@@ -21,7 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--platform", required=True)
     parser.add_argument("--event", required=True)
     parser.add_argument("--profile")
-    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local"])
+    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local", "ctfd"])
     parser.add_argument("--source")
     parser.add_argument("--policy")
     parser.add_argument("--queue", action="store_true")

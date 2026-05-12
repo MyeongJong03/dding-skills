@@ -11,8 +11,9 @@ automation yet.
    remote lease only when remote testing is needed.
 2. Platform login/session discovery mode: a worker registers local-only browser
    profile metadata, then an adapter can discover problems, download files, and
-   request servers. P1-4 includes the interface and mock/local adapter only;
-   real site scraping and Playwright login automation are future work.
+   request servers. The mock/local adapter remains the regression baseline, and
+   the CTFd adapter adds local CTFd-style fixture support. Real site scraping
+   and Playwright login automation are future work.
 
 Never commit cookies, session storage, API keys, tokens, passwords, OAuth data,
 emails, account UUIDs, organization UUIDs, private server URLs, writeups,
@@ -219,7 +220,8 @@ count, claim reclaim count, auto-finalize usage, and require-verifier usage.
 Raw worker IDs and hostnames should be omitted or hashed.
 
 Browser/platform discovery, download, server adapter, and submission scaffolds
-are documented in `docs/browser-platform-automation.md`.
+are documented in `docs/browser-platform-automation.md`. CTFd-specific fixture
+mode and policy details are documented in `docs/ctfd-adapter.md`.
 
 ## Limitations
 

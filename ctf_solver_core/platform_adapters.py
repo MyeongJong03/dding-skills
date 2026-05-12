@@ -49,6 +49,17 @@ class PlatformAdapter:
     def discover_challenges(self, *, platform: str, event: str, source: str | None = None) -> list[dict[str, object]]:
         raise PlatformAdapterError("adapter_not_implemented")
 
+    def get_challenge_detail(
+        self,
+        *,
+        platform: str,
+        event: str,
+        challenge_id: str,
+        source: str | None = None,
+        url: str | None = None,
+    ) -> dict[str, object]:
+        raise PlatformAdapterError("adapter_not_implemented")
+
     def download_files(
         self,
         *,
@@ -484,6 +495,10 @@ def get_adapter(name: str | None) -> PlatformAdapter:
     adapter_name = (name or "generic").strip().lower()
     if adapter_name in {"mock", "local"}:
         return MockPlatformAdapter()
+    if adapter_name == "ctfd":
+        from .adapters.ctfd import CTFdPlatformAdapter
+
+        return CTFdPlatformAdapter()
     if adapter_name == "generic":
         return PlatformAdapter()
     raise PlatformAdapterError(f"unsupported_adapter:{adapter_name}")

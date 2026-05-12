@@ -39,10 +39,13 @@
 - optional `platform_discovery_count`
 - optional `downloaded_file_count`
 - optional `downloaded_bytes`
+- optional `ctfd_challenge_count`
+- optional `ctfd_download_count`
 - optional `server_acquire_attempted`
 - optional `server_acquire_success`
 - optional `server_release_count`
 - optional `submission_attempted`
+- optional `ctfd_submit_attempted`
 - optional `submission_policy`
 - optional `platform_adapter`
 - optional `model_tooling_summary`

@@ -33,6 +33,7 @@ from ctf_solver_core.paths import (
 )
 from ctf_solver_core.browser_state import browser_profile_count
 from ctf_solver_core.platform_automation import download_metadata_count, platform_server_record_count
+from ctf_solver_core.platform_adapters import get_adapter
 from ctf_solver_core.platforms import platform_config_path, validate_platform_config
 from ctf_solver_core.resources import detect_stale_leases, list_leases
 from ctf_solver_core.schemas import read_jsonl, validate_public_record
@@ -231,14 +232,31 @@ class Doctor:
             "ctf_solver_core/browser_state.py",
             "ctf_solver_core/platform_automation.py",
             "ctf_solver_core/platform_adapters.py",
+            "ctf_solver_core/adapters/ctfd.py",
             "config/platforms.example.yaml",
             "docs/platform-automation.md",
             "docs/browser-platform-automation.md",
+            "docs/ctfd-adapter.md",
             "docs/worker-runner.md",
             "docs/sessions.md",
             "docs/verifier.md",
         ]:
             self.require_file(relative)
+
+        try:
+            adapter = get_adapter("ctfd")
+            if adapter.name == "ctfd":
+                self.ok("CTFd adapter is importable")
+            else:
+                self.fail("CTFd adapter registry returned the wrong adapter")
+        except Exception as exc:
+            self.fail(f"CTFd adapter import failed: {exc}")
+
+        ctfd_doc = ROOT / "docs" / "ctfd-adapter.md"
+        if ctfd_doc.is_file() and "CTFd adapter" in ctfd_doc.read_text(encoding="utf-8", errors="replace"):
+            self.ok("docs/ctfd-adapter.md mentions CTFd adapter")
+        else:
+            self.fail("docs/ctfd-adapter.md missing CTFd adapter documentation")
 
         platform_errors = validate_platform_config(ROOT / "config" / "platforms.example.yaml")
         if platform_errors:

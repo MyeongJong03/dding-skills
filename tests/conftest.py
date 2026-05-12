@@ -22,8 +22,14 @@ def _policy_value(value: bool | str) -> str:
 def _write_platform_config(
     path: Path,
     *,
+    platform: str = "thcon",
+    event: str = "THCON",
+    adapter: str = "mock",
+    base_url: str = "",
+    auth_mode: str = "browser_profile",
     sharing: bool = False,
     max_active: int = 1,
+    provisioning: bool = True,
     allow_problem_discovery: bool | str = True,
     allow_file_download: bool | str = True,
     allow_server_create: bool | str = True,
@@ -31,13 +37,18 @@ def _write_platform_config(
 ) -> None:
     allowed = "true" if sharing else "false"
     max_workers = 3 if sharing else 1
+    base_url_line = f"    base_url: {base_url}\n" if base_url else ""
     path.write_text(
         f"""platforms:
-  - platform: thcon
-    event: THCON
+  - platform: {platform}
+    event: {event}
+    adapter: {adapter}
+{base_url_line}    auth:
+      mode: {auth_mode}
+      session_profile: local-profile-placeholder
     resources:
       remote_server:
-        provisioning: true
+        provisioning: {_policy_value(provisioning)}
         max_active_leases: {max_active}
         lease_scope: event
         release_required_before_next: true
