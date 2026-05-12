@@ -51,6 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--resource-blocked-count", type=int)
     parser.add_argument("--lease-acquire-count", type=int)
     parser.add_argument("--lease-release-count", type=int)
+    parser.add_argument("--server-release-count", type=int)
     parser.add_argument("--stale-lease-reclaimed-count", type=int)
     parser.add_argument("--remote-blocked-count", type=int)
     parser.add_argument("--scheduler-wait-count", type=int)
@@ -72,6 +73,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--worker-claim-reclaim-count", type=int)
     parser.add_argument("--auto-finalize-used", action="store_true")
     parser.add_argument("--require-verifier-used", action="store_true")
+    parser.add_argument("--platform-discovery-count", type=int)
+    parser.add_argument("--downloaded-file-count", type=int)
+    parser.add_argument("--downloaded-bytes", type=int)
+    parser.add_argument("--server-acquire-attempted", action="store_true")
+    parser.add_argument("--server-acquire-success", action="store_true")
+    parser.add_argument("--submission-attempted", action="store_true")
+    parser.add_argument("--submission-policy")
+    parser.add_argument("--platform-adapter")
     parser.add_argument("--verifier-success", action="store_true")
     parser.add_argument("--verifier-flag-found", action="store_true")
     parser.add_argument("--verifier-target")
@@ -196,6 +205,9 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
     worker_metrics = final.get("worker_metrics")
     if not isinstance(worker_metrics, dict):
         worker_metrics = {}
+    platform_metrics = final.get("platform_metrics")
+    if not isinstance(platform_metrics, dict):
+        platform_metrics = {}
 
     optional_ints = {
         "remote_wait_time_sec": getattr(args, "remote_wait_time_sec", None),
@@ -204,6 +216,7 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         "resource_blocked_count": getattr(args, "resource_blocked_count", None),
         "lease_acquire_count": getattr(args, "lease_acquire_count", None),
         "lease_release_count": getattr(args, "lease_release_count", None),
+        "server_release_count": getattr(args, "server_release_count", None),
         "stale_lease_reclaimed_count": getattr(args, "stale_lease_reclaimed_count", None),
         "remote_blocked_count": getattr(args, "remote_blocked_count", None),
         "scheduler_wait_count": getattr(args, "scheduler_wait_count", None),
@@ -220,6 +233,9 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         "worker_action_count": getattr(args, "worker_action_count", None),
         "worker_wait_count": getattr(args, "worker_wait_count", None),
         "worker_claim_reclaim_count": getattr(args, "worker_claim_reclaim_count", None),
+        "platform_discovery_count": getattr(args, "platform_discovery_count", None),
+        "downloaded_file_count": getattr(args, "downloaded_file_count", None),
+        "downloaded_bytes": getattr(args, "downloaded_bytes", None),
     }
     for key, value in optional_ints.items():
         if value is None and isinstance(resource_metrics.get(key), int):
@@ -228,6 +244,8 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
             value = int(session_metrics[key])
         if value is None and isinstance(worker_metrics.get(key), int):
             value = int(worker_metrics[key])
+        if value is None and isinstance(platform_metrics.get(key), int):
+            value = int(platform_metrics[key])
         if value is not None:
             record[key] = max(0, int(value))
 
@@ -250,6 +268,27 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         record["auto_finalize_used"] = True
     if require_verifier_used:
         record["require_verifier_used"] = True
+    server_acquire_attempted = bool(
+        getattr(args, "server_acquire_attempted", False) or platform_metrics.get("server_acquire_attempted")
+    )
+    server_acquire_success = bool(
+        getattr(args, "server_acquire_success", False) or platform_metrics.get("server_acquire_success")
+    )
+    submission_attempted = bool(
+        getattr(args, "submission_attempted", False) or platform_metrics.get("submission_attempted")
+    )
+    if server_acquire_attempted:
+        record["server_acquire_attempted"] = True
+    if server_acquire_success:
+        record["server_acquire_success"] = True
+    if submission_attempted:
+        record["submission_attempted"] = True
+    submission_policy = str(getattr(args, "submission_policy", "") or platform_metrics.get("submission_policy") or "")
+    if submission_policy:
+        record["submission_policy"] = submission_policy
+    platform_adapter = str(getattr(args, "platform_adapter", "") or platform_metrics.get("platform_adapter") or "")
+    if platform_adapter:
+        record["platform_adapter"] = platform_adapter
 
     private = {
         "updated_at": iso_now(),

@@ -51,6 +51,18 @@ def sessiond_root() -> Path:
     return _env_path("CTF_SESSIOND_ROOT", Path.home() / ".ctf-solver" / "sessiond")
 
 
+def browser_state_root() -> Path:
+    return _env_path("CTF_BROWSER_STATE_ROOT", Path.home() / ".ctf-solver" / "browser-states")
+
+
+def platform_automation_root() -> Path:
+    return _env_path("CTF_PLATFORM_AUTOMATION_ROOT", Path.home() / ".ctf-solver" / "platforms")
+
+
+def download_root() -> Path:
+    return _env_path("CTF_DOWNLOAD_ROOT", Path.home() / "CTF" / "downloads")
+
+
 def solved_writeup_root() -> Path:
     return _env_path("CTF_SOLVED_WRITEUP_ROOT", Path.home() / "SolvedWriteUp")
 

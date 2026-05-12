@@ -38,9 +38,9 @@ Finalization should generate a local writeup whenever there is enough informatio
 Use `--require-verifier` when solved status must be backed by a successful
 verifier. Without it, solved finalization warns if no successful verifier exists.
 
-By default finalization releases active remote leases for the run and marks a
-matching queue item as `finalized`. Use `--keep-lease` only for intentional
-handoff.
+By default finalization releases active platform server records and remote
+leases for the run, then marks a matching queue item as `finalized`. Use
+`--keep-server` or `--keep-lease` only for intentional handoff.
 
 By default finalization also closes active persistent sessions associated with
 the run and records aggregate session counters in `finalization.json`. Use
@@ -63,6 +63,9 @@ There is no supported global "current challenge". Each terminal/session must kee
 - Remote server/VM coordination uses file-backed leases under `CTF_LEASE_ROOT` or `~/.ctf-solver/leases`.
 - Challenge queue coordination uses JSON records under `CTF_QUEUE_ROOT` or `~/.ctf-solver/queue`.
 - Worker claim coordination uses JSON records under `CTF_WORKER_ROOT` or `~/.ctf-solver/workers`.
+- Browser profile metadata uses `CTF_BROWSER_STATE_ROOT` or `~/.ctf-solver/browser-states`.
+- Platform automation records use `CTF_PLATFORM_AUTOMATION_ROOT` or `~/.ctf-solver/platforms`.
+- Downloaded private challenge files use `CTF_DOWNLOAD_ROOT` or `~/CTF/downloads`.
 - Metrics updates use a global metrics lock and atomic file replacement.
 - Git sync uses a global git lock so concurrent commits and pushes serialize.
 - Locks are atomic directories created with `Path.mkdir(exist_ok=False)` and include `owner.json` with pid, timestamp, purpose, and a stale timeout.
@@ -122,6 +125,9 @@ Defaults are portable and may be overridden with environment variables:
 | Worker root | `Path.home() / ".ctf-solver" / "workers"` | `CTF_WORKER_ROOT` |
 | Session root | `Path.home() / ".ctf-solver" / "sessions"` | `CTF_SESSION_ROOT` |
 | Session daemon root | `Path.home() / ".ctf-solver" / "sessiond"` | `CTF_SESSIOND_ROOT` |
+| Browser state root | `Path.home() / ".ctf-solver" / "browser-states"` | `CTF_BROWSER_STATE_ROOT` |
+| Platform automation root | `Path.home() / ".ctf-solver" / "platforms"` | `CTF_PLATFORM_AUTOMATION_ROOT` |
+| Download root | `Path.home() / "CTF" / "downloads"` | `CTF_DOWNLOAD_ROOT` |
 | Local writeup root | `Path.home() / "SolvedWriteUp"` | `CTF_SOLVED_WRITEUP_ROOT` |
 | Public metrics root | `repo_root / "metrics"` | `CTF_SOLVER_REPO_ROOT` for repo root |
 
@@ -218,6 +224,9 @@ not touch real HOME state such as `~/.ctf-solver`, `~/SolvedWriteUp`,
 Never paste or commit `~/.claude.json`, `~/.codex/config.toml`, browser storage
 state, cookies, tokens, OAuth values, account metadata, writeups, exploits, raw
 transcripts, or flags.
+
+Browser/platform automation details are documented in
+`docs/browser-platform-automation.md`.
 
 ## Git Sync Boundary
 

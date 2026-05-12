@@ -17,6 +17,7 @@ if str(ROOT / "scripts") not in sys.path:
 
 from ctf_solver_core.locks import DirectoryLock
 from ctf_solver_core.paths import display_path, resolve_path, work_root
+from ctf_solver_core.platform_automation import release_local_server_records_for_run
 from ctf_solver_core.queue import append_queue_event, mark_finalized
 from ctf_solver_core.resources import REMOTE_SERVER, detect_stale_leases, release_lease
 from ctf_solver_core.schemas import (
@@ -56,6 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--git-sync", action="store_true")
     parser.add_argument("--no-push", action="store_true")
     parser.add_argument("--keep-lease", action="store_true", help="do not release active resource leases for this run")
+    parser.add_argument("--keep-server", action="store_true", help="do not release active platform server records for this run")
     parser.add_argument("--keep-sessions", action="store_true", help="do not close persistent sessions for this run")
     parser.add_argument(
         "--require-verifier",
@@ -179,6 +181,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 "sessions": existing.get("sessions") or {},
                 "verifier": existing.get("verifier") or {},
                 "warnings": existing.get("warnings") or [],
+                "platform_server_release": existing.get("platform_server_release") or {},
                 "resource_release": existing.get("resource_release") or {},
                 "queue": existing.get("queue") or {},
                 "worker_claim_release": claim_release_result,
@@ -251,6 +254,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                     "errors": [str(exc)],
                 }
 
+        platform_server_release_result: dict[str, object] | None = None
         lease_release_result: dict[str, object] | None = None
         queue_result: dict[str, object] | None = None
         resource_warnings: list[dict[str, object]] = []
@@ -283,6 +287,41 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                             "role": stale.get("role"),
                         },
                     )
+        if getattr(args, "keep_server", False) or getattr(args, "keep_lease", False):
+            platform_server_release_result = {"ok": True, "reason": "kept_by_request", "released": [], "released_count": 0}
+        elif args.dry_run:
+            platform_server_release_result = {"ok": True, "reason": "dry_run", "released": [], "released_count": 0}
+        else:
+            try:
+                platform_server_release_result = release_local_server_records_for_run(
+                    platform=platform,
+                    event=event,
+                    run_id=run_id,
+                    reason="finalized",
+                )
+                for released in platform_server_release_result.get("released") or []:
+                    if isinstance(released, dict):
+                        append_queue_event(
+                            event_type="platform_server_released",
+                            challenge_id=str(released.get("challenge_id") or challenge_id),
+                            run_id=str(released.get("run_id") or run_id),
+                            platform=platform,
+                            event=event,
+                            reason="finalized",
+                            public_safe_metadata={
+                                "server_id": released.get("server_id"),
+                                "lease_id": released.get("lease_id"),
+                            },
+                        )
+            except Exception as exc:
+                platform_server_release_result = {
+                    "ok": False,
+                    "reason": "server_release_failed",
+                    "warning": str(exc),
+                    "released": [],
+                    "released_count": 0,
+                }
+
         if getattr(args, "keep_lease", False):
             lease_release_result = {"ok": True, "reason": "kept_by_request", "released": []}
             if not args.dry_run:
@@ -359,6 +398,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
 
         resource_metrics = {
             "lease_release_count": int((lease_release_result or {}).get("released_count") or 0),
+            "server_release_count": int((platform_server_release_result or {}).get("released_count") or 0),
             "stale_lease_reclaimed_count": 0,
             "total_lease_held_sec": int((lease_release_result or {}).get("total_lease_held_sec") or 0),
         }
@@ -399,6 +439,11 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
             "verifier_target": str(verifier_info.get("target") or "unknown"),
             "verifier_id": str(verifier_info.get("verifier_id") or ""),
             "warnings": verifier_warnings,
+            "platform_server_release": platform_server_release_result or {},
+            "platform_server_release_summary": {
+                "server_release_count": resource_metrics["server_release_count"],
+                "reason": (platform_server_release_result or {}).get("reason", ""),
+            },
             "resource_release": lease_release_result or {},
             "resource_warnings": resource_warnings,
             "resource_metrics": resource_metrics,
@@ -448,6 +493,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
                 resource_blocked_count=None,
                 lease_acquire_count=None,
                 lease_release_count=resource_metrics["lease_release_count"],
+                server_release_count=resource_metrics["server_release_count"],
                 stale_lease_reclaimed_count=resource_metrics["stale_lease_reclaimed_count"],
                 remote_blocked_count=None,
                 scheduler_wait_count=None,
@@ -502,6 +548,7 @@ def finalize(args: argparse.Namespace) -> dict[str, object]:
         "sessions": session_result,
         "verifier": verifier_info,
         "warnings": verifier_warnings,
+        "platform_server_release": platform_server_release_result,
         "resource_release": lease_release_result,
         "queue": queue_result,
         "worker_claim_release": worker_claim_release,

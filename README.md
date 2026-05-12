@@ -9,10 +9,10 @@ CTF 문제 풀이를 위한 Codex-first, Claude-compatible AI 에이전트 세�
 dding-skills/
 ├── server.py              # MCP 서버 진입점
 ├── tools/                 # MCP 툴
-├── ctf_solver_core/       # lifecycle path/lock/schema/session helpers
+├── ctf_solver_core/       # lifecycle path/lock/schema/session/browser/platform helpers
 ├── scripts/               # doctor + lifecycle/finalization CLIs
 ├── metrics/               # public-safe metrics and dashboard
-├── docs/                  # tools/lifecycle/metrics/platform automation docs
+├── docs/                  # tools/lifecycle/metrics/platform/browser automation docs
 ├── Dockerfile.ctf         # CTF PWN/REV용 Docker 이미지
 ├── install.sh             # 자동 설치 스크립트
 ├── skills/
@@ -201,6 +201,9 @@ bash ~/ctf-solver/config/deploy.sh windows  # Windows WSL2
 | `CTF_SESSIOND_ROOT` | session daemon state 루트 | `~/.ctf-solver/sessiond` |
 | `CTF_SESSIOND_HOST` | session daemon bind host | `127.0.0.1` |
 | `CTF_SESSIOND_PORT` | session daemon bind port | `0` 자동 할당 |
+| `CTF_BROWSER_STATE_ROOT` | browser/session profile metadata 루트 | `~/.ctf-solver/browser-states` |
+| `CTF_PLATFORM_AUTOMATION_ROOT` | platform server/session scaffold state 루트 | `~/.ctf-solver/platforms` |
+| `CTF_DOWNLOAD_ROOT` | downloaded private challenge file 루트 | `~/CTF/downloads` |
 | `CTF_PLATFORM_CONFIG` | repo 밖 platform policy YAML | unset (`config/platforms.example.yaml` for schema/example) |
 | `CTF_SOLVED_WRITEUP_ROOT` | local-only writeup 루트 | `~/SolvedWriteUp` |
 | `CTF_METRICS_MODE` | public metrics 업데이트 모드 | `public` |
@@ -244,6 +247,8 @@ MCP tool `verify_run`도 command/session/manual mode를 지원합니다. Public 
 
 여러 터미널/worker가 같은 대회 리소스를 공유할 때는 platform policy, queue, lease helper를 사용합니다. THCON처럼 한 세션에서 VM/server 1개만 가능한 플랫폼은 `max_active_leases: 1`로 표현하고, remote lease를 못 받은 worker는 idle하지 않고 local-capable 문제의 triage/analysis/exploit planning을 먼저 진행합니다. `local_exploit_ready=true` 문제는 remote capacity가 풀릴 때 우선순위를 받습니다.
 
+P1-4 browser/platform scaffold는 로그인 세션 metadata 등록, mock/local discovery, download, server acquire/release/status, submission policy gate를 제공합니다. 실제 사이트 adapter, Playwright login, live smoke test, full browser solver는 다음 단계입니다. 자세한 내용은 [docs/browser-platform-automation.md](docs/browser-platform-automation.md)를 봅니다.
+
 Long-running remote 작업은 lease heartbeat를 남기고, worker crash나 터미널 종료로 stale lease가 생기면 dry-run 확인 후 reclaim합니다. Queue history는 여러 터미널에서 scheduler decision과 lease lifecycle을 추적하는 기준입니다.
 
 Remote sharing이 안전하고 policy에서 허용된 경우에만 helper worker가 active remote challenge에 합류할 수 있습니다. Primary worker만 destructive action, submit, restart/release 권한을 가집니다. 자세한 운영 규칙은 [docs/platform-automation.md](docs/platform-automation.md)를 봅니다.
@@ -258,6 +263,8 @@ python3 scripts/resource_reclaim_stale.py --dry-run
 python3 scripts/resource_reclaim_stale.py --apply
 python3 scripts/queue_history.py --tail 20
 python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCON --all-for-run
+python3 scripts/browser_state_init.py --platform thcon --event THCON --profile main --print-login-instructions
+python3 scripts/platform_discover.py --platform thcon --event THCON --adapter mock --source fixtures/challenges.json --queue --json
 ```
 
 ## Queue worker runner (P1-3)

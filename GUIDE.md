@@ -82,7 +82,7 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │   ├── docker_pwn.py
 │   ├── dreamhack_vm.py
 │   └── ...
-├── ctf_solver_core/              # lifecycle 경로/락/스키마/session 공통 모듈
+├── ctf_solver_core/              # lifecycle 경로/락/스키마/session/browser/platform 공통 모듈
 ├── scripts/                      # doctor + lifecycle/finalization CLI
 │   ├── challenge_init.py
 │   ├── challenge_finalize.py
@@ -91,12 +91,16 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 │   ├── update_metrics.py
 │   ├── git_sync_metrics.py
 │   ├── queue_next.py / queue_update.py / queue_history.py
+│   ├── browser_state_init.py / browser_state_check.py
+│   ├── platform_discover.py / platform_download.py / platform_submit.py
+│   ├── platform_server_acquire.py / platform_server_release.py / platform_server_status.py
 │   └── resource_acquire.py / resource_heartbeat.py / resource_reclaim_stale.py / resource_release.py
 ├── metrics/                      # GitHub push 가능한 public-safe metrics
 ├── docs/
 │   ├── lifecycle.md
 │   ├── metrics.md
 │   ├── platform-automation.md
+│   ├── browser-platform-automation.md
 │   └── sessions.md
 ├── Dockerfile.ctf                # Docker 이미지 정의
 ├── requirements.txt

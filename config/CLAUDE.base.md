@@ -92,6 +92,22 @@
 - Helper workers must stop if the primary lease becomes stale or released.
 - Use queue event history to understand why a worker is waiting, doing local work, joining as helper, or acquiring remote.
 
+## Browser / Platform Automation Rules
+- Never paste, print, store, or commit login cookies, browser storage state contents, tokens, OAuth values, passwords, API keys, email/account metadata, private server URLs, writeups, exploits, flags, raw transcripts, or private run logs.
+- Register local browser/session profiles with `browser_state_init.py`; profile metadata lives under `CTF_BROWSER_STATE_ROOT` or `~/.ctf-solver/browser-states`.
+- `browser_state_check.py` may check metadata existence and storage-state file existence only; it must not read cookies or storage state contents.
+- Platform automation state lives under `CTF_PLATFORM_AUTOMATION_ROOT` or `~/.ctf-solver/platforms`; downloaded challenge private files live under `CTF_DOWNLOAD_ROOT` or `~/CTF/downloads`.
+- For platform discovery, respect `automation.allow_problem_discovery`; use mock/local fixtures for regression tests and do not add live-site tests.
+- For file downloads, respect `automation.allow_file_download` and store outside the repo by default.
+- For server create/release, obey resource leases. On `max_active_leases=1` platforms, never create a second server concurrently.
+- If server acquire fails, continue local-first queue work rather than idling.
+- Only the primary worker may create, restart, or release servers, perform destructive platform actions, or submit flags.
+- Helper workers are read-only/non-destructive and may join active remotes only when platform sharing policy explicitly allows it.
+- Submission requires explicit `automation.allow_submission: true`; `ask` and disabled modes must not submit.
+- Finalize must release platform server records and resource leases unless `--keep-server` or `--keep-lease` is explicit.
+- Do not auto-push writeups. Public metrics may include only aggregate platform counters and must not include private paths, URLs, flags, cookies, tokens, or raw responses.
+- Real site adapters, Playwright login automation, live smoke tests, full browser solver, full exploit solver, and GDB-specific automation are explicit/manual future steps, not regression tests.
+
 ## Queue Runner Rules
 - Multiple terminals must claim queue items with `worker_next.py` or `worker_run_once.py` before working.
 - Do not work on a challenge already claimed by another active worker unless helper mode is selected.

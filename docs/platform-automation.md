@@ -9,10 +9,10 @@ automation yet.
 1. User-provided challenge mode: the user gives a file, URL, server, or run
    directory. The worker initializes or resumes that run and may acquire a
    remote lease only when remote testing is needed.
-2. Platform login/session discovery mode: a future worker uses a local browser
-   or session profile to discover problems, download files, and request servers.
-   Login/session storage must stay outside the repo. Browser/session automation
-   is future P1-2 work and is not implemented in this scaffold.
+2. Platform login/session discovery mode: a worker registers local-only browser
+   profile metadata, then an adapter can discover problems, download files, and
+   request servers. P1-4 includes the interface and mock/local adapter only;
+   real site scraping and Playwright login automation are future work.
 
 Never commit cookies, session storage, API keys, tokens, passwords, OAuth data,
 emails, account UUIDs, organization UUIDs, private server URLs, writeups,
@@ -217,6 +217,9 @@ writeups, exploit code, or raw transcripts.
 Worker metrics are optional aggregate fields such as worker action count, wait
 count, claim reclaim count, auto-finalize usage, and require-verifier usage.
 Raw worker IDs and hostnames should be omitted or hashed.
+
+Browser/platform discovery, download, server adapter, and submission scaffolds
+are documented in `docs/browser-platform-automation.md`.
 
 ## Limitations
 

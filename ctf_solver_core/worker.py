@@ -573,9 +573,9 @@ def _suggested_command(action: str, item: dict[str, object], policy: PlatformPol
     run_id = str(item.get("run_id") or "")
     if action == "acquire_remote":
         return (
-            "python3 scripts/resource_acquire.py "
+            "python3 scripts/platform_server_acquire.py "
             f"--platform {policy.platform} --event {policy.event} "
-            f"--challenge-id {challenge_id} --run-id {run_id} --worker-id {worker_id}"
+            f"--challenge-id {challenge_id} --run-id {run_id} --worker-id {worker_id} --confirm"
         )
     if action == "join_remote_as_helper":
         return (

@@ -16,18 +16,23 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from ctf_solver_core.paths import (
+    browser_state_root,
+    download_root,
     display_path,
     is_inside_repo,
     lease_root,
     local_run_root,
     lock_root,
     metrics_root,
+    platform_automation_root,
     queue_root,
     session_root,
     sessiond_root,
     solved_writeup_root,
     worker_root,
 )
+from ctf_solver_core.browser_state import browser_profile_count
+from ctf_solver_core.platform_automation import download_metadata_count, platform_server_record_count
 from ctf_solver_core.platforms import platform_config_path, validate_platform_config
 from ctf_solver_core.resources import detect_stale_leases, list_leases
 from ctf_solver_core.schemas import read_jsonl, validate_public_record
@@ -190,6 +195,15 @@ class Doctor:
             "scripts/session_close.py",
             "scripts/session_list.py",
             "scripts/verify_run.py",
+            "scripts/browser_state_init.py",
+            "scripts/browser_state_check.py",
+            "scripts/platform_discover.py",
+            "scripts/platform_download.py",
+            "scripts/platform_server_acquire.py",
+            "scripts/platform_server_release.py",
+            "scripts/platform_server_status.py",
+            "scripts/platform_submit.py",
+            "scripts/platform_smoke_test.py",
         ]
         for relative in scripts:
             self.require_file(relative)
@@ -214,8 +228,12 @@ class Doctor:
             "ctf_solver_core/session_daemon.py",
             "ctf_solver_core/session_client.py",
             "ctf_solver_core/verifier.py",
+            "ctf_solver_core/browser_state.py",
+            "ctf_solver_core/platform_automation.py",
+            "ctf_solver_core/platform_adapters.py",
             "config/platforms.example.yaml",
             "docs/platform-automation.md",
+            "docs/browser-platform-automation.md",
             "docs/worker-runner.md",
             "docs/sessions.md",
             "docs/verifier.md",
@@ -283,6 +301,9 @@ class Doctor:
         workers = worker_root()
         sessions = session_root()
         sessiond = sessiond_root()
+        browser_states = browser_state_root()
+        platform_auto = platform_automation_root()
+        downloads = download_root()
         self.info(f"writeup root: {display_path(writeup_root)}")
         self.info(f"private run root: {display_path(run_root)}")
         self.info(f"lock root: {display_path(locks)}")
@@ -291,6 +312,9 @@ class Doctor:
         self.info(f"worker root: {display_path(workers)}")
         self.info(f"session root: {display_path(sessions)}")
         self.info(f"session daemon root: {display_path(sessiond)}")
+        self.info(f"browser state root: {display_path(browser_states)}")
+        self.info(f"platform automation root: {display_path(platform_auto)}")
+        self.info(f"download root: {display_path(downloads)}")
 
         if is_inside_repo(writeup_root):
             self.fail("writeup root is inside repo; local-only writeups could be staged accidentally")
@@ -308,6 +332,12 @@ class Doctor:
             self.warn("session root is inside repo; prefer ~/.ctf-solver/sessions or CTF_SESSION_ROOT outside repo")
         if is_inside_repo(sessiond):
             self.warn("session daemon root is inside repo; prefer ~/.ctf-solver/sessiond or CTF_SESSIOND_ROOT outside repo")
+        if is_inside_repo(browser_states):
+            self.warn("browser state root is inside repo; prefer ~/.ctf-solver/browser-states or CTF_BROWSER_STATE_ROOT outside repo")
+        if is_inside_repo(platform_auto):
+            self.warn("platform automation root is inside repo; prefer ~/.ctf-solver/platforms or CTF_PLATFORM_AUTOMATION_ROOT outside repo")
+        if is_inside_repo(downloads):
+            self.warn("download root is inside repo; prefer ~/CTF/downloads or CTF_DOWNLOAD_ROOT outside repo")
         try:
             daemon = session_daemon_status()
             if daemon.get("running"):
@@ -342,6 +372,12 @@ class Doctor:
                 self.ok("stale lease count: 0")
         except Exception as exc:
             self.warn(f"could not inspect lease counts safely: {exc}")
+        try:
+            self.info(f"browser profile metadata count: {browser_profile_count()}")
+            self.info(f"platform server record count: {platform_server_record_count()}")
+            self.info(f"download metadata count: {download_metadata_count()}")
+        except Exception as exc:
+            self.warn(f"could not inspect platform automation counts safely: {exc}")
         self.ok("metrics are repo-local public-safe targets; writeups/private runs are local-only targets")
 
     def check_agents_generation(self) -> None:

@@ -36,6 +36,15 @@
 - optional `worker_claim_reclaim_count`
 - optional `auto_finalize_used`
 - optional `require_verifier_used`
+- optional `platform_discovery_count`
+- optional `downloaded_file_count`
+- optional `downloaded_bytes`
+- optional `server_acquire_attempted`
+- optional `server_acquire_success`
+- optional `server_release_count`
+- optional `submission_attempted`
+- optional `submission_policy`
+- optional `platform_adapter`
 - optional `model_tooling_summary`
 
 Challenge names are excluded by default. Use `--include-challenge-name` only for private repos or events where challenge names are intentionally public.
@@ -56,6 +65,9 @@ Do not put the following in public metrics:
 - private remote URLs or secret-bearing lease metadata
 - verifier raw output, raw evidence path, or exploit command
 - raw worker ID or hostname
+- browser storage state paths or contents
+- downloaded private challenge file absolute paths
+- raw platform response bodies
 
 `scripts/update_metrics.py --check` validates existing public metrics before git sync.
 

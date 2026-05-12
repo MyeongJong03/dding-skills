@@ -47,6 +47,17 @@ RULES = [
     Rule("subscription_created_at_metadata", re.compile(r"\bsubscriptionCreatedAt\b", re.IGNORECASE)),
     Rule("private_key_block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
 ]
+PATH_RULES = [
+    Rule(
+        "browser_storage_state_file",
+        re.compile(
+            r"(^|/)(storage[-_]?state|storageState|cookies?|session[-_]?storage|browser[-_]?session)"
+            r"\.(json|sqlite|db|txt)$",
+            re.IGNORECASE,
+        ),
+    ),
+    Rule("browser_auth_directory", re.compile(r"(^|/)\.auth/")),
+]
 
 
 ALLOWLIST_PATHS = {
@@ -106,6 +117,10 @@ def scan_paths(paths: list[Path], *, root: Path) -> list[dict[str, object]]:
     for path in paths:
         if not path.is_file():
             continue
+        rel = path.relative_to(root).as_posix()
+        for rule in PATH_RULES:
+            if rule.pattern.search(rel) and rel not in ALLOWLIST_PATHS:
+                findings.append({"path": rel, "line": 1, "rule": rule.name})
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
