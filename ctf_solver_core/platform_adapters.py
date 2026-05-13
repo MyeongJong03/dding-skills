@@ -46,7 +46,16 @@ class Challenge:
 class PlatformAdapter:
     name = "generic"
 
-    def discover_challenges(self, *, platform: str, event: str, source: str | None = None) -> list[dict[str, object]]:
+    def discover_challenges(
+        self,
+        *,
+        platform: str,
+        event: str,
+        source: str | None = None,
+        live: bool = False,
+        base_url: str | None = None,
+        profile: str | None = None,
+    ) -> list[dict[str, object]]:
         raise PlatformAdapterError("adapter_not_implemented")
 
     def get_challenge_detail(
@@ -57,6 +66,9 @@ class PlatformAdapter:
         challenge_id: str,
         source: str | None = None,
         url: str | None = None,
+        live: bool = False,
+        base_url: str | None = None,
+        profile: str | None = None,
     ) -> dict[str, object]:
         raise PlatformAdapterError("adapter_not_implemented")
 
@@ -350,7 +362,16 @@ def _server_matches(
 class MockPlatformAdapter(PlatformAdapter):
     name = "mock"
 
-    def discover_challenges(self, *, platform: str, event: str, source: str | None = None) -> list[dict[str, object]]:
+    def discover_challenges(
+        self,
+        *,
+        platform: str,
+        event: str,
+        source: str | None = None,
+        live: bool = False,
+        base_url: str | None = None,
+        profile: str | None = None,
+    ) -> list[dict[str, object]]:
         return _load_discovery_source(platform, event, source)
 
     def download_files(

@@ -70,6 +70,9 @@
 - optional `server_release_count`
 - optional `submission_attempted`
 - optional `ctfd_submit_attempted`
+- optional `ctfd_live_discovery_attempted`
+- optional `ctfd_live_discovery_success`
+- optional `ctfd_live_discovered_count`
 - optional `submission_policy`
 - optional `platform_adapter`
 - optional `live_smoke_count`

@@ -23,6 +23,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--profile")
     parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local", "ctfd"])
     parser.add_argument("--source")
+    parser.add_argument("--base-url")
+    parser.add_argument("--live", action="store_true")
     parser.add_argument("--policy")
     parser.add_argument("--queue", action="store_true")
     parser.add_argument("--json", action="store_true")
@@ -36,6 +38,9 @@ def main() -> int:
         event=args.event,
         adapter_name=args.adapter,
         source=args.source,
+        base_url=args.base_url,
+        live=args.live,
+        profile=args.profile,
         policy_path=args.policy,
         queue=args.queue,
     )

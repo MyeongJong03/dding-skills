@@ -177,6 +177,19 @@ class Doctor:
         else:
             self.warn("Docker daemon off or unreachable (optional runtime dependency)")
 
+    def docker_image_exists(self, docker: str, image: str) -> bool:
+        candidates = [
+            [docker, "image", "inspect", image],
+            [docker, "inspect", image],
+        ]
+        if ":" in image:
+            candidates.append([docker, "image", "inspect", image.split(":", 1)[0]])
+        for command in candidates:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                return True
+        return False
+
     def check_docker_gdb_smoke_availability(self) -> None:
         enabled = os.environ.get("CTF_RUN_DOCKER_GDB_TESTS") == "1"
         self.info(f"CTF_RUN_DOCKER_GDB_TESTS={'1' if enabled else 'not set'}")
@@ -188,13 +201,7 @@ class Doctor:
         if info.returncode != 0:
             self.info("Docker GDB smoke unavailable: Docker daemon is not reachable")
             return
-        image = subprocess.run(
-            [docker, "image", "inspect", "ctf-pwn:latest"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if image.returncode != 0:
+        if not self.docker_image_exists(docker, "ctf-pwn:latest"):
             self.info("Docker GDB smoke unavailable: ctf-pwn:latest image not found")
             return
         self.ok("ctf-pwn:latest Docker image is available")
@@ -457,6 +464,14 @@ class Doctor:
         except Exception as exc:
             self.fail(f"CTFd adapter import failed: {exc}")
 
+        ctfd_adapter = ROOT / "ctf_solver_core" / "adapters" / "ctfd.py"
+        ctfd_text = ctfd_adapter.read_text(encoding="utf-8", errors="replace") if ctfd_adapter.is_file() else ""
+        if "/api/v1/challenges" in ctfd_text and "CTF_CTFD_COOKIE_HEADER" in ctfd_text:
+            self.ok("CTFd live read-only discovery scaffold is present")
+        else:
+            self.fail("CTFd live read-only discovery scaffold missing")
+        self.info("CTFd live credentials are optional local-only inputs and are not inspected by doctor")
+
         ctfd_doc = ROOT / "docs" / "ctfd-adapter.md"
         if ctfd_doc.is_file() and "CTFd adapter" in ctfd_doc.read_text(encoding="utf-8", errors="replace"):
             self.ok("docs/ctfd-adapter.md mentions CTFd adapter")
@@ -627,13 +642,7 @@ class Doctor:
         self.command_version("gdb", optional=True)
         docker = shutil.which("docker")
         if docker:
-            image = subprocess.run(
-                [docker, "image", "inspect", "ctf-pwn:latest"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if image.returncode == 0:
+            if self.docker_image_exists(docker, "ctf-pwn:latest"):
                 self.ok("ctf-pwn:latest Docker image is available")
             else:
                 self.info("ctf-pwn:latest Docker image not found (optional GDB Docker mode)")

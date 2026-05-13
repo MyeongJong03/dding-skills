@@ -76,9 +76,12 @@ def _safe_url(value: str | None) -> str:
     parsed = urlparse(value)
     if parsed.scheme not in {"http", "https"}:
         return "<local-path>"
+    netloc = parsed.hostname or ""
+    if parsed.port is not None:
+        netloc = f"{netloc}:{parsed.port}"
     query = "<redacted>" if parsed.query else ""
     fragment = "<redacted>" if parsed.fragment else ""
-    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", query, fragment))
+    return urlunparse((parsed.scheme, netloc, parsed.path, "", query, fragment))
 
 
 def _policy_value(value: bool | str) -> str:
@@ -238,8 +241,18 @@ def _run_discovery(
     adapter = get_adapter(adapter_name)
     limit = request.max_challenges if request.max_challenges is not None else 20
     limit = max(0, min(int(limit), 100))
+    profile_name = _profile_name(request, policy)
+    if profile_name.strip().lower() in PLACEHOLDER_PROFILES:
+        profile_name = ""
     try:
-        challenges = adapter.discover_challenges(platform=request.platform, event=request.event, source=source or None)
+        challenges = adapter.discover_challenges(
+            platform=request.platform,
+            event=request.event,
+            source=source or None,
+            live=request.live,
+            base_url=request.base_url,
+            profile=profile_name or None,
+        )
     except PlatformAdapterError as exc:
         return {"ok": False, "performed": True, "reason": str(exc), "challenge_count": 0, "adapter": adapter.name}
     summaries = [_challenge_summary(item) for item in challenges[:limit]]
@@ -269,6 +282,13 @@ def _run_download(
     if not request.challenge_id:
         return {"ok": False, "performed": False, "reason": "challenge_id_required_for_download"}
     adapter = get_adapter(adapter_name)
+    if adapter.name == "ctfd" and _is_url(source):
+        return {
+            "ok": False,
+            "performed": False,
+            "adapter": adapter.name,
+            "reason": "ctfd_live_download_unsupported_read_only",
+        }
     dest = smoke_dir / "downloads"
     try:
         files = adapter.download_files(
@@ -360,6 +380,15 @@ def public_metrics_from_result(result: dict[str, object]) -> dict[str, object]:
         "live_smoke_discovered_count": int(discovery.get("challenge_count") or 0),
         "live_smoke_downloaded_count": int(download.get("downloaded_count") or 0),
         "live_smoke_server_acquire_attempted": bool(acquire.get("attempted") or acquire.get("performed")),
+        "ctfd_live_discovery_attempted": bool(
+            result.get("live") and result.get("adapter") == "ctfd" and discovery.get("performed")
+        ),
+        "ctfd_live_discovery_success": bool(
+            result.get("live") and result.get("adapter") == "ctfd" and discovery.get("ok")
+        ),
+        "ctfd_live_discovered_count": int(discovery.get("challenge_count") or 0)
+        if result.get("live") and result.get("adapter") == "ctfd"
+        else 0,
     }
     errors = validate_public_record(metrics)
     if errors:
@@ -509,7 +538,7 @@ def run_live_smoke(request: LiveSmokeRequest) -> dict[str, object]:
                 and _is_url(source)
                 and adapter_name not in {"mock", "local"}
                 and any(
-                    isinstance(action, dict) and bool(action.get("performed")) and bool(action.get("ok"))
+                    isinstance(action, dict) and bool(action.get("performed"))
                     for action in actions.values()
                 )
             )

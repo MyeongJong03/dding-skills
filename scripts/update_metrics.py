@@ -112,6 +112,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--live-smoke-discovered-count", type=int)
     parser.add_argument("--live-smoke-downloaded-count", type=int)
     parser.add_argument("--live-smoke-server-acquire-attempted", action="store_true")
+    parser.add_argument("--ctfd-live-discovery-attempted", action="store_true")
+    parser.add_argument("--ctfd-live-discovery-success", action="store_true")
+    parser.add_argument("--ctfd-live-discovered-count", type=int)
     parser.add_argument("--verifier-success", action="store_true")
     parser.add_argument("--verifier-flag-found", action="store_true")
     parser.add_argument("--verifier-target")
@@ -337,6 +340,7 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         "live_smoke_count": getattr(args, "live_smoke_count", None),
         "live_smoke_discovered_count": getattr(args, "live_smoke_discovered_count", None),
         "live_smoke_downloaded_count": getattr(args, "live_smoke_downloaded_count", None),
+        "ctfd_live_discovered_count": getattr(args, "ctfd_live_discovered_count", None),
     }
     for key, value in optional_ints.items():
         if value is None and isinstance(resource_metrics.get(key), int):
@@ -420,6 +424,17 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         record["submission_attempted"] = True
     if ctfd_submit_attempted:
         record["ctfd_submit_attempted"] = True
+    ctfd_live_discovery_attempted = bool(
+        getattr(args, "ctfd_live_discovery_attempted", False)
+        or platform_metrics.get("ctfd_live_discovery_attempted")
+    )
+    ctfd_live_discovery_success = bool(
+        getattr(args, "ctfd_live_discovery_success", False) or platform_metrics.get("ctfd_live_discovery_success")
+    )
+    if ctfd_live_discovery_attempted:
+        record["ctfd_live_discovery_attempted"] = True
+    if ctfd_live_discovery_success:
+        record["ctfd_live_discovery_success"] = True
     live_smoke_success = bool(getattr(args, "live_smoke_success", False) or platform_metrics.get("live_smoke_success"))
     live_smoke_server_acquire_attempted = bool(
         getattr(args, "live_smoke_server_acquire_attempted", False)

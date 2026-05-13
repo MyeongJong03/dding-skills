@@ -12,6 +12,7 @@ provisioning buttons or custom deployment endpoints.
   tags, and state
 - Local attachment fixture copy to `CTF_DOWNLOAD_ROOT`
 - Queue registration through `platform_discover.py --queue`
+- Manual opt-in live read-only discovery from `/api/v1/challenges`
 - Policy-gated submit scaffold with flag redaction
 - Public-safe aggregate metrics fields for CTFd counts
 
@@ -90,15 +91,32 @@ destinations are refused unless `--allow-repo-dest` is explicit.
 
 ## Live Mode
 
-Regression tests must use local fixtures only. Live CTFd smoke work is manual
-and opt-in through `scripts/platform_live_smoke.py`. Without `--live`, the smoke
-command validates policy/profile metadata and does not open the URL. Supplying a
-live URL directly to the adapter without opt-in returns
-`ctfd_live_mode_requires_opt_in`; opting in currently returns
-`ctfd_live_network_not_implemented` until the live fetch path is deliberately
-implemented.
+Regression tests must use local fixtures or local mock HTTP servers only. Live
+CTFd discovery is manual and opt-in. Without `--live`, neither
+`platform_discover.py` nor `platform_live_smoke.py` opens `--base-url`; direct
+URL use without opt-in returns `ctfd_live_mode_requires_opt_in`.
+
+The live adapter fetches only:
+
+- `GET /api/v1/challenges`
+- `GET /api/v1/challenges/{id}`
+
+Discovery output is normalized to public-safe fields such as `challenge_id`,
+`external_id`, `name`, `category`, `value`, `tags`, `solves`,
+`local_capable`, `remote_required`, and `url`. Full descriptions are never
+added to public metrics or queue events. Detail output may include bounded
+description and connection text for local/private use.
 
 ```bash
+python3 scripts/platform_live_smoke.py \
+  --platform ctfd \
+  --event local-fixture \
+  --adapter ctfd \
+  --policy ~/.ctf-solver/platforms/ctfd.yaml \
+  --base-url https://ctfd.example.invalid \
+  --mode discovery \
+  --json
+
 python3 scripts/platform_live_smoke.py \
   --platform ctfd \
   --event local-fixture \
@@ -111,13 +129,31 @@ python3 scripts/platform_live_smoke.py \
   --json
 ```
 
+```bash
+python3 scripts/platform_discover.py \
+  --platform ctfd \
+  --event local-fixture \
+  --adapter ctfd \
+  --policy ~/.ctf-solver/platforms/ctfd.yaml \
+  --profile main \
+  --base-url https://ctfd.example.invalid \
+  --live \
+  --queue \
+  --json
+```
+
 Smoke mode never submits flags. Downloads require `--allow-download`; server
 acquire requires `--allow-server-acquire` and the normal resource lease policy.
+The generic CTFd adapter still does not implement live download, server acquire,
+or flag submit.
 
 Store authentication outside the repo. Use `browser_state_init.py` for local
-profile metadata, or provide any future cookie header through an environment
-variable or local-only profile. Do not commit cookies, storage state, tokens,
-account metadata, or private URLs.
+profile metadata. The current live discovery path does not parse browser
+storage state contents; when a site requires auth, provide a local-only cookie
+header through `CTF_CTFD_COOKIE_HEADER` or a repo-external
+`CTF_CTFD_COOKIE_FILE`. Cookie values are never printed or stored in result
+JSON. If auth is required and no usable local-only auth source/profile is
+configured, the adapter returns `auth_required_or_profile_missing`.
 
 ## Submission Policy
 
@@ -139,6 +175,8 @@ Use `platform_discover.py --queue` before workers start solving. Downloads move
 matching queue items to `downloaded`; workers can then perform local triage.
 
 Public metrics may include `platform_adapter=ctfd`, `ctfd_challenge_count`,
-`ctfd_download_count`, and `ctfd_submit_attempted`. Metrics must not include
-descriptions, raw responses, flags, cookies, tokens, private URLs, absolute
-download paths, writeups, exploits, transcripts, or verifier evidence.
+`ctfd_download_count`, `ctfd_submit_attempted`,
+`ctfd_live_discovery_attempted`, `ctfd_live_discovery_success`, and
+`ctfd_live_discovered_count`. Metrics must not include descriptions, raw
+responses, flags, cookies, tokens, private URLs with secrets, absolute download
+paths, writeups, exploits, transcripts, or verifier evidence.

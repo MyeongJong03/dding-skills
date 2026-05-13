@@ -2,8 +2,8 @@
 
 `scripts/platform_live_smoke.py` is a manual, opt-in framework for checking
 whether platform policies, browser profile metadata, read-only discovery,
-downloads, and server lease gates are wired correctly before a real site
-adapter is implemented.
+downloads, and server lease gates are wired correctly before or during manual
+live adapter use.
 
 The default is dry-run and no-network. Without `--live`, the command validates
 configuration and prints what would happen. It does not contact external CTF
@@ -77,10 +77,17 @@ python3 scripts/platform_live_smoke.py \
   --json
 ```
 
+For the generic CTFd adapter, discovery mode performs read-only API requests to
+`/api/v1/challenges` only after `--live` and an explicit `--base-url` or policy
+`base_url` are present. Start with the dry-run command above, then add `--live`
+only after the user approves live access to that platform.
+
 If the policy requires browser profile auth, `--profile` must name metadata
 registered with `browser_state_init.py`. The smoke check only verifies metadata
 and storage-state file existence; it never reads or prints cookies, tokens, or
-storage state contents.
+storage state contents. If the CTFd API requires auth, use a repo-external
+`CTF_CTFD_COOKIE_FILE` or local-only `CTF_CTFD_COOKIE_HEADER`; neither value is
+printed or written into smoke output.
 
 ## Downloads
 
@@ -168,6 +175,9 @@ The result includes a public-safe `public_metrics` object. Allowed fields are:
 - `live_smoke_discovered_count`
 - `live_smoke_downloaded_count`
 - `live_smoke_server_acquire_attempted`
+- `ctfd_live_discovery_attempted`
+- `ctfd_live_discovery_success`
+- `ctfd_live_discovered_count`
 
 These fields can be passed to `scripts/update_metrics.py`. Do not put raw
 responses, flags, cookies, tokens, private URLs with secrets, storage state,
@@ -176,9 +186,10 @@ download contents, screenshots, or private absolute paths in `metrics/`.
 ## Regression Tests
 
 Tests must stay local/mock only. Use `--source` with a local fixture for mock or
-fixture-first adapters. Do not add pytest cases that contact live CTF sites,
-download real challenge files, provision real servers, submit flags, start
-Playwright against external sites, or depend on real credentials.
+fixture-first adapters, or a `127.0.0.1` mock HTTP server for live CTFd API
+parsing. Do not add pytest cases that contact live CTF sites, download real
+challenge files, provision real servers, submit flags, start Playwright against
+external sites, or depend on real credentials.
 
 ## Never Commit
 

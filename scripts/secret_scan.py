@@ -41,8 +41,15 @@ RULES = [
     Rule("email_address_metadata", re.compile(r"\bemailAddress\b", re.IGNORECASE)),
     Rule("account_uuid_metadata", re.compile(r"\baccountUuid\b", re.IGNORECASE)),
     Rule("organization_uuid_metadata", re.compile(r"\borganizationUuid\b", re.IGNORECASE)),
+    Rule("display_name_metadata", re.compile(r"\bdisplayName\b", re.IGNORECASE)),
+    Rule("organization_name_metadata", re.compile(r"\borganizationName\b", re.IGNORECASE)),
+    Rule("user_id_metadata", re.compile(r"\buserID\b", re.IGNORECASE)),
     Rule("anonymous_id_metadata", re.compile(r"\banonymousId\b", re.IGNORECASE)),
+    Rule("last_session_id_metadata", re.compile(r"\blastSessionId\b", re.IGNORECASE)),
     Rule("referral_link_metadata", re.compile(r"\breferral_link\b", re.IGNORECASE)),
+    Rule("referral_code_metadata", re.compile(r"\b(?:referral_code|referralCode)\b", re.IGNORECASE)),
+    Rule("iterm2_backup_path_metadata", re.compile(r"\biterm2BackupPath\b", re.IGNORECASE)),
+    Rule("github_repo_paths_metadata", re.compile(r"\bgithubRepoPaths\b", re.IGNORECASE)),
     Rule("billing_type_metadata", re.compile(r"\bbillingType\b", re.IGNORECASE)),
     Rule("subscription_created_at_metadata", re.compile(r"\bsubscriptionCreatedAt\b", re.IGNORECASE)),
     Rule("private_key_block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
@@ -83,6 +90,7 @@ PATH_RULES = [
 ALLOWLIST_PATHS = {
     "scripts/redact_sensitive.py",
     "scripts/secret_scan.py",
+    "tests/test_redact_sensitive.py",
     "tests/test_secret_scan.py",
 }
 ALLOWLIST_MARKER = "secret-scan: allow"

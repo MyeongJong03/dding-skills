@@ -148,6 +148,9 @@
 - `browser_state_check.py` may check metadata existence and storage-state file existence only; it must not read cookies or storage state contents.
 - Platform automation state lives under `CTF_PLATFORM_AUTOMATION_ROOT` or `~/.ctf-solver/platforms`; downloaded challenge private files live under `CTF_DOWNLOAD_ROOT` or `~/CTF/downloads`.
 - For CTFd-like platforms, use the generic CTFd adapter only when platform policy says `adapter: ctfd` or the user explicitly selects `--adapter ctfd`.
+- For CTFd live read-only discovery, start with dry-run; use `--live` only with explicit user approval and an explicit `--base-url` or policy `base_url`.
+- Queue discovered CTFd challenges before solving; discovery may use `/api/v1/challenges` and `/api/v1/challenges/{id}` only.
+- If CTFd discovery fails with `auth_required_or_profile_missing`, ask for a browser_state profile or local-only auth config such as `CTF_CTFD_COOKIE_FILE`/`CTF_CTFD_COOKIE_HEADER`.
 - Do not assume custom CTFd server provisioning endpoints; generic CTFd server create/release is unsupported unless a future explicit hook is configured.
 - For platform discovery, respect `automation.allow_problem_discovery`; use mock/local fixtures for regression tests and do not add live-site tests.
 - For file downloads, respect `automation.allow_file_download` and store outside the repo by default.
@@ -170,6 +173,7 @@
 - Never run live platform smoke against an external CTF site without explicit user approval and `--live`.
 - Start with `scripts/platform_live_smoke.py --mode dry-run` or the same command without `--live`; dry-run must not access external network.
 - Smoke mode must never submit flags, even when `automation.allow_submission: true`.
+- For CTFd live discovery, use discovery mode only; do not implement submit, download, server acquire, Dreamhack adapter, or full browser solver as part of this path.
 - Do not print cookies, tokens, bearer headers, OAuth values, passwords, account metadata, private URLs with secrets, or browser storage state contents.
 - Browser profile checks may verify metadata and storage-state file existence only; never read storage-state contents.
 - Download smoke requires explicit `--allow-download`; server acquire smoke requires explicit `--allow-server-acquire`.

@@ -100,9 +100,9 @@ The `generic` adapter intentionally returns a clear not-implemented error. The
 `mock` adapter parses local JSON/HTML fixtures, copies local files, creates fake
 server records under the platform automation root, and simulates submission only
 when policy explicitly allows it. The `ctfd` adapter parses CTFd-like local
-JSON/HTML fixtures, normalizes CTFd challenge records, copies local attachment
-fixtures, blocks server provisioning, and keeps live network behavior opt-in
-manual-only.
+JSON/HTML fixtures, can perform opt-in read-only discovery through
+`/api/v1/challenges`, copies local attachment fixtures, and blocks generic live
+download, server provisioning, and submit paths.
 
 ## Discovery
 
@@ -124,12 +124,23 @@ python3 scripts/platform_discover.py \
   --source fixtures/ctfd-challenges.json \
   --queue \
   --json
+
+python3 scripts/platform_discover.py \
+  --platform ctfd \
+  --event local-fixture \
+  --adapter ctfd \
+  --policy ~/.ctf-solver/platforms/ctfd.yaml \
+  --base-url https://ctfd.example.invalid \
+  --live \
+  --queue \
+  --json
 ```
 
 Discovered fields are `challenge_id`, `name`, `category`, optional `url`,
-optional `files`, optional `remote_required`, and optional `local_capable`.
-`--queue` creates or updates queue items with state `discovered` and records a
-public-safe queue event.
+optional `external_id`, `value`, `tags`, `solves`, `files`,
+`remote_required`, and `local_capable`. `--queue` creates or updates queue
+items with state `discovered` and records a public-safe queue event. Live CTFd
+discovery requires `--live`; no raw API response or full description is stored.
 
 ## Download
 
@@ -265,6 +276,9 @@ Public metrics may include:
 - `server_release_count`
 - `submission_attempted`
 - `ctfd_submit_attempted`
+- `ctfd_live_discovery_attempted`
+- `ctfd_live_discovery_success`
+- `ctfd_live_discovered_count`
 - `submission_policy`
 - `platform_adapter`
 - `live_smoke_count`
@@ -293,20 +307,24 @@ python3 scripts/platform_live_smoke.py --platform ctfd --event local-fixture --a
 ```
 
 `platform_live_smoke.py --live` is required before any live network-capable
-adapter path may run. Smoke mode never submits flags. Download requires
-`--allow-download`; server acquire requires `--allow-server-acquire` and still
-respects `max_active_leases`. Browser profile metadata is checked through
-`browser_state_check`-equivalent helpers without reading storage state contents.
-Results are written under `CTF_LIVE_SMOKE_ROOT` and only public-safe summaries
-may be reflected in metrics. Regression tests remain mock/local only.
+adapter path may run. For CTFd, discovery mode uses `/api/v1/challenges` and
+returns only bounded normalized summaries. Smoke mode never submits flags.
+Download requires `--allow-download`; server acquire requires
+`--allow-server-acquire` and still respects `max_active_leases`. Browser profile
+metadata is checked through `browser_state_check`-equivalent helpers without
+reading storage state contents. If the API needs auth, use a local-only
+`CTF_CTFD_COOKIE_HEADER` or repo-external `CTF_CTFD_COOKIE_FILE`; do not print
+or commit either value. Results are written under `CTF_LIVE_SMOKE_ROOT` and
+only public-safe summaries may be reflected in metrics. Regression tests remain
+mock/local only.
 
 See [live-smoke.md](live-smoke.md).
 
 ## Limitations
 
 - Real Dreamhack and THCON-like adapters are future work.
-- CTFd live network access is manual opt-in through live smoke until a real
-  adapter path is deliberately implemented.
+- CTFd live download, server acquire, and submit are unsupported in the generic
+  adapter; only read-only discovery is implemented.
 - Real site browser login automation is optional future work.
 - No live network regression tests.
 - No default flag auto-submit.

@@ -311,7 +311,13 @@ python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCO
 python3 scripts/browser_state_init.py --platform thcon --event THCON --profile main --print-login-instructions
 python3 scripts/platform_discover.py --platform thcon --event THCON --adapter mock --source fixtures/challenges.json --queue --json
 python3 scripts/platform_live_smoke.py --platform ctfd --event local-fixture --adapter ctfd --mode discovery --base-url https://ctfd.example.invalid --json
+python3 scripts/platform_discover.py --platform ctfd --event local-fixture --adapter ctfd --base-url https://ctfd.example.invalid --live --queue --json
 ```
+
+CTFd live discovery is read-only and opt-in: run the live smoke dry-run first,
+then use `--live` only after approval. Cookie/header auth must come from a
+local-only env source or browser profile metadata; raw cookies, tokens, storage
+state, descriptions, and API responses are not stored in repo metrics.
 
 ## Queue worker runner (P1-3)
 

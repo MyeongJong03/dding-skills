@@ -128,6 +128,9 @@ def discover_challenges(
     event: str,
     adapter_name: str = "generic",
     source: str | None = None,
+    base_url: str | None = None,
+    live: bool = False,
+    profile: str | None = None,
     policy_path: str | Path | None = None,
     queue: bool = False,
 ) -> dict[str, object]:
@@ -136,8 +139,22 @@ def discover_challenges(
     if blocked:
         return blocked
     adapter = get_adapter(_select_adapter_name(policy, adapter_name))
+    discovery_source = source
+    if live:
+        discovery_source = base_url or source or policy.base_url or ""
+        if adapter.name == "ctfd" and not discovery_source:
+            return {"ok": False, "reason": "base_url_required_for_live_ctfd", "adapter": adapter.name}
+    elif base_url and not source:
+        discovery_source = base_url
     try:
-        challenges = adapter.discover_challenges(platform=platform, event=event, source=source)
+        challenges = adapter.discover_challenges(
+            platform=platform,
+            event=event,
+            source=discovery_source,
+            live=live,
+            base_url=base_url,
+            profile=profile,
+        )
     except PlatformAdapterError as exc:
         return {"ok": False, "reason": str(exc), "adapter": adapter.name}
 
@@ -163,6 +180,9 @@ def discover_challenges(
         "adapter": adapter.name,
         "challenge_count": len(challenges),
         "queued_count": len(queued),
+        "ctfd_live_discovery_attempted": bool(live and adapter.name == "ctfd"),
+        "ctfd_live_discovery_success": bool(live and adapter.name == "ctfd"),
+        "ctfd_live_discovered_count": len(challenges) if live and adapter.name == "ctfd" else 0,
     }
     append_queue_event(
         event_type="platform_discovery",
@@ -176,6 +196,7 @@ def discover_challenges(
         "platform": platform,
         "event": event,
         "adapter": adapter.name,
+        "live": live,
         "challenge_count": len(challenges),
         "challenges": challenges,
         "queued_count": len(queued),
