@@ -303,12 +303,16 @@ framework is `platform_live_smoke.py`. Start with dry-run:
 
 ```bash
 python3 scripts/platform_smoke_test.py --platform thcon --event THCON --adapter generic
+python3 scripts/ctfd_live_smoke_runbook.py --platform ctfd --event local-fixture --base-url https://ctfd.example.invalid
 python3 scripts/platform_live_smoke.py --platform ctfd --event local-fixture --adapter ctfd --mode discovery --base-url https://ctfd.example.invalid --json
 ```
 
 `platform_live_smoke.py --live` is required before any live network-capable
 adapter path may run. For CTFd, discovery mode uses `/api/v1/challenges` and
 returns only bounded normalized summaries. Smoke mode never submits flags.
+Queue registration uses `platform_discover.py --queue` only when that flag is
+explicitly supplied. `ctfd_live_smoke_runbook.py` is a no-network command
+generator for the dry-run-first procedure.
 Download requires `--allow-download`; server acquire requires
 `--allow-server-acquire` and still respects `max_active_leases`. Browser profile
 metadata is checked through `browser_state_check`-equivalent helpers without
@@ -318,7 +322,8 @@ or commit either value. Results are written under `CTF_LIVE_SMOKE_ROOT` and
 only public-safe summaries may be reflected in metrics. Regression tests remain
 mock/local only.
 
-See [live-smoke.md](live-smoke.md).
+See [live-smoke.md](live-smoke.md) and
+[ctfd-live-smoke-runbook.md](ctfd-live-smoke-runbook.md).
 
 ## Limitations
 

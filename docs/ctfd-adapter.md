@@ -96,6 +96,22 @@ CTFd discovery is manual and opt-in. Without `--live`, neither
 `platform_discover.py` nor `platform_live_smoke.py` opens `--base-url`; direct
 URL use without opt-in returns `ctfd_live_mode_requires_opt_in`.
 
+Use the P1-12 runbook helper to generate the operator checklist without making
+network requests:
+
+```bash
+python3 scripts/ctfd_live_smoke_runbook.py \
+  --platform ctfd \
+  --event local-fixture \
+  --policy ~/.ctf-solver/platforms/ctfd.yaml \
+  --profile main \
+  --base-url https://ctfd.example.invalid
+```
+
+The helper prints dry-run first by default. It includes live discovery commands
+only with `--include-live-command`, and includes queue registration only with
+`--include-queue-command`.
+
 The live adapter fetches only:
 
 - `GET /api/v1/challenges`
@@ -142,6 +158,9 @@ python3 scripts/platform_discover.py \
   --json
 ```
 
+Do not add `--queue` to direct discovery unless queue registration is explicitly
+intended.
+
 Smoke mode never submits flags. Downloads require `--allow-download`; server
 acquire requires `--allow-server-acquire` and the normal resource lease policy.
 The generic CTFd adapter still does not implement live download, server acquire,
@@ -154,6 +173,14 @@ header through `CTF_CTFD_COOKIE_HEADER` or a repo-external
 `CTF_CTFD_COOKIE_FILE`. Cookie values are never printed or stored in result
 JSON. If auth is required and no usable local-only auth source/profile is
 configured, the adapter returns `auth_required_or_profile_missing`.
+
+Expected failure handling for live discovery:
+
+- `auth_required_or_profile_missing`: provide local-only auth/profile metadata.
+- `ctfd_api_error`: check CTFd API compatibility without storing raw responses.
+- `base_url_missing`: provide `--base-url` or policy `base_url`.
+- `network_timeout`: check platform/network availability and keep retries
+  bounded.
 
 ## Submission Policy
 

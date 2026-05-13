@@ -9,6 +9,23 @@ The default is dry-run and no-network. Without `--live`, the command validates
 configuration and prints what would happen. It does not contact external CTF
 sites.
 
+For CTFd read-only live discovery, use
+`docs/ctfd-live-smoke-runbook.md` as the operator checklist. The command
+generator is no-network by default:
+
+```bash
+python3 scripts/ctfd_live_smoke_runbook.py \
+  --platform ctfd \
+  --event local-fixture \
+  --policy ~/.ctf-solver/platforms/ctfd.yaml \
+  --profile main \
+  --base-url https://ctfd.example.invalid
+```
+
+It prints the dry-run command by default. Add `--include-live-command` only
+after approval, and add `--include-queue-command` only when queue registration
+is intentional.
+
 ## Storage
 
 Live smoke output is local-only:
@@ -88,6 +105,16 @@ and storage-state file existence; it never reads or prints cookies, tokens, or
 storage state contents. If the CTFd API requires auth, use a repo-external
 `CTF_CTFD_COOKIE_FILE` or local-only `CTF_CTFD_COOKIE_HEADER`; neither value is
 printed or written into smoke output.
+
+Common CTFd live discovery failure reasons:
+
+- `auth_required_or_profile_missing`
+- `ctfd_api_error`
+- `base_url_missing`
+- `network_timeout`
+
+Treat these as setup or transport errors. Do not paste raw API responses or raw
+auth material into docs, metrics, or queue history.
 
 ## Downloads
 
@@ -182,6 +209,10 @@ The result includes a public-safe `public_metrics` object. Allowed fields are:
 These fields can be passed to `scripts/update_metrics.py`. Do not put raw
 responses, flags, cookies, tokens, private URLs with secrets, storage state,
 download contents, screenshots, or private absolute paths in `metrics/`.
+
+For CTFd live smoke, the public-safe result check should be limited to
+`actions.discovery.challenge_count`, `public_metrics.ctfd_live_discovered_count`,
+success booleans, and mode labels.
 
 ## Regression Tests
 

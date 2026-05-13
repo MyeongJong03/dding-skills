@@ -109,6 +109,11 @@ Do not put the following in public metrics:
 - downloaded private challenge file absolute paths
 - raw platform response bodies
 
+For CTFd live smoke, publish only counters and booleans such as
+`ctfd_live_discovered_count`, `ctfd_live_discovery_success`, and
+`live_smoke_success`. The operator runbook in
+`docs/ctfd-live-smoke-runbook.md` describes the public-safe result check.
+
 `scripts/update_metrics.py --check` validates existing public metrics before git sync.
 
 Metrics writes use a global lock and atomic file replacement. Public records must remain free of private absolute paths even when generated from private run directories.

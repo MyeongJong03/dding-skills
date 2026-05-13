@@ -143,7 +143,7 @@ def discover_challenges(
     if live:
         discovery_source = base_url or source or policy.base_url or ""
         if adapter.name == "ctfd" and not discovery_source:
-            return {"ok": False, "reason": "base_url_required_for_live_ctfd", "adapter": adapter.name}
+            return {"ok": False, "reason": "base_url_missing", "adapter": adapter.name}
     elif base_url and not source:
         discovery_source = base_url
     try:

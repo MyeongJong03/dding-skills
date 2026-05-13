@@ -11,6 +11,7 @@ from html.parser import HTMLParser
 import json
 import os
 from pathlib import Path
+from socket import timeout as SocketTimeout
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlparse, urlunparse
 from urllib.request import Request, urlopen
@@ -50,10 +51,10 @@ def _require_fixture_source(source: str | None) -> Path:
 def _live_base_url(source: str | None, base_url: str | None = None) -> str:
     candidate = str(base_url or source or "").strip()
     if not candidate:
-        raise PlatformAdapterError("base_url_required_for_live_ctfd")
+        raise PlatformAdapterError("base_url_missing")
     parsed = urlparse(candidate)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise PlatformAdapterError("base_url_required_for_live_ctfd")
+        raise PlatformAdapterError("base_url_missing")
     if parsed.username or parsed.password:
         raise PlatformAdapterError("base_url_must_not_include_userinfo")
     return urlunparse((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "", ""))
@@ -133,9 +134,14 @@ def _http_json(url: str, *, platform: str, event: str, profile: str | None = Non
             if _auth_available(platform, event, profile):
                 raise PlatformAdapterError("ctfd_live_auth_failed") from exc
             raise PlatformAdapterError("auth_required_or_profile_missing") from exc
-        raise PlatformAdapterError(f"ctfd_live_http_error:{exc.code}") from exc
+        raise PlatformAdapterError("ctfd_api_error") from exc
+    except (TimeoutError, SocketTimeout) as exc:
+        raise PlatformAdapterError("network_timeout") from exc
     except URLError as exc:
-        raise PlatformAdapterError("ctfd_live_network_error") from exc
+        reason = getattr(exc, "reason", "")
+        if isinstance(reason, (TimeoutError, SocketTimeout)) or "timed out" in str(reason).lower():
+            raise PlatformAdapterError("network_timeout") from exc
+        raise PlatformAdapterError("network_error") from exc
     if len(body) > CTFD_LIVE_MAX_BYTES:
         raise PlatformAdapterError("ctfd_live_response_too_large")
     try:
@@ -146,7 +152,7 @@ def _http_json(url: str, *, platform: str, event: str, profile: str | None = Non
 
 def _ensure_api_success(data: object) -> None:
     if isinstance(data, dict) and data.get("success") is False:
-        raise PlatformAdapterError("ctfd_api_unsuccessful")
+        raise PlatformAdapterError("ctfd_api_error")
 
 
 def _normalize_category(value: object) -> str:

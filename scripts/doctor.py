@@ -383,6 +383,7 @@ class Doctor:
             "scripts/platform_submit.py",
             "scripts/platform_smoke_test.py",
             "scripts/platform_live_smoke.py",
+            "scripts/ctfd_live_smoke_runbook.py",
             "scripts/benchmark_init.py",
             "scripts/benchmark_record_result.py",
             "scripts/benchmark_report.py",
@@ -445,6 +446,7 @@ class Doctor:
             "docs/web-exploit-workflow.md",
             "docs/ctfd-adapter.md",
             "docs/live-smoke.md",
+            "docs/ctfd-live-smoke-runbook.md",
             "docs/worker-runner.md",
             "docs/sessions.md",
             "docs/gdb-session.md",
@@ -477,6 +479,14 @@ class Doctor:
             self.ok("docs/ctfd-adapter.md mentions CTFd adapter")
         else:
             self.fail("docs/ctfd-adapter.md missing CTFd adapter documentation")
+
+        runbook_script = ROOT / "scripts" / "ctfd_live_smoke_runbook.py"
+        runbook_doc = ROOT / "docs" / "ctfd-live-smoke-runbook.md"
+        runbook_text = runbook_doc.read_text(encoding="utf-8", errors="replace") if runbook_doc.is_file() else ""
+        if runbook_script.is_file() and "dry-run" in runbook_text and "no submit" in runbook_text.lower():
+            self.ok("CTFd live smoke runbook helper and docs are present")
+        else:
+            self.fail("CTFd live smoke runbook helper/docs missing dry-run and no-submit guidance")
 
         platform_errors = validate_platform_config(ROOT / "config" / "platforms.example.yaml")
         if platform_errors:

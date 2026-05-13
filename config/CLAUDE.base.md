@@ -172,9 +172,12 @@
 ## Live Platform Smoke Rules
 - Never run live platform smoke against an external CTF site without explicit user approval and `--live`.
 - Start with `scripts/platform_live_smoke.py --mode dry-run` or the same command without `--live`; dry-run must not access external network.
+- For CTFd live smoke, always produce the dry-run command first; `scripts/ctfd_live_smoke_runbook.py` may be used as a no-network command generator.
+- Use `--live` only with explicit approval, and use `--queue` only when queue registration is explicitly requested.
 - Smoke mode must never submit flags, even when `automation.allow_submission: true`.
 - For CTFd live discovery, use discovery mode only; do not implement submit, download, server acquire, Dreamhack adapter, or full browser solver as part of this path.
 - Do not print cookies, tokens, bearer headers, OAuth values, passwords, account metadata, private URLs with secrets, or browser storage state contents.
+- Report only public-safe summaries such as discovered counts, success booleans, and mode labels.
 - Browser profile checks may verify metadata and storage-state file existence only; never read storage-state contents.
 - Download smoke requires explicit `--allow-download`; server acquire smoke requires explicit `--allow-server-acquire`.
 - Respect platform resource leases. Do not create a second server when `resources.remote_server.max_active_leases=1` already has an active scoped lease.
