@@ -133,6 +133,7 @@ def test_mock_platform_discover_parses_local_json_fixture(temp_ctf_env, run_cli)
                 "mock",
                 "--source",
                 str(fixture),
+                "--queue",
                 "--json",
             ]
         )
@@ -199,6 +200,7 @@ def test_platform_download_copies_fixture_outside_repo_and_writes_metadata(temp_
                 "mock",
                 "--source",
                 str(fixture),
+                "--queue",
                 "--json",
             ]
         )

@@ -212,7 +212,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, object]:
             "dry_run_first": True,
             "no_submit": True,
             "no_exploit": True,
-            "no_download": True,
+            "download_requires_live_and_allow_download": True,
             "no_server_acquire": True,
             "raw_auth_not_read": True,
             "raw_responses_not_stored": True,
@@ -235,7 +235,8 @@ def render_text(plan: dict[str, object]) -> str:
         "Safety:",
         "- dry-run first",
         "- smoke commands never submit flags",
-        "- no exploit, download, or server acquire path is generated",
+        "- no exploit or server acquire path is generated",
+        "- live download requires a separate command with both --live and --allow-download",
         "- auth values and storage_state contents are not read",
         "",
         "Auth sources:",
@@ -255,8 +256,8 @@ def render_text(plan: dict[str, object]) -> str:
         [
             "",
             "Public-safe result check:",
-            "- read discovered_count or ctfd_live_discovered_count only",
-            "- do not copy cookies, tokens, storage_state contents, or raw responses into repo files",
+            "- read discovered_count, ctfd_live_discovered_count, or live download count/bytes only",
+            "- do not copy cookies, tokens, storage_state contents, raw URL queries, or raw responses into repo files",
         ]
     )
     return "\n".join(lines)

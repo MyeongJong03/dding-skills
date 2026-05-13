@@ -258,11 +258,14 @@ def test_ctfd_download_copies_attachment_outside_repo_and_writes_metadata(temp_c
                 "ctfd",
                 "--source",
                 str(detail),
+                "--queue",
                 "--json",
             ]
         )
     )
     assert result["ok"] is True
+    assert result["metadata"]["adapter"] == "ctfd"
+    assert result["metadata"]["file_count"] == 1
     assert result["metadata"]["files"][0]["name"] == "handout.txt"
     assert result["metadata"]["files"][0]["size"] > 0
     metadata_path = Path(str(result["metadata_path"]).replace("~", str(temp_ctf_env.home), 1))
@@ -448,6 +451,93 @@ def test_platform_discover_ctfd_without_live_does_not_network(temp_ctf_env, run_
     assert server.hits == []
 
 
+def test_platform_download_ctfd_without_live_does_not_network(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
+    _ctfd_policy(temp_ctf_env)
+    server = ctfd_mock_server(detail_files=["/files/handout.txt"])
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_download.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--base-url",
+                server.base_url,
+                "--challenge-id",
+                "1",
+                "--allow-download",
+                "--json",
+            ],
+            check=False,
+        )
+    )
+    assert result["ok"] is False
+    assert result["reason"] == "ctfd_live_mode_requires_opt_in"
+    assert server.hits == []
+
+
+def test_platform_download_ctfd_live_without_allow_download_blocks_network(
+    temp_ctf_env,
+    run_cli,
+    ctfd_mock_server,
+) -> None:
+    _ctfd_policy(temp_ctf_env)
+    server = ctfd_mock_server(detail_files=["/files/handout.txt"])
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_download.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--base-url",
+                server.base_url,
+                "--challenge-id",
+                "1",
+                "--live",
+                "--json",
+            ],
+            check=False,
+        )
+    )
+    assert result["ok"] is False
+    assert result["reason"] == "allow_download_flag_required"
+    assert server.hits == []
+
+
+def test_platform_download_ctfd_live_requires_base_url(temp_ctf_env, run_cli) -> None:
+    _ctfd_policy(temp_ctf_env)
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_download.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--url",
+                "https://ctfd.example.invalid/api/v1/challenges/1",
+                "--challenge-id",
+                "1",
+                "--live",
+                "--allow-download",
+                "--json",
+            ],
+            check=False,
+        )
+    )
+    assert result["ok"] is False
+    assert result["reason"] == "base_url_missing"
+
+
 def test_ctfd_live_discovery_parses_local_mock_api(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
     _ctfd_policy(temp_ctf_env)
     server = ctfd_mock_server()
@@ -496,6 +586,118 @@ def test_ctfd_live_detail_parses_local_mock_api(temp_ctf_env, ctfd_mock_server) 
     assert detail["description"] == "local mock detail"
     assert detail["connection_info"] == "nc example.invalid 31337"
     assert "/api/v1/challenges/1" in server.hits
+
+
+def test_ctfd_live_download_fetches_detail_and_attachment(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
+    _ctfd_policy(temp_ctf_env)
+    server = ctfd_mock_server(detail_files=["/files/handout.txt"])
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_download.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--base-url",
+                server.base_url,
+                "--challenge-id",
+                "1",
+                "--live",
+                "--allow-download",
+                "--json",
+            ]
+        )
+    )
+    assert result["ok"] is True
+    assert result["live"] is True
+    assert result["metadata"]["file_count"] == 1
+    file_meta = result["metadata"]["files"][0]
+    assert file_meta["name"] == "handout.txt"
+    assert file_meta["relative_path"] == "handout.txt"
+    assert file_meta["size"] > 0
+    assert len(file_meta["sha256"]) == 64
+    metadata_text = json.dumps(result["metadata"])
+    assert server.base_url not in metadata_text
+    assert "/api/v1/challenges/1" in server.hits
+    assert "/files/handout.txt" in server.hits
+
+
+def test_ctfd_live_download_resolves_absolute_root_and_ctfd_file_paths(
+    temp_ctf_env,
+    run_cli,
+    ctfd_mock_server,
+) -> None:
+    _ctfd_policy(temp_ctf_env)
+    server = ctfd_mock_server(
+        detail_files=[
+            "{base_url}/files/absolute.txt?download=1",
+            "/files/root.txt",
+            "files/relative.txt",
+        ]
+    )
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_download.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--base-url",
+                server.base_url,
+                "--external-id",
+                "1",
+                "--live",
+                "--allow-download",
+                "--json",
+            ]
+        )
+    )
+    assert result["ok"] is True
+    names = {item["name"] for item in result["metadata"]["files"]}
+    assert names == {"absolute.txt", "root.txt", "relative.txt"}
+    assert "/files/absolute.txt?download=1" in server.hits
+    assert "/files/root.txt" in server.hits
+    assert "/files/relative.txt" in server.hits
+    assert "download=1" not in json.dumps(result["metadata"])
+
+
+def test_ctfd_live_download_rejects_suspicious_output_filename(
+    temp_ctf_env,
+    run_cli,
+    ctfd_mock_server,
+) -> None:
+    _ctfd_policy(temp_ctf_env)
+    server = ctfd_mock_server(detail_files=[{"name": "../secret.txt", "url": "/files/handout.txt"}])
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_download.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--base-url",
+                server.base_url,
+                "--challenge-id",
+                "1",
+                "--live",
+                "--allow-download",
+                "--json",
+            ],
+            check=False,
+        )
+    )
+    assert result["ok"] is False
+    assert result["reason"] == "ctfd_download_suspicious_filename"
+    assert "/files/handout.txt" not in server.hits
 
 
 def test_ctfd_live_discovery_queue_adds_items(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
@@ -555,10 +757,10 @@ def test_ctfd_live_cookie_header_is_not_printed(temp_ctf_env, run_cli, ctfd_mock
     _ctfd_policy(temp_ctf_env)
     cookie = ("sess" + "ion=SECRET_COOKIE_SHOULD_NOT_PRINT")
     temp_ctf_env.env["CTF_CTFD_COOKIE_HEADER"] = cookie
-    server = ctfd_mock_server(required_cookie=cookie)
+    server = ctfd_mock_server(required_cookie=cookie, detail_files=["/files/handout.txt"])
     output = run_cli(
         [
-            "scripts/platform_discover.py",
+            "scripts/platform_download.py",
             "--platform",
             "ctfd",
             "--event",
@@ -567,13 +769,74 @@ def test_ctfd_live_cookie_header_is_not_printed(temp_ctf_env, run_cli, ctfd_mock
             "ctfd",
             "--base-url",
             server.base_url,
+            "--challenge-id",
+            "1",
             "--live",
+            "--allow-download",
             "--json",
         ]
     )
     assert cookie not in output.stdout
     result = parse_json_output(output)
     assert result["ok"] is True
+    assert cookie not in json.dumps(result["metadata"])
+
+
+def test_ctfd_download_queue_update_requires_explicit_queue(temp_ctf_env, run_cli) -> None:
+    _ctfd_policy(temp_ctf_env)
+    discovery, detail, _ = _ctfd_fixtures(temp_ctf_env.base)
+    run_cli(
+        [
+            "scripts/platform_discover.py",
+            "--platform",
+            "ctfd",
+            "--event",
+            "LocalCTF",
+            "--adapter",
+            "ctfd",
+            "--source",
+            str(discovery),
+            "--queue",
+            "--json",
+        ]
+    )
+    run_cli(
+        [
+            "scripts/platform_download.py",
+            "--platform",
+            "ctfd",
+            "--event",
+            "LocalCTF",
+            "--challenge-id",
+            "ctfd/localctf/web/web-baby",
+            "--adapter",
+            "ctfd",
+            "--source",
+            str(detail),
+            "--json",
+        ]
+    )
+    assert list_queue_items(platform="ctfd", event="LocalCTF")[0]["state"] == "discovered"
+    run_cli(
+        [
+            "scripts/platform_download.py",
+            "--platform",
+            "ctfd",
+            "--event",
+            "LocalCTF",
+            "--challenge-id",
+            "ctfd/localctf/web/web-baby",
+            "--adapter",
+            "ctfd",
+            "--source",
+            str(detail),
+            "--queue",
+            "--queue-state",
+            "local_triage",
+            "--json",
+        ]
+    )
+    assert list_queue_items(platform="ctfd", event="LocalCTF")[0]["state"] == "local_triage"
 
 
 def test_ctfd_metrics_public_safe_fields(temp_ctf_env, run_cli) -> None:
@@ -602,6 +865,12 @@ def test_ctfd_metrics_public_safe_fields(temp_ctf_env, run_cli) -> None:
                 "--ctfd-live-discovery-success",
                 "--ctfd-live-discovered-count",
                 "1",
+                "--ctfd-live-download-attempted",
+                "--ctfd-live-download-success",
+                "--ctfd-live-downloaded-count",
+                "1",
+                "--ctfd-live-downloaded-bytes",
+                "12",
             ]
         )
     )
@@ -614,5 +883,9 @@ def test_ctfd_metrics_public_safe_fields(temp_ctf_env, run_cli) -> None:
     assert records[0]["ctfd_live_discovery_attempted"] is True
     assert records[0]["ctfd_live_discovery_success"] is True
     assert records[0]["ctfd_live_discovered_count"] == 1
+    assert records[0]["ctfd_live_download_attempted"] is True
+    assert records[0]["ctfd_live_download_success"] is True
+    assert records[0]["ctfd_live_downloaded_count"] == 1
+    assert records[0]["ctfd_live_downloaded_bytes"] == 12
     check = run_cli(["scripts/update_metrics.py", "--check"])
     assert "OK: public metrics are safe" in check.stdout

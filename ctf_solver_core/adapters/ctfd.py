@@ -7,13 +7,16 @@ standard CTFd challenge API and never stores raw responses or auth material.
 
 from __future__ import annotations
 
+import hashlib
 from html.parser import HTMLParser
+import ipaddress
 import json
 import os
 from pathlib import Path
+import tempfile
 from socket import timeout as SocketTimeout
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlparse, urlunparse
+from urllib.parse import quote, unquote, urljoin, urlparse, urlunparse
 from urllib.request import Request, urlopen
 
 from ..browser_state import check_browser_profile
@@ -22,6 +25,7 @@ from ..platform_adapters import PlatformAdapter, PlatformAdapterError
 from ..schemas import CATEGORIES, read_json, slugify
 
 CTFD_LIVE_MAX_BYTES = 1024 * 1024
+CTFD_LIVE_MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
 CTFD_LIVE_TIMEOUT_SECONDS = 10
 CTFD_LIVE_MAX_DESCRIPTION = 4096
 
@@ -79,6 +83,91 @@ def _api_url(base_url: str, challenge_id: str | None = None) -> str:
 def _safe_url_without_query(value: str) -> str:
     parsed = urlparse(value)
     return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
+
+
+def _url_origin(value: str) -> tuple[str, str]:
+    parsed = urlparse(value)
+    return parsed.scheme, parsed.netloc
+
+
+def _host_is_local_or_private(host: str | None) -> bool:
+    if not host:
+        return True
+    lowered = host.strip().lower().strip("[]")
+    if lowered in {"localhost", "localhost.localdomain"} or lowered.endswith(".localhost"):
+        return True
+    try:
+        ip = ipaddress.ip_address(lowered)
+    except ValueError:
+        return False
+    return bool(
+        ip.is_loopback
+        or ip.is_private
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
+    )
+
+
+def _safe_file_label(value: str, fallback: str = "attachment.bin") -> str:
+    parsed = urlparse(value)
+    source = parsed.path if (parsed.scheme or parsed.netloc or parsed.query) else value
+    name = Path(unquote(source)).name.strip()
+    if not name or name in {".", ".."}:
+        return fallback
+    return name
+
+
+def _validate_output_name(name: str) -> str:
+    decoded = unquote(str(name or "")).strip().replace("\\", "/")
+    path = Path(decoded)
+    if path.is_absolute() or ".." in path.parts:
+        raise PlatformAdapterError("ctfd_download_suspicious_filename")
+    safe = path.name
+    if not safe or safe in {".", ".."}:
+        raise PlatformAdapterError("ctfd_download_suspicious_filename")
+    return safe
+
+
+def _validate_url_path(raw: str) -> None:
+    parsed = urlparse(raw)
+    path = parsed.path if (parsed.scheme or parsed.netloc) else raw
+    parts = [part for part in unquote(path).replace("\\", "/").split("/") if part]
+    if any(part == ".." for part in parts):
+        raise PlatformAdapterError("ctfd_download_suspicious_file_path")
+
+
+def _resolve_live_file_url(base_url: str, raw: str) -> str:
+    value = str(raw or "").strip()
+    if not value:
+        raise PlatformAdapterError("ctfd_download_file_url_missing")
+    parsed = urlparse(value)
+    if parsed.scheme == "file":
+        raise PlatformAdapterError("ctfd_download_url_scheme_blocked")
+    if parsed.scheme and parsed.scheme not in {"http", "https"}:
+        raise PlatformAdapterError("ctfd_download_url_scheme_blocked")
+    _validate_url_path(value)
+
+    root = _live_base_url(base_url)
+    if parsed.scheme:
+        resolved = value
+    elif value.startswith("/"):
+        resolved = urljoin(root.rstrip("/") + "/", value)
+    else:
+        resolved = urljoin(root.rstrip("/") + "/", value)
+
+    resolved_parsed = urlparse(resolved)
+    if resolved_parsed.scheme not in {"http", "https"} or not resolved_parsed.netloc:
+        raise PlatformAdapterError("ctfd_download_url_invalid")
+
+    base_parsed = urlparse(root)
+    target_private = _host_is_local_or_private(resolved_parsed.hostname)
+    base_private = _host_is_local_or_private(base_parsed.hostname)
+    same_origin = _url_origin(resolved) == _url_origin(root)
+    if target_private and not (base_private and same_origin):
+        raise PlatformAdapterError("ctfd_download_private_host_blocked")
+    return resolved
 
 
 def _read_cookie_file(path_value: str) -> str:
@@ -203,11 +292,11 @@ def _tags(raw: object) -> list[str]:
 
 def _file_name(raw: object) -> str | None:
     if isinstance(raw, str):
-        return raw
+        return _safe_file_label(raw)
     if isinstance(raw, dict):
         value = raw.get("name") or raw.get("path") or raw.get("source") or raw.get("url")
         if value:
-            return str(value)
+            return _safe_file_label(str(value))
     return None
 
 
@@ -217,6 +306,24 @@ def _files(raw: object) -> list[str]:
     files: list[str] = []
     for item in raw:
         value = _file_name(item)
+        if value:
+            files.append(value)
+    return files
+
+
+def _raw_file_lists(item: dict[str, object]) -> list[object]:
+    entries: list[object] = []
+    for key in ("files", "attachments"):
+        raw = item.get(key)
+        if isinstance(raw, list):
+            entries.extend(raw)
+    return entries
+
+
+def _item_files(item: dict[str, object]) -> list[str]:
+    files: list[str] = []
+    for raw in _raw_file_lists(item):
+        value = _file_name(raw)
         if value:
             files.append(value)
     return files
@@ -293,7 +400,7 @@ def _normalize_challenge(platform: str, event: str, item: dict[str, object], ind
     tags = _tags(item.get("tags"))
     if tags:
         normalized["tags"] = tags
-    files = _files(item.get("files"))
+    files = _item_files(item)
     if files:
         normalized["files"] = files
     return normalized
@@ -437,6 +544,107 @@ def _download_entries(fixture: Path, item: dict[str, object]) -> list[tuple[Path
     return entries
 
 
+def _live_download_entries(base_url: str, item: dict[str, object]) -> list[tuple[str, str]]:
+    entries: list[tuple[str, str]] = []
+    used_names: set[str] = set()
+    for raw in _raw_file_lists(item):
+        if isinstance(raw, str):
+            file_url = _resolve_live_file_url(base_url, raw)
+            name = _validate_output_name(_safe_file_label(raw))
+        elif isinstance(raw, dict):
+            value = raw.get("url") or raw.get("path") or raw.get("source") or raw.get("href")
+            if not value:
+                continue
+            file_url = _resolve_live_file_url(base_url, str(value))
+            if raw.get("name"):
+                name = _validate_output_name(str(raw.get("name") or ""))
+            else:
+                name = _validate_output_name(_safe_file_label(str(value)))
+        else:
+            continue
+        stem = Path(name).stem or "attachment"
+        suffix = Path(name).suffix
+        candidate = name
+        counter = 2
+        while candidate in used_names:
+            candidate = f"{stem}-{counter}{suffix}"
+            counter += 1
+        used_names.add(candidate)
+        entries.append((file_url, candidate))
+    return entries
+
+
+def _download_live_file(
+    url: str,
+    dest_root: Path,
+    relative_name: str,
+    *,
+    platform: str,
+    event: str,
+    profile: str | None,
+) -> dict[str, object]:
+    relative = Path(_validate_output_name(relative_name))
+    destination = dest_root / relative
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    request = Request(url, headers=_live_headers(platform, event, profile), method="GET")
+    digest = hashlib.sha256()
+    total = 0
+    tmp_path: Path | None = None
+    completed = False
+    try:
+        with urlopen(request, timeout=CTFD_LIVE_TIMEOUT_SECONDS) as response:
+            length = response.headers.get("Content-Length")
+            if length:
+                try:
+                    if int(length) > CTFD_LIVE_MAX_DOWNLOAD_BYTES:
+                        raise PlatformAdapterError("ctfd_download_too_large")
+                except ValueError:
+                    pass
+            with tempfile.NamedTemporaryFile(
+                "wb",
+                dir=str(destination.parent),
+                prefix=f".{destination.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                tmp_path = Path(handle.name)
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > CTFD_LIVE_MAX_DOWNLOAD_BYTES:
+                        raise PlatformAdapterError("ctfd_download_too_large")
+                    digest.update(chunk)
+                    handle.write(chunk)
+                completed = True
+    except HTTPError as exc:
+        if exc.code in {401, 403}:
+            if _auth_available(platform, event, profile):
+                raise PlatformAdapterError("ctfd_live_auth_failed") from exc
+            raise PlatformAdapterError("auth_required_or_profile_missing") from exc
+        raise PlatformAdapterError("ctfd_download_http_error") from exc
+    except (TimeoutError, SocketTimeout) as exc:
+        raise PlatformAdapterError("network_timeout") from exc
+    except URLError as exc:
+        reason = getattr(exc, "reason", "")
+        if isinstance(reason, (TimeoutError, SocketTimeout)) or "timed out" in str(reason).lower():
+            raise PlatformAdapterError("network_timeout") from exc
+        raise PlatformAdapterError("network_error") from exc
+    finally:
+        if tmp_path and tmp_path.exists() and not completed:
+            tmp_path.unlink(missing_ok=True)
+    if tmp_path is None:
+        raise PlatformAdapterError("ctfd_download_failed")
+    tmp_path.replace(destination)
+    return {
+        "name": destination.name,
+        "relative_path": destination.relative_to(dest_root).as_posix(),
+        "size": total,
+        "sha256": digest.hexdigest(),
+    }
+
+
 def _copy_file(source: Path, dest_root: Path, relative_name: str) -> dict[str, object]:
     from ..platform_adapters import _copy_file as copy_file
 
@@ -509,7 +717,34 @@ class CTFdPlatformAdapter(PlatformAdapter):
         dest: Path,
         source: str | None = None,
         url: str | None = None,
+        live: bool = False,
+        base_url: str | None = None,
+        profile: str | None = None,
     ) -> list[dict[str, object]]:
+        if live:
+            root = _live_base_url(source or url, base_url)
+            if not challenge_id:
+                raise PlatformAdapterError("challenge_id_required_for_download")
+            data = _http_json(_api_url(root, challenge_id), platform=platform, event=event, profile=profile)
+            _ensure_api_success(data)
+            item = _unwrap_detail(data)
+            if item is None:
+                raise PlatformAdapterError("challenge_detail_not_found")
+            entries = _live_download_entries(root, item)
+            if not entries:
+                raise PlatformAdapterError("challenge_files_not_found")
+            dest.mkdir(parents=True, exist_ok=True)
+            return [
+                _download_live_file(
+                    file_url,
+                    dest,
+                    relative_name,
+                    platform=platform,
+                    event=event,
+                    profile=profile,
+                )
+                for file_url, relative_name in entries
+            ]
         if _live_requested(source, url):
             raise PlatformAdapterError("ctfd_live_mode_requires_opt_in")
         path = _require_fixture_source(source or url)

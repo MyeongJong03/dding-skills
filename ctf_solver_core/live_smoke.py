@@ -15,7 +15,7 @@ from urllib.parse import urlparse, urlunparse
 from .browser_state import check_browser_profile
 from .paths import display_path, is_inside_repo, live_smoke_root, resolve_path
 from .platform_adapters import PlatformAdapterError, get_adapter
-from .platform_automation import acquire_platform_server
+from .platform_automation import acquire_platform_server, download_files as platform_download_files
 from .platforms import PlatformPolicy, get_platform_policy, validate_platform_config
 from .resources import REMOTE_SERVER, list_leases, public_lease_summary
 from .schemas import (
@@ -282,32 +282,38 @@ def _run_download(
     if not request.challenge_id:
         return {"ok": False, "performed": False, "reason": "challenge_id_required_for_download"}
     adapter = get_adapter(adapter_name)
-    if adapter.name == "ctfd" and _is_url(source):
+    profile_name = _profile_name(request, policy)
+    if profile_name.strip().lower() in PLACEHOLDER_PROFILES:
+        profile_name = ""
+    result = platform_download_files(
+        platform=request.platform,
+        event=request.event,
+        challenge_id=request.challenge_id,
+        adapter_name=adapter_name,
+        source=source or None,
+        base_url=request.base_url,
+        live=request.live,
+        profile=profile_name or None,
+        allow_download=request.allow_download,
+        policy_path=request.policy_path,
+        queue=False,
+    )
+    if not result.get("ok"):
         return {
             "ok": False,
-            "performed": False,
+            "performed": True,
+            "reason": str(result.get("reason") or "download_failed"),
             "adapter": adapter.name,
-            "reason": "ctfd_live_download_unsupported_read_only",
         }
-    dest = smoke_dir / "downloads"
-    try:
-        files = adapter.download_files(
-            platform=request.platform,
-            event=request.event,
-            challenge_id=request.challenge_id,
-            dest=dest,
-            source=source or None,
-            url=source if _is_url(source) else None,
-        )
-    except PlatformAdapterError as exc:
-        return {"ok": False, "performed": True, "reason": str(exc), "adapter": adapter.name}
-    summary = _download_summary(files)
+    metadata = result.get("metadata") if isinstance(result.get("metadata"), dict) else {}
+    files = metadata.get("files") if isinstance(metadata.get("files"), list) else []
+    summary = _download_summary([item for item in files if isinstance(item, dict)])
     return {
         "ok": True,
         "performed": True,
         "adapter": adapter.name,
         "challenge_id": request.challenge_id,
-        "dest": display_path(dest),
+        "dest": str(result.get("dest") or ""),
         **summary,
     }
 
@@ -387,6 +393,18 @@ def public_metrics_from_result(result: dict[str, object]) -> dict[str, object]:
             result.get("live") and result.get("adapter") == "ctfd" and discovery.get("ok")
         ),
         "ctfd_live_discovered_count": int(discovery.get("challenge_count") or 0)
+        if result.get("live") and result.get("adapter") == "ctfd"
+        else 0,
+        "ctfd_live_download_attempted": bool(
+            result.get("live") and result.get("adapter") == "ctfd" and download.get("performed")
+        ),
+        "ctfd_live_download_success": bool(
+            result.get("live") and result.get("adapter") == "ctfd" and download.get("ok")
+        ),
+        "ctfd_live_downloaded_count": int(download.get("downloaded_count") or 0)
+        if result.get("live") and result.get("adapter") == "ctfd"
+        else 0,
+        "ctfd_live_downloaded_bytes": int(download.get("downloaded_bytes") or 0)
         if result.get("live") and result.get("adapter") == "ctfd"
         else 0,
     }

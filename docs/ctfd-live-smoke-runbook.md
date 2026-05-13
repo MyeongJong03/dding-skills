@@ -2,7 +2,8 @@
 
 This runbook is for a manually approved CTFd environment after local CTFd
 fixture discovery already works. It is read-only. It does not add exploit
-execution, downloads, server acquire, Dreamhack automation, or flag submit.
+execution, server acquire, Dreamhack automation, or flag submit. Attachment
+download is a separate explicit opt-in step and is disabled by default.
 
 Use `scripts/ctfd_live_smoke_runbook.py` to print the command plan. The helper
 is a checklist generator only; it never performs network requests.
@@ -174,24 +175,69 @@ challenge descriptions or raw responses.
   network state. Keep retries bounded.
 - `ctfd_live_auth_failed`: refresh local auth material without printing it.
 
-## 8. Public-Safe Result Check
+## 8. Optional Live Download
+
+Run dry-run first. Without `--live`, this must not contact the base URL:
+
+```bash
+python3 scripts/platform_live_smoke.py \
+  --platform ctfd \
+  --event event-name \
+  --adapter ctfd \
+  --policy ~/.ctf-solver/platforms/ctfd.yaml \
+  --profile main \
+  --base-url https://ctfd.example.invalid \
+  --challenge-id 1 \
+  --mode download \
+  --allow-download \
+  --no-submit \
+  --json
+```
+
+Only after approval, add both `--live` and `--allow-download`:
+
+```bash
+python3 scripts/platform_download.py \
+  --platform ctfd \
+  --event event-name \
+  --adapter ctfd \
+  --policy ~/.ctf-solver/platforms/ctfd.yaml \
+  --profile main \
+  --base-url https://ctfd.example.invalid \
+  --external-id 1 \
+  --live \
+  --allow-download \
+  --json
+```
+
+Downloads go under `CTF_DOWNLOAD_ROOT/<platform>/<event>/<challenge_id>/`
+(`~/CTF/downloads` by default). Queue state changes only if `--queue` is
+explicit. Metadata records file count, name, size, sha256, and relative paths;
+it must not contain raw cookie/header values, storage_state contents, raw
+responses, or raw URL queries.
+
+## 9. Public-Safe Result Check
 
 Inspect only public-safe counters:
 
 - `actions.discovery.challenge_count`
 - `public_metrics.ctfd_live_discovered_count`
+- `actions.download.downloaded_count`
+- `public_metrics.ctfd_live_downloaded_count`
+- `public_metrics.ctfd_live_downloaded_bytes`
 - `discovered_count` in any manual summary derived from the JSON
 - success booleans and mode labels
 
 Do not copy raw responses, auth values, browser storage_state contents, private
 URLs with secrets, challenge descriptions, flags, exploit code, or download
-artifacts into `metrics/`, docs, commits, or issue comments.
+artifacts, raw URL queries, or private absolute paths into `metrics/`, docs,
+commits, or issue comments.
 
-## 9. What Not To Do
+## 10. What Not To Do
 
 - no submit
 - no exploit execution
-- no live download
+- no live download without both `--live` and `--allow-download`
 - no server acquire
 - no browser storage_state dump
 - no raw `~/.claude.json` or `~/.codex/config.toml` inspection

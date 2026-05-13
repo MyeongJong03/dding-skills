@@ -81,6 +81,9 @@ class PlatformAdapter:
         dest: Path,
         source: str | None = None,
         url: str | None = None,
+        live: bool = False,
+        base_url: str | None = None,
+        profile: str | None = None,
     ) -> list[dict[str, object]]:
         raise PlatformAdapterError("adapter_not_implemented")
 
@@ -383,6 +386,9 @@ class MockPlatformAdapter(PlatformAdapter):
         dest: Path,
         source: str | None = None,
         url: str | None = None,
+        live: bool = False,
+        base_url: str | None = None,
+        profile: str | None = None,
     ) -> list[dict[str, object]]:
         if url and _is_url(url):
             raise PlatformAdapterError("mock_adapter_does_not_fetch_network")

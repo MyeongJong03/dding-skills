@@ -118,7 +118,9 @@ auth material into docs, metrics, or queue history.
 
 ## Downloads
 
-Downloads require both platform policy and an explicit CLI flag:
+Downloads require platform policy, `--live`, and an explicit CLI flag. Without
+`--live`, download mode is dry-run/no-network. For CTFd, `--allow-download` is
+also required before any detail or attachment request is made:
 
 ```bash
 python3 scripts/platform_live_smoke.py \
@@ -136,7 +138,12 @@ python3 scripts/platform_live_smoke.py \
 ```
 
 Result summaries record file counts, sizes, relative names, and hashes. They do
-not store raw response bodies by default.
+not store raw response bodies by default. CTFd live download stores files under
+`CTF_DOWNLOAD_ROOT/<platform>/<event>/<challenge_id>/`, not in the repo. It
+normalizes detail `files`/`attachments`, resolves absolute, root-relative, and
+CTFd file paths against `base_url`, rejects `file://`, path traversal, and
+unexpected localhost/private attachment hosts, and never records raw URL query
+strings in metadata.
 
 ## Server Status And Acquire
 
@@ -205,6 +212,10 @@ The result includes a public-safe `public_metrics` object. Allowed fields are:
 - `ctfd_live_discovery_attempted`
 - `ctfd_live_discovery_success`
 - `ctfd_live_discovered_count`
+- `ctfd_live_download_attempted`
+- `ctfd_live_download_success`
+- `ctfd_live_downloaded_count`
+- `ctfd_live_downloaded_bytes`
 
 These fields can be passed to `scripts/update_metrics.py`. Do not put raw
 responses, flags, cookies, tokens, private URLs with secrets, storage state,
@@ -212,6 +223,7 @@ download contents, screenshots, or private absolute paths in `metrics/`.
 
 For CTFd live smoke, the public-safe result check should be limited to
 `actions.discovery.challenge_count`, `public_metrics.ctfd_live_discovered_count`,
+`actions.download.downloaded_count`, `public_metrics.ctfd_live_downloaded_bytes`,
 success booleans, and mode labels.
 
 ## Regression Tests

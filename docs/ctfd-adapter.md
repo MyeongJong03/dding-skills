@@ -13,6 +13,8 @@ provisioning buttons or custom deployment endpoints.
 - Local attachment fixture copy to `CTF_DOWNLOAD_ROOT`
 - Queue registration through `platform_discover.py --queue`
 - Manual opt-in live read-only discovery from `/api/v1/challenges`
+- Manual opt-in live attachment download from challenge detail only with
+  `--live` and `--allow-download`
 - Policy-gated submit scaffold with flag redaction
 - Public-safe aggregate metrics fields for CTFd counts
 
@@ -77,6 +79,7 @@ python3 scripts/platform_download.py \
   --adapter ctfd \
   --challenge-id ctfd/local-fixture/web/web-baby \
   --source fixtures/ctfd-detail.json \
+  --queue \
   --json
 ```
 
@@ -87,7 +90,9 @@ CTF_DOWNLOAD_ROOT/<platform>/<event>/<challenge_id>/
 ```
 
 The metadata file records names, sizes, and SHA-256 hashes. Repo-internal
-destinations are refused unless `--allow-repo-dest` is explicit.
+destinations are refused unless `--allow-repo-dest` is explicit. Queue state is
+updated only when `--queue` is explicit; use `--queue-state downloaded` or
+`--queue-state local_triage`.
 
 ## Live Mode
 
@@ -116,6 +121,8 @@ The live adapter fetches only:
 
 - `GET /api/v1/challenges`
 - `GET /api/v1/challenges/{id}`
+- attachment URLs from the detail `files`/`attachments` list only when
+  live download is explicitly allowed
 
 Discovery output is normalized to public-safe fields such as `challenge_id`,
 `external_id`, `name`, `category`, `value`, `tags`, `solves`,
@@ -163,8 +170,33 @@ intended.
 
 Smoke mode never submits flags. Downloads require `--allow-download`; server
 acquire requires `--allow-server-acquire` and the normal resource lease policy.
-The generic CTFd adapter still does not implement live download, server acquire,
-or flag submit.
+CTFd live download is still opt-in and narrow:
+
+```bash
+python3 scripts/platform_download.py \
+  --platform ctfd \
+  --event local-fixture \
+  --adapter ctfd \
+  --policy ~/.ctf-solver/platforms/ctfd.yaml \
+  --profile main \
+  --base-url https://ctfd.example.invalid \
+  --external-id 1 \
+  --live \
+  --allow-download \
+  --json
+```
+
+Without `--live`, URL-backed CTFd downloads return
+`ctfd_live_mode_requires_opt_in` and do not open the network. Without
+`--allow-download`, they return `allow_download_flag_required`. Supported file
+references are absolute HTTP(S) URLs, root-relative paths, and CTFd file paths
+resolved against `base_url`. `file://`, path traversal, and localhost/private
+network attachment hosts are rejected unless they are the same local mock origin
+as `base_url` in tests. Download metadata contains `platform`, `event`,
+`challenge_id`, `adapter`, `file_count`, and per-file `name`, `size`, `sha256`,
+and relative path only; raw URL queries are not stored.
+
+The generic CTFd adapter still does not implement server acquire or flag submit.
 
 Store authentication outside the repo. Use `browser_state_init.py` for local
 profile metadata. The current live discovery path does not parse browser
@@ -199,11 +231,15 @@ generic adapter.
 ## Queue And Metrics
 
 Use `platform_discover.py --queue` before workers start solving. Downloads move
-matching queue items to `downloaded`; workers can then perform local triage.
+matching queue items only when `platform_download.py --queue` is explicit; the
+state can be `downloaded` or `local_triage`.
 
 Public metrics may include `platform_adapter=ctfd`, `ctfd_challenge_count`,
 `ctfd_download_count`, `ctfd_submit_attempted`,
 `ctfd_live_discovery_attempted`, `ctfd_live_discovery_success`, and
-`ctfd_live_discovered_count`. Metrics must not include descriptions, raw
-responses, flags, cookies, tokens, private URLs with secrets, absolute download
-paths, writeups, exploits, transcripts, or verifier evidence.
+`ctfd_live_discovered_count`, plus live download counters
+`ctfd_live_download_attempted`, `ctfd_live_download_success`,
+`ctfd_live_downloaded_count`, and `ctfd_live_downloaded_bytes`. Metrics must
+not include descriptions, raw responses, flags, cookies, tokens, private URLs
+with secrets, absolute download paths, writeups, exploits, transcripts, or
+verifier evidence.

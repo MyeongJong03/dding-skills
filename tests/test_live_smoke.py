@@ -128,6 +128,75 @@ def test_live_smoke_ctfd_live_discovery_uses_local_mock(temp_ctf_env, run_cli, c
     assert "description" not in json.dumps(result)
 
 
+def test_live_smoke_ctfd_download_dry_run_does_not_network(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
+    temp_ctf_env.write_platform_config(platform="ctfd", event="LocalCTF", adapter="ctfd", auth_mode="none")
+    server = ctfd_mock_server(detail_files=["/files/handout.txt"])
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_live_smoke.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--mode",
+                "download",
+                "--base-url",
+                server.base_url,
+                "--challenge-id",
+                "1",
+                "--allow-download",
+                "--json",
+            ]
+        )
+    )
+    assert result["ok"] is True
+    assert result["dry_run"] is True
+    assert result["actions"]["download"]["performed"] is False
+    assert result["live_network_performed"] is False
+    assert server.hits == []
+
+
+def test_live_smoke_ctfd_live_download_reports_public_counts(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
+    temp_ctf_env.write_platform_config(platform="ctfd", event="LocalCTF", adapter="ctfd", auth_mode="none")
+    server = ctfd_mock_server(detail_files=["/files/handout.txt"])
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_live_smoke.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--mode",
+                "download",
+                "--base-url",
+                server.base_url,
+                "--challenge-id",
+                "1",
+                "--live",
+                "--allow-download",
+                "--json",
+            ]
+        )
+    )
+    assert result["ok"] is True
+    assert result["actions"]["download"]["performed"] is True
+    assert result["actions"]["download"]["downloaded_count"] == 1
+    assert result["actions"]["download"]["downloaded_bytes"] > 0
+    assert result["public_metrics"]["ctfd_live_download_attempted"] is True
+    assert result["public_metrics"]["ctfd_live_download_success"] is True
+    assert result["public_metrics"]["ctfd_live_downloaded_count"] == 1
+    assert result["public_metrics"]["ctfd_live_downloaded_bytes"] > 0
+    assert validate_public_record(result["public_metrics"]) == []
+    assert "/api/v1/challenges/1" in server.hits
+    assert "/files/handout.txt" in server.hits
+
+
 def test_live_smoke_dry_run_validates_profile_without_reading_storage_state(temp_ctf_env, run_cli) -> None:
     storage = temp_ctf_env.base / "external-state.json"
     marker = "SECRET_CONTENT_SHOULD_NOT_PRINT"

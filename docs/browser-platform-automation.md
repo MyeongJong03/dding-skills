@@ -168,7 +168,8 @@ URLs with secrets, or private absolute paths to public metrics.
 
 For CTFd fixtures, file entries may be local paths relative to the fixture file
 or dictionaries with `name` and `path`/`source`. HTTP file URLs are refused in
-fixture mode; live download support belongs to a manual opt-in phase.
+fixture mode. Live CTFd attachment download is available only as a manual
+opt-in path with both `--live` and `--allow-download`.
 
 Repo-internal destinations are refused unless `--allow-repo-dest` is explicit.
 
@@ -279,6 +280,10 @@ Public metrics may include:
 - `ctfd_live_discovery_attempted`
 - `ctfd_live_discovery_success`
 - `ctfd_live_discovered_count`
+- `ctfd_live_download_attempted`
+- `ctfd_live_download_success`
+- `ctfd_live_downloaded_count`
+- `ctfd_live_downloaded_bytes`
 - `submission_policy`
 - `platform_adapter`
 - `live_smoke_count`
@@ -313,7 +318,10 @@ returns only bounded normalized summaries. Smoke mode never submits flags.
 Queue registration uses `platform_discover.py --queue` only when that flag is
 explicitly supplied. `ctfd_live_smoke_runbook.py` is a no-network command
 generator for the dry-run-first procedure.
-Download requires `--allow-download`; server acquire requires
+CTFd live download requires both `--live` and `--allow-download`; without either
+flag it must not open the network. Downloaded files stay under
+`CTF_DOWNLOAD_ROOT` outside the repo, and queue state changes only when
+`platform_download.py --queue` is explicit. Server acquire requires
 `--allow-server-acquire` and still respects `max_active_leases`. Browser profile
 metadata is checked through `browser_state_check`-equivalent helpers without
 reading storage state contents. If the API needs auth, use a local-only
@@ -328,8 +336,8 @@ See [live-smoke.md](live-smoke.md) and
 ## Limitations
 
 - Real Dreamhack and THCON-like adapters are future work.
-- CTFd live download, server acquire, and submit are unsupported in the generic
-  adapter; only read-only discovery is implemented.
+- CTFd server acquire and submit are unsupported in the generic adapter; live
+  download is opt-in and attachment-only.
 - Real site browser login automation is optional future work.
 - No live network regression tests.
 - No default flag auto-submit.

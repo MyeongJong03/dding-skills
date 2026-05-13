@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import hashlib
+from urllib.parse import urlparse
 
 from .locks import DirectoryLock
 from .paths import (
@@ -221,38 +222,70 @@ def _combined_hash(files: list[dict[str, object]]) -> str:
     return digest.hexdigest()
 
 
+def _is_url(value: str | None) -> bool:
+    if not value:
+        return False
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https"}
+
+
 def download_files(
     *,
     platform: str,
     event: str,
-    challenge_id: str,
+    challenge_id: str | None = None,
+    external_id: str | None = None,
     adapter_name: str = "generic",
     url: str | None = None,
     source: str | None = None,
+    base_url: str | None = None,
+    live: bool = False,
+    profile: str | None = None,
+    allow_download: bool = False,
     dest: str | Path | None = None,
     policy_path: str | Path | None = None,
     allow_repo_dest: bool = False,
+    queue: bool = False,
+    queue_state: str = "downloaded",
 ) -> dict[str, object]:
     policy = get_platform_policy(platform, event, policy_path)
+    adapter = get_adapter(_select_adapter_name(policy, adapter_name))
+    requested_id = str(challenge_id or external_id or "").strip()
+    if not requested_id:
+        return {"ok": False, "reason": "challenge_id_required_for_download", "adapter": adapter.name}
+    if queue_state not in {"downloaded", "local_triage"}:
+        return {"ok": False, "reason": "invalid_download_queue_state", "adapter": adapter.name}
+    configured_url = str(base_url or url or source or policy.base_url or "").strip()
+    live_base_url = str(base_url or policy.base_url or "").strip()
+    if live and not allow_download:
+        return {"ok": False, "reason": "allow_download_flag_required", "adapter": adapter.name}
+    if adapter.name == "ctfd":
+        if live:
+            if not live_base_url:
+                return {"ok": False, "reason": "base_url_missing", "adapter": adapter.name}
+        elif _is_url(configured_url):
+            return {"ok": False, "reason": "ctfd_live_mode_requires_opt_in", "adapter": adapter.name}
     blocked = _policy_gate(policy, "allow_file_download")
     if blocked:
         return blocked
-    destination = resolve_path(dest) if dest else _default_download_dest(platform, event, challenge_id)
+    destination = resolve_path(dest) if dest else _default_download_dest(platform, event, requested_id)
     if is_inside_repo(destination) and not allow_repo_dest:
         return {
             "ok": False,
             "reason": "download_dest_inside_repo",
             "dest": display_path(destination),
         }
-    adapter = get_adapter(_select_adapter_name(policy, adapter_name))
     try:
         files = adapter.download_files(
             platform=platform,
             event=event,
-            challenge_id=challenge_id,
+            challenge_id=requested_id,
             dest=destination,
-            source=source,
+            source=live_base_url if live and adapter.name == "ctfd" else source,
             url=url,
+            live=live,
+            base_url=base_url or policy.base_url or None,
+            profile=profile,
         )
     except PlatformAdapterError as exc:
         return {"ok": False, "reason": str(exc), "adapter": adapter.name}
@@ -262,25 +295,29 @@ def download_files(
         "schema_version": 1,
         "platform": platform,
         "event": event,
-        "challenge_id": challenge_id,
+        "challenge_id": requested_id,
+        "adapter": adapter.name,
+        "file_count": len(files),
         "files": files,
         "size": total_size,
         "sha256": _combined_hash(files),
         "created_at": iso_now(),
     }
     atomic_write_json(destination / "download_metadata.json", metadata)
-    queue_item = _update_existing_queue(
-        platform=platform,
-        event=event,
-        challenge_id=challenge_id,
-        state="downloaded",
-        local_capable=True,
-        remote_required=False,
-        reason="platform_download",
-    )
+    queue_item = None
+    if queue:
+        queue_item = _update_existing_queue(
+            platform=platform,
+            event=event,
+            challenge_id=requested_id,
+            state=queue_state,
+            local_capable=True,
+            remote_required=False,
+            reason="platform_download",
+        )
     append_queue_event(
         event_type="platform_download",
-        challenge_id=challenge_id,
+        challenge_id=requested_id,
         platform=platform,
         event=event,
         reason="download_files",
@@ -288,6 +325,7 @@ def download_files(
             "adapter": adapter.name,
             "file_count": len(files),
             "downloaded_bytes": total_size,
+            "live": bool(live),
             "queue_updated": bool(queue_item),
         },
     )
@@ -295,8 +333,9 @@ def download_files(
         "ok": True,
         "platform": platform,
         "event": event,
-        "challenge_id": challenge_id,
+        "challenge_id": requested_id,
         "adapter": adapter.name,
+        "live": bool(live),
         "dest": display_path(destination),
         "metadata": metadata,
         "metadata_path": display_path(destination / "download_metadata.json"),

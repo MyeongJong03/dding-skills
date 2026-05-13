@@ -39,8 +39,10 @@ dry-run mode. For CTFd read-only discovery, generate the checklist with
 `scripts/ctfd_live_smoke_runbook.py` first. Add `--live` only for explicit
 manual smoke checks; smoke mode never submits flags, queue registration requires
 explicit `--queue`, and download/server-acquire checks require separate
-`--allow-download` or `--allow-server-acquire` flags. See `docs/live-smoke.md`
-and `docs/ctfd-live-smoke-runbook.md`.
+`--allow-download` or `--allow-server-acquire` flags. CTFd live download also
+requires `--live`, writes files under `CTF_DOWNLOAD_ROOT`, and records only
+file count/bytes/hashes. See `docs/live-smoke.md` and
+`docs/ctfd-live-smoke-runbook.md`.
 
 ## Local-First Scheduling
 

@@ -149,6 +149,7 @@
 - Platform automation state lives under `CTF_PLATFORM_AUTOMATION_ROOT` or `~/.ctf-solver/platforms`; downloaded challenge private files live under `CTF_DOWNLOAD_ROOT` or `~/CTF/downloads`.
 - For CTFd-like platforms, use the generic CTFd adapter only when platform policy says `adapter: ctfd` or the user explicitly selects `--adapter ctfd`.
 - For CTFd live read-only discovery, start with dry-run; use `--live` only with explicit user approval and an explicit `--base-url` or policy `base_url`.
+- For CTFd live download, start with dry-run and require both explicit `--live` and `--allow-download`; without either flag, no network download is allowed.
 - Queue discovered CTFd challenges before solving; discovery may use `/api/v1/challenges` and `/api/v1/challenges/{id}` only.
 - If CTFd discovery fails with `auth_required_or_profile_missing`, ask for a browser_state profile or local-only auth config such as `CTF_CTFD_COOKIE_FILE`/`CTF_CTFD_COOKIE_HEADER`.
 - Do not assume custom CTFd server provisioning endpoints; generic CTFd server create/release is unsupported unless a future explicit hook is configured.
@@ -162,7 +163,7 @@
 - For CTFd submissions, require `automation.allow_submission: true` and primary worker role; never log the raw flag.
 - Do not submit flags through browser automation unless platform policy has `allow_submission: true` and worker role is primary.
 - Do not log cookies, tokens, cookie headers, bearer headers, or browser storage state contents.
-- Store CTFd downloads outside the repo and queue discovered challenges before solving.
+- Store CTFd downloads outside the repo under `CTF_DOWNLOAD_ROOT`; queue discovered/downloaded CTFd challenges only with explicit `--queue`.
 - Finalize must release platform server records and resource leases unless `--keep-server` or `--keep-lease` is explicit.
 - Do not auto-push writeups. Public metrics may include only aggregate platform counters and must not include private paths, URLs, flags, cookies, tokens, or raw responses.
 - Close browser sessions during finalize unless explicitly keeping them.
@@ -175,14 +176,14 @@
 - For CTFd live smoke, always produce the dry-run command first; `scripts/ctfd_live_smoke_runbook.py` may be used as a no-network command generator.
 - Use `--live` only with explicit approval, and use `--queue` only when queue registration is explicitly requested.
 - Smoke mode must never submit flags, even when `automation.allow_submission: true`.
-- For CTFd live discovery, use discovery mode only; do not implement submit, download, server acquire, Dreamhack adapter, or full browser solver as part of this path.
-- Do not print cookies, tokens, bearer headers, OAuth values, passwords, account metadata, private URLs with secrets, or browser storage state contents.
-- Report only public-safe summaries such as discovered counts, success booleans, and mode labels.
+- For CTFd live discovery, use discovery mode only; for CTFd live download, use download mode only after `--live` and `--allow-download`; do not implement submit, exploit execution, server acquire, Dreamhack adapter, or full browser solver as part of this path.
+- Do not print cookies, tokens, bearer headers, OAuth values, passwords, account metadata, private URLs with secrets, raw attachment URLs with query strings, or browser storage state contents.
+- Report only public-safe summaries such as discovered counts, downloaded file count/bytes/sha256, success booleans, and mode labels.
 - Browser profile checks may verify metadata and storage-state file existence only; never read storage-state contents.
 - Download smoke requires explicit `--allow-download`; server acquire smoke requires explicit `--allow-server-acquire`.
 - Respect platform resource leases. Do not create a second server when `resources.remote_server.max_active_leases=1` already has an active scoped lease.
 - Store live smoke results under `CTF_LIVE_SMOKE_ROOT` or `~/.ctf-solver/live-smoke`, outside the repo.
-- Record only public-safe smoke summaries in metrics: counts, mode, success boolean, and server-acquire attempted boolean.
+- Record only public-safe smoke summaries in metrics: counts, downloaded bytes, mode, success boolean, and server-acquire attempted boolean.
 - Regression tests must remain mock/local only and must not contact live CTF sites.
 
 ## Performance / Benchmark Rules

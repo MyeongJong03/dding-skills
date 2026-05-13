@@ -247,8 +247,28 @@ def run_cli(temp_ctf_env: SimpleNamespace):
 def ctfd_mock_server():
     servers: list[HTTPServer] = []
 
-    def _start(*, required_cookie: str | None = None) -> SimpleNamespace:
+    def _start(
+        *,
+        required_cookie: str | None = None,
+        detail_files: list[object] | None = None,
+    ) -> SimpleNamespace:
         hits: list[str] = []
+        base_url_holder = {"value": ""}
+
+        def _resolve_file_entries() -> list[object]:
+            entries = detail_files if detail_files is not None else []
+
+            def _replace(value: object) -> object:
+                if isinstance(value, str):
+                    return value.replace("{base_url}", base_url_holder["value"])
+                if isinstance(value, dict):
+                    return {
+                        key: (item.replace("{base_url}", base_url_holder["value"]) if isinstance(item, str) else item)
+                        for key, item in value.items()
+                    }
+                return value
+
+            return [_replace(item) for item in entries]
 
         class Handler(BaseHTTPRequestHandler):
             def _send_json(self, status: int, payload: dict[str, object]) -> None:
@@ -296,11 +316,19 @@ def ctfd_mock_server():
                                 "value": 100,
                                 "solves": 3,
                                 "tags": [{"name": "starter"}],
-                                "files": [],
+                                "files": _resolve_file_entries(),
                                 "state": "visible",
                             },
                         },
                     )
+                    return
+                if self.path.startswith("/files/"):
+                    body = f"mock attachment {self.path}\n".encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/octet-stream")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
                     return
                 self._send_json(404, {"success": False})
 
@@ -312,7 +340,8 @@ def ctfd_mock_server():
         thread.start()
         servers.append(server)
         host, port = server.server_address
-        return SimpleNamespace(base_url=f"http://{host}:{port}", hits=hits)
+        base_url_holder["value"] = f"http://{host}:{port}"
+        return SimpleNamespace(base_url=base_url_holder["value"], hits=hits)
 
     yield _start
 

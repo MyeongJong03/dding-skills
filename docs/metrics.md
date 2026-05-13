@@ -73,6 +73,10 @@
 - optional `ctfd_live_discovery_attempted`
 - optional `ctfd_live_discovery_success`
 - optional `ctfd_live_discovered_count`
+- optional `ctfd_live_download_attempted`
+- optional `ctfd_live_download_success`
+- optional `ctfd_live_downloaded_count`
+- optional `ctfd_live_downloaded_bytes`
 - optional `submission_policy`
 - optional `platform_adapter`
 - optional `live_smoke_count`
@@ -111,6 +115,7 @@ Do not put the following in public metrics:
 
 For CTFd live smoke, publish only counters and booleans such as
 `ctfd_live_discovered_count`, `ctfd_live_discovery_success`, and
+`ctfd_live_downloaded_count`, `ctfd_live_downloaded_bytes`, and
 `live_smoke_success`. The operator runbook in
 `docs/ctfd-live-smoke-runbook.md` describes the public-safe result check.
 

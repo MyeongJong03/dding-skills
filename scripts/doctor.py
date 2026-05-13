@@ -472,6 +472,10 @@ class Doctor:
             self.ok("CTFd live read-only discovery scaffold is present")
         else:
             self.fail("CTFd live read-only discovery scaffold missing")
+        if "CTFD_LIVE_MAX_DOWNLOAD_BYTES" in ctfd_text and "ctfd_download_private_host_blocked" in ctfd_text:
+            self.ok("CTFd live download opt-in scaffold is present")
+        else:
+            self.fail("CTFd live download opt-in scaffold missing")
         self.info("CTFd live credentials are optional local-only inputs and are not inspected by doctor")
 
         ctfd_doc = ROOT / "docs" / "ctfd-adapter.md"
