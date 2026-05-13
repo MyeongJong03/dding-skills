@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--challenge-id", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--worker-id")
-    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local", "ctfd"])
+    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local", "ctfd", "dreamhack"])
     parser.add_argument("--policy")
     parser.add_argument("--role", default="primary", choices=["primary", "helper"])
     parser.add_argument("--confirm", action="store_true", help="confirm allow_server_create=ask policy")

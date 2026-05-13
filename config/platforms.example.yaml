@@ -5,25 +5,26 @@
 platforms:
   - platform: dreamhack
     event: dreamhackWargame
+    adapter: dreamhack
     auth:
       mode: manual
       session_profile: local-profile-placeholder
     resources:
       remote_server:
-        provisioning: false
-        max_active_leases: 4
-        lease_scope: event
-        release_required_before_next: false
+        provisioning: true
+        max_active_leases: 1
+        lease_scope: platform_event
+        release_required_before_next: true
         sharing:
-          allowed: true
-          max_workers: 2
-          mode: multi_client_read_only
+          allowed: false
+          max_workers: 1
+          mode: exclusive
           destructive_actions_require_primary: true
     automation:
-      allow_problem_discovery: false
+      allow_problem_discovery: true
       allow_file_download: true
       allow_server_create: ask
-      allow_submission: ask
+      allow_submission: false
 
   - platform: thcon
     event: THCON

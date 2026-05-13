@@ -30,7 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--profile")
     parser.add_argument("--dest")
     parser.add_argument("--policy")
-    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local", "ctfd"])
+    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local", "ctfd", "dreamhack"])
     parser.add_argument("--allow-download", action="store_true")
     parser.add_argument("--allow-repo-dest", action="store_true")
     parser.add_argument("--queue", action="store_true")

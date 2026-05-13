@@ -2,9 +2,9 @@
 
 P1-4 adds a safe scaffold for platform-driven CTF workflows. P1-6 adds the
 optional Playwright browser action layer used by future adapters and solvers. It
-does not log in to real sites, scrape Dreamhack/THCON, submit flags by default,
-or solve challenges. The generic CTFd adapter is fixture-first and does not use
-live network access unless a future manual smoke command explicitly opts in.
+does not log in to real sites, scrape event pages, submit flags by default, or
+solve challenges. The generic CTFd adapter and Dreamhack adapter are
+fixture-first; live network access requires explicit operator opt-in.
 
 ## Two Modes
 
@@ -335,7 +335,8 @@ See [live-smoke.md](live-smoke.md) and
 
 ## Limitations
 
-- Real Dreamhack and THCON-like adapters are future work.
+- Dreamhack browser login and full-site scraping are future work; the current
+  Dreamhack adapter covers fixture discovery/download and explicit VM control.
 - CTFd server acquire and submit are unsupported in the generic adapter; live
   download is opt-in and attachment-only.
 - Real site browser login automation is optional future work.

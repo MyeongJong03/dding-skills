@@ -119,6 +119,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ctfd-live-download-success", action="store_true")
     parser.add_argument("--ctfd-live-downloaded-count", type=int)
     parser.add_argument("--ctfd-live-downloaded-bytes", type=int)
+    parser.add_argument("--dreamhack-vm-action-attempted", action="store_true")
+    parser.add_argument("--dreamhack-vm-action-success", action="store_true")
+    parser.add_argument("--dreamhack-vm-active-count", type=int)
     parser.add_argument("--verifier-success", action="store_true")
     parser.add_argument("--verifier-flag-found", action="store_true")
     parser.add_argument("--verifier-target")
@@ -347,6 +350,7 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         "ctfd_live_discovered_count": getattr(args, "ctfd_live_discovered_count", None),
         "ctfd_live_downloaded_count": getattr(args, "ctfd_live_downloaded_count", None),
         "ctfd_live_downloaded_bytes": getattr(args, "ctfd_live_downloaded_bytes", None),
+        "dreamhack_vm_active_count": getattr(args, "dreamhack_vm_active_count", None),
     }
     for key, value in optional_ints.items():
         if value is None and isinstance(resource_metrics.get(key), int):
@@ -452,6 +456,17 @@ def _public_record(args: argparse.Namespace, run_dir: Path | None) -> tuple[dict
         record["ctfd_live_download_attempted"] = True
     if ctfd_live_download_success:
         record["ctfd_live_download_success"] = True
+    dreamhack_vm_action_attempted = bool(
+        getattr(args, "dreamhack_vm_action_attempted", False)
+        or platform_metrics.get("dreamhack_vm_action_attempted")
+    )
+    dreamhack_vm_action_success = bool(
+        getattr(args, "dreamhack_vm_action_success", False) or platform_metrics.get("dreamhack_vm_action_success")
+    )
+    if dreamhack_vm_action_attempted:
+        record["dreamhack_vm_action_attempted"] = True
+    if dreamhack_vm_action_success:
+        record["dreamhack_vm_action_success"] = True
     live_smoke_success = bool(getattr(args, "live_smoke_success", False) or platform_metrics.get("live_smoke_success"))
     live_smoke_server_acquire_attempted = bool(
         getattr(args, "live_smoke_server_acquire_attempted", False)

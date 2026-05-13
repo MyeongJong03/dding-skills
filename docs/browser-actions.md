@@ -228,7 +228,8 @@ the safe way to inspect active sessions for one terminal.
 
 ## Limitations
 
-- Real Dreamhack, THCON, and CTFd live browser adapters are future work.
+- Dreamhack VM control exists in the platform adapter; Dreamhack browser login,
+  THCON, and CTFd live browser adapters are future work.
 - No live external regression tests.
 - No full browser solver.
 - No browser-based flag submission unless future platform policy explicitly

@@ -11,9 +11,10 @@ automation yet.
    remote lease only when remote testing is needed.
 2. Platform login/session discovery mode: a worker registers local-only browser
    profile metadata, then an adapter can discover problems, download files, and
-   request servers. The mock/local adapter remains the regression baseline, and
-   the CTFd adapter adds local CTFd-style fixture support. Real site scraping
-   and Playwright login automation are future work.
+   request servers. The mock/local adapter remains the regression baseline, the
+   CTFd adapter adds local CTFd-style fixture support, and the Dreamhack adapter
+   adds fixture discovery plus explicit VM control. Real site scraping and
+   Playwright login automation are future work.
 
 Never commit cookies, session storage, API keys, tokens, passwords, OAuth data,
 emails, account UUIDs, organization UUIDs, private server URLs, writeups,
@@ -33,6 +34,15 @@ python3 scripts/platform_config_init.py --print-template
 For THCON-like platforms, set `resources.remote_server.max_active_leases: 1`,
 `lease_scope: event`, and `release_required_before_next: true`. Workers must not
 create a second remote server while an event-scoped lease is active.
+
+For Dreamhack, use `adapter: dreamhack`, `max_active_leases: 1`, and
+`lease_scope: platform_event`. Dreamhack is a platform adapter only; the
+canonical MCP server name remains `ctf_solver`. VM actions are performed with
+`scripts/dreamhack_vm_control.py` and require both `--live` and local-only auth
+inputs. The adapter records only action/status/vm-state summaries and redacts
+host values; it never stores Dreamhack session values, CSRF values, cookies, raw
+responses, flags, exploit code, or private VM URLs. See
+`docs/dreamhack-adapter.md`.
 
 Before attaching a real site adapter, use `scripts/platform_live_smoke.py` in
 dry-run mode. For CTFd read-only discovery, generate the checklist with
@@ -66,6 +76,13 @@ released.
 python3 scripts/resource_acquire.py --platform thcon --event THCON --challenge-id A --run-id RUN_A --resource remote_server --mode primary --policy ~/.ctf-solver/platforms/thcon.yaml
 python3 scripts/resource_heartbeat.py --lease-id <lease-id> --once
 python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCON --all-for-run
+```
+
+Dreamhack VM start/restart should go through the platform adapter wrapper so the
+lease and VM action stay coupled:
+
+```bash
+python3 scripts/dreamhack_vm_control.py --challenge-id 1001 --run-id RUN_A --action start --confirm --live --session-id-file ~/.ctf-solver/auth/dreamhack-session.txt --csrf-token-file ~/.ctf-solver/auth/dreamhack-csrf.txt --json
 ```
 
 Lease records are stored under `CTF_LEASE_ROOT` or `~/.ctf-solver/leases`.

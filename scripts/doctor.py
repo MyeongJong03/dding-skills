@@ -381,6 +381,7 @@ class Doctor:
             "scripts/platform_server_release.py",
             "scripts/platform_server_status.py",
             "scripts/platform_submit.py",
+            "scripts/dreamhack_vm_control.py",
             "scripts/platform_smoke_test.py",
             "scripts/platform_live_smoke.py",
             "scripts/ctfd_live_smoke_runbook.py",
@@ -438,6 +439,7 @@ class Doctor:
             "ctf_solver_core/platform_adapters.py",
             "ctf_solver_core/live_smoke.py",
             "ctf_solver_core/adapters/ctfd.py",
+            "ctf_solver_core/adapters/dreamhack.py",
             "config/platforms.example.yaml",
             "docs/platform-automation.md",
             "docs/browser-platform-automation.md",
@@ -445,6 +447,7 @@ class Doctor:
             "docs/callback-listener.md",
             "docs/web-exploit-workflow.md",
             "docs/ctfd-adapter.md",
+            "docs/dreamhack-adapter.md",
             "docs/live-smoke.md",
             "docs/ctfd-live-smoke-runbook.md",
             "docs/worker-runner.md",
@@ -483,6 +486,30 @@ class Doctor:
             self.ok("docs/ctfd-adapter.md mentions CTFd adapter")
         else:
             self.fail("docs/ctfd-adapter.md missing CTFd adapter documentation")
+
+        try:
+            adapter = get_adapter("dreamhack")
+            if adapter.name == "dreamhack":
+                self.ok("Dreamhack adapter is importable")
+            else:
+                self.fail("Dreamhack adapter registry returned the wrong adapter")
+        except Exception as exc:
+            self.fail(f"Dreamhack adapter import failed: {exc}")
+        if (ROOT / "tools" / "dreamhack_vm.py").is_file():
+            self.ok("tools/dreamhack_vm.py remains available")
+        else:
+            self.fail("tools/dreamhack_vm.py missing")
+        dreamhack_adapter = ROOT / "ctf_solver_core" / "adapters" / "dreamhack.py"
+        dreamhack_text = (
+            dreamhack_adapter.read_text(encoding="utf-8", errors="replace")
+            if dreamhack_adapter.is_file()
+            else ""
+        )
+        if "dreamhack_live_required" in dreamhack_text and "dreamhack_auth_required" in dreamhack_text:
+            self.ok("Dreamhack VM live/auth opt-in scaffold is present")
+        else:
+            self.fail("Dreamhack VM live/auth opt-in scaffold missing")
+        self.info("Dreamhack live auth values are optional local-only inputs and are not inspected by doctor")
 
         runbook_script = ROOT / "scripts" / "ctfd_live_smoke_runbook.py"
         runbook_doc = ROOT / "docs" / "ctfd-live-smoke-runbook.md"

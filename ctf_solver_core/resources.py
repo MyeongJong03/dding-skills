@@ -145,7 +145,7 @@ def _scope_matches(policy: PlatformPolicy, lease: dict[str, object], challenge_i
     scope = policy.resources.remote_server.lease_scope
     if lease.get("platform") != policy.platform:
         return False
-    if scope in {"event", "challenge", "run"} and lease.get("event") != policy.event:
+    if scope in {"event", "platform_event", "challenge", "run"} and lease.get("event") != policy.event:
         return False
     if scope == "challenge" and lease.get("challenge_id") != challenge_id:
         return False

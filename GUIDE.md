@@ -398,7 +398,7 @@ CTF_RUN_DOCKER_GDB_TESTS=1 python3 -m pytest tests/test_gdb_docker_smoke.py -q
 | 12 | `cve_lookup` | CVE 정보 + PoC | `cve_id` |
 | 13 | `rsa_ctftool` | RSA 자동 공격 (RsaCtfTool) | `n`, `e`, `ciphertext`, `publickey_path`, `attack`, `extra_flags` |
 | 14 | `trivy` | 의존성 CVE 스캔 | `file_path` |
-| 15 | `dreamhack_vm` | Dreamhack 서버 제어 | `challenge_id`, `action`, `session_id`, `csrf_token` |
+| 15 | `dreamhack_vm` | Dreamhack 서버 제어 fallback | `challenge_id`, `action`, local-only session/CSRF input |
 | 16 | `session_start` | persistent session 시작 | `kind`, `run_id`, `cwd`, `host`, `port` |
 | 17 | `session_write` | session stdin 쓰기 | `session_id`, `data`, `newline`, `encoding` |
 | 18 | `session_read` | bounded session output 읽기 | `session_id`, `timeout_ms`, `max_bytes` |
@@ -445,7 +445,9 @@ python3 scripts/dump_mcp_tools.py --write docs/tools.md
 - 맥북은 CPU 기반(john), 윈도우는 GPU 가속(hashcat RTX 5060)
 
 **dreamhack_vm**
-- `session_id`와 `csrf_token`은 브라우저 쿠키에서 가져온다 (약 7일 유효)
+- 권장 경로는 policy/lease-aware `scripts/dreamhack_vm_control.py`다.
+- MCP fallback을 쓸 때도 session/CSRF 값은 local-only 입력으로만 전달한다.
+- session/CSRF/cookie 원문은 출력, 로그, writeup, metrics, commit에 남기지 않는다.
 - action: `start` / `stop` / `restart` / `status`
 
 ### ReVa 툴 (Ghidra MCP, 약 60개)
@@ -634,9 +636,9 @@ python3 scripts/callback_close.py --listener-id "$LISTENER_ID" --json
 
 P1-0.6부터는 여러 터미널/worker가 같은 플랫폼 리소스를 안전하게 공유하도록 policy, queue, lease scaffold를 사용한다. Login/session storage는 repo에 넣지 않고, 실제 사이트 adapter와 live browser login은 별도 manual phase로 둔다.
 
-Live platform smoke는 `scripts/platform_live_smoke.py`를 사용한다. 항상 dry-run부터 실행하고, `--live`가 없으면 외부 CTF 사이트에 접속하지 않는다. CTFd live discovery는 `--live`와 명시적 `--base-url`/policy가 있을 때만 `/api/v1/challenges`를 read-only로 호출한다. CTFd live attachment download는 기본 no-download이고 `--live`와 `--allow-download`가 모두 있어야 detail/files 요청을 수행한다. `scripts/ctfd_live_smoke_runbook.py`는 dry-run/live/queue 명령을 출력하는 no-network checklist helper다. Smoke mode에서는 `automation.allow_submission: true`여도 flag submit을 수행하지 않는다. Queue 등록은 `--queue`가 명시된 경우에만 수행한다. Download 결과 파일은 `CTF_DOWNLOAD_ROOT` 또는 `~/CTF/downloads` 아래 repo 밖에 저장하고, live smoke 결과는 `CTF_LIVE_SMOKE_ROOT` 또는 `~/.ctf-solver/live-smoke` 아래 local-only로 저장한다. server acquire는 `--allow-server-acquire`가 별도로 있어야 한다. auth가 필요하면 browser_state profile metadata 또는 repo 밖의 `CTF_CTFD_COOKIE_FILE`/local-only `CTF_CTFD_COOKIE_HEADER`를 사용하고, cookie/token/storage_state/raw response/raw URL query는 출력하거나 저장하지 않는다. 자세한 내용은 `docs/live-smoke.md`와 `docs/ctfd-live-smoke-runbook.md`를 기준으로 한다.
+Live platform smoke는 `scripts/platform_live_smoke.py`를 사용한다. 항상 dry-run부터 실행하고, `--live`가 없으면 외부 CTF 사이트에 접속하지 않는다. CTFd live discovery는 `--live`와 명시적 `--base-url`/policy가 있을 때만 `/api/v1/challenges`를 read-only로 호출한다. CTFd live attachment download는 기본 no-download이고 `--live`와 `--allow-download`가 모두 있어야 detail/files 요청을 수행한다. `scripts/ctfd_live_smoke_runbook.py`는 dry-run/live/queue 명령을 출력하는 no-network checklist helper다. Dreamhack adapter는 canonical MCP 이름이 아니며 `ctf_solver` MCP 아래의 platform adapter다. Dreamhack fixture discovery/download는 local-only이고, VM `start`/`stop`/`restart`/`status`는 `scripts/dreamhack_vm_control.py --live`와 local-only auth 입력이 있을 때만 수행한다. Smoke mode에서는 `automation.allow_submission: true`여도 flag submit을 수행하지 않는다. Queue 등록은 `--queue`가 명시된 경우에만 수행한다. Download 결과 파일은 `CTF_DOWNLOAD_ROOT` 또는 `~/CTF/downloads` 아래 repo 밖에 저장하고, live smoke 결과는 `CTF_LIVE_SMOKE_ROOT` 또는 `~/.ctf-solver/live-smoke` 아래 local-only로 저장한다. server acquire는 `--allow-server-acquire`가 별도로 있어야 한다. auth가 필요하면 browser_state profile metadata, repo 밖 cookie file, local-only env/file 값을 사용하고, cookie/token/storage_state/raw response/raw URL query는 출력하거나 저장하지 않는다. 자세한 내용은 `docs/live-smoke.md`, `docs/ctfd-live-smoke-runbook.md`, `docs/dreamhack-adapter.md`를 기준으로 한다.
 
-THCON처럼 한 세션에서 server/VM 하나만 가능한 대회는 `max_active_leases: 1`, `lease_scope: event`로 설정한다. Remote lease를 못 받은 worker는 idle하지 않고 `local_capable=true` 문제의 정찰, 정적 분석, exploit planning, local skeleton 작성을 진행한다. `local_exploit_ready=true` 문제는 remote lease 우선순위가 올라간다.
+THCON처럼 한 세션에서 server/VM 하나만 가능한 대회는 `max_active_leases: 1`, `lease_scope: event`로 설정한다. Dreamhack은 기본 예시에서 `max_active_leases: 1`, `lease_scope: platform_event`로 설정해 한 번에 하나의 VM만 시작하게 한다. Remote lease를 못 받은 worker는 idle하지 않고 `local_capable=true` 문제의 정찰, 정적 분석, exploit planning, local skeleton 작성을 진행한다. `local_exploit_ready=true` 문제는 remote lease 우선순위가 올라간다.
 
 Long-running remote 작업은 lease heartbeat를 남긴다. Worker crash나 터미널 종료로 heartbeat가 멈춘 stale lease는 dry-run으로 확인한 뒤 reclaim한다. Queue history는 여러 터미널에서 scheduler decision, wait 사유, lease lifecycle을 추적하는 기준이다.
 
@@ -658,6 +660,7 @@ python3 scripts/resource_reclaim_stale.py --dry-run
 python3 scripts/resource_reclaim_stale.py --apply
 python3 scripts/queue_history.py --tail 20
 python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCON --all-for-run
+python3 scripts/dreamhack_vm_control.py --challenge-id 1001 --run-id RUN_A --action start --confirm --live --session-id-file ~/.ctf-solver/auth/dreamhack-session.txt --csrf-token-file ~/.ctf-solver/auth/dreamhack-csrf.txt --json
 ```
 
 ### Regression tests and secret scan
@@ -856,12 +859,14 @@ update-reva
 ### Dreamhack 서버 크래시 시
 
 ```
-dreamhack_vm 툴 사용:
+권장: Dreamhack platform adapter 사용
+python3 scripts/dreamhack_vm_control.py --challenge-id <문제번호> --run-id <run_id> --action restart --confirm --live --session-id-file ~/.ctf-solver/auth/dreamhack-session.txt --csrf-token-file ~/.ctf-solver/auth/dreamhack-csrf.txt --json
+
+MCP fallback: ctf_solver의 dreamhack_vm 툴 사용
 - challenge_id: 문제 번호 (URL에서 확인)
 - action: restart
-- session_id: 브라우저 쿠키 sessionid 값
-- csrf_token: 브라우저 쿠키 csrf_token 값
-※ 쿠키 만료 주기 약 7일
+- session_id/csrf 값은 local-only 입력으로만 전달
+- 출력/로그/writeup/metrics에 세션, CSRF, cookie 원문을 남기지 않는다
 ```
 
 ### Docker 안 될 때
@@ -1280,7 +1285,7 @@ A: SageMath 연산은 **반드시 `sage_exec`**. 일반 Python은 `python_exec`.
 A: `python_exec`로 `pip install` 후 사용하거나, `docker_exec`에서 `apt install` 후 사용합니다. persistent workspace(`/workspace`)라 재사용 가능합니다.
 
 **Q: 문제 풀다가 서버가 죽으면요?**
-A: `dreamhack_vm` 툴로 `restart`. `session_id`와 `csrf_token`은 브라우저 쿠키에서 확인 (약 7일 유효).
+A: 우선 `scripts/dreamhack_vm_control.py --action restart --confirm --live`를 사용합니다. 이 경로가 policy/lease를 같이 처리합니다. MCP `dreamhack_vm`은 fallback으로만 쓰고 session/CSRF/cookie 원문은 기록하지 않습니다.
 
 **Q: 백트래킹 규칙은 언제 적용되나요?**
 A: 자동입니다. Claude Code/Codex가 CLAUDE.md 규칙에 따라 같은 에러 2회, 같은 전략 3회, 도구 5회 등에서 스스로 방향을 전환합니다. 사용자가 강제할 필요는 없지만, 진행이 이상해 보이면 "다른 가설로 전환해봐"라고 유도해도 됩니다.

@@ -170,13 +170,26 @@
 - Browser automation live external use is explicit/manual, not regression test.
 - Real site adapters, live browser login automation, live smoke tests, full browser solver, and full exploit solver are explicit/manual future steps, not regression tests.
 
+## Dreamhack Platform Rules
+- Dreamhack is a platform adapter, not the canonical MCP server name.
+- Use the canonical `ctf_solver` MCP name; do not register or document a Dreamhack-specific MCP server name as canonical.
+- Use the Dreamhack adapter only for Dreamhack platform actions such as fixture discovery, attachment scaffolding, and VM/server status/start/stop/restart.
+- Keep existing `tools/dreamhack_vm.py` behavior available as a fallback helper, but prefer policy/lease-aware `scripts/dreamhack_vm_control.py` for VM lifecycle work.
+- Never log, print, store, commit, or copy Dreamhack sessionid, CSRF values, browser cookies, storage state contents, raw platform responses, private VM URLs, or account metadata.
+- Dreamhack VM actions require explicit user approval through `--live` and, for start/restart when policy is `ask`, `--confirm`.
+- Read Dreamhack auth only from local-only CLI input, repo-external files, or local environment variables; do not require live credentials for doctor or tests.
+- Respect `resources.remote_server.max_active_leases=1` when the Dreamhack policy says one VM at a time.
+- Helper workers may not start a second Dreamhack VM; only the primary worker may start, restart, stop, or release the VM.
+- Do not submit Dreamhack flags automatically.
+- Dreamhack tests must stay mock/local fixture only and must not contact the live Dreamhack site.
+
 ## Live Platform Smoke Rules
 - Never run live platform smoke against an external CTF site without explicit user approval and `--live`.
 - Start with `scripts/platform_live_smoke.py --mode dry-run` or the same command without `--live`; dry-run must not access external network.
 - For CTFd live smoke, always produce the dry-run command first; `scripts/ctfd_live_smoke_runbook.py` may be used as a no-network command generator.
 - Use `--live` only with explicit approval, and use `--queue` only when queue registration is explicitly requested.
 - Smoke mode must never submit flags, even when `automation.allow_submission: true`.
-- For CTFd live discovery, use discovery mode only; for CTFd live download, use download mode only after `--live` and `--allow-download`; do not implement submit, exploit execution, server acquire, Dreamhack adapter, or full browser solver as part of this path.
+- For CTFd live discovery, use discovery mode only; for CTFd live download, use download mode only after `--live` and `--allow-download`; do not implement submit, exploit execution, or full browser solver as part of this path.
 - Do not print cookies, tokens, bearer headers, OAuth values, passwords, account metadata, private URLs with secrets, raw attachment URLs with query strings, or browser storage state contents.
 - Report only public-safe summaries such as discovered counts, downloaded file count/bytes/sha256, success booleans, and mode labels.
 - Browser profile checks may verify metadata and storage-state file existence only; never read storage-state contents.
@@ -346,9 +359,10 @@ reva-* skill은 Ghidra가 실행 중일 때만 추가 로드한다.
 - 플래그 포맷: DH{...}
 - 봇: Puppeteer 기반 Chromium
 - 서버 포트: 8000~9000번대
-- 서버 크래시 시: dreamhack_vm으로 restart
+- 서버 크래시 시: policy/lease-aware `scripts/dreamhack_vm_control.py`로 restart 우선
   - action: start / stop / restart / status
-  - session_id, csrf_token: 브라우저 쿠키에서 확인 (만료 주기 약 7일)
+  - MCP `dreamhack_vm`은 fallback으로만 사용
+  - session/CSRF/cookie 원문은 local-only 입력으로만 전달하고 출력/로그/metrics에 남기지 않는다
 
 ## 작업 규칙
 

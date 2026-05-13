@@ -526,6 +526,10 @@ def get_adapter(name: str | None) -> PlatformAdapter:
         from .adapters.ctfd import CTFdPlatformAdapter
 
         return CTFdPlatformAdapter()
+    if adapter_name == "dreamhack":
+        from .adapters.dreamhack import DreamhackPlatformAdapter
+
+        return DreamhackPlatformAdapter()
     if adapter_name == "generic":
         return PlatformAdapter()
     raise PlatformAdapterError(f"unsupported_adapter:{adapter_name}")

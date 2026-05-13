@@ -77,6 +77,9 @@
 - optional `ctfd_live_download_success`
 - optional `ctfd_live_downloaded_count`
 - optional `ctfd_live_downloaded_bytes`
+- optional `dreamhack_vm_action_attempted`
+- optional `dreamhack_vm_action_success`
+- optional `dreamhack_vm_active_count`
 - optional `submission_policy`
 - optional `platform_adapter`
 - optional `live_smoke_count`
@@ -118,6 +121,11 @@ For CTFd live smoke, publish only counters and booleans such as
 `ctfd_live_downloaded_count`, `ctfd_live_downloaded_bytes`, and
 `live_smoke_success`. The operator runbook in
 `docs/ctfd-live-smoke-runbook.md` describes the public-safe result check.
+
+For Dreamhack VM automation, publish only counters and booleans such as
+`dreamhack_vm_action_attempted`, `dreamhack_vm_action_success`, and
+`dreamhack_vm_active_count`. Do not store Dreamhack auth values, raw VM
+responses, private VM URLs, or full host strings.
 
 `scripts/update_metrics.py --check` validates existing public metrics before git sync.
 

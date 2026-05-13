@@ -567,6 +567,230 @@ def server_status(
     }
 
 
+def control_dreamhack_vm(
+    *,
+    platform: str,
+    event: str,
+    challenge_id: str,
+    run_id: str,
+    action: str,
+    adapter_name: str = "generic",
+    policy_path: str | Path | None = None,
+    worker_id: str | None = None,
+    confirmed: bool = False,
+    role: str = "primary",
+    live: bool = False,
+    session_id: str | None = None,
+    csrf_value: str | None = None,
+    session_id_file: str | None = None,
+    csrf_value_file: str | None = None,
+    base_url: str | None = None,
+    lease_id: str | None = None,
+) -> dict[str, object]:
+    policy = get_platform_policy(platform, event, policy_path)
+    adapter = get_adapter(_select_adapter_name(policy, adapter_name))
+    normalized_action = action.strip().lower()
+    if adapter.name != "dreamhack":
+        return {"ok": False, "reason": "dreamhack_adapter_required", "adapter": adapter.name}
+    if normalized_action not in {"start", "stop", "restart", "status"}:
+        return {"ok": False, "reason": "dreamhack_invalid_vm_action", "adapter": adapter.name}
+    if normalized_action in {"start", "stop", "restart"} and role != "primary":
+        return {"ok": False, "reason": "primary_role_required", "adapter": adapter.name}
+    if not live:
+        return {
+            "ok": False,
+            "reason": "dreamhack_live_required",
+            "adapter": adapter.name,
+            "action": normalized_action,
+            "challenge_id": challenge_id,
+        }
+
+    resolve_auth = getattr(adapter, "resolve_vm_auth", None)
+    control_vm = getattr(adapter, "control_vm", None)
+    if not callable(resolve_auth) or not callable(control_vm):
+        return {"ok": False, "reason": "dreamhack_vm_control_unavailable", "adapter": adapter.name}
+    try:
+        resolved_session, resolved_csrf = resolve_auth(
+            session_id=session_id,
+            csrf_value=csrf_value,
+            session_id_file=session_id_file,
+            csrf_value_file=csrf_value_file,
+        )
+    except PlatformAdapterError as exc:
+        return {
+            "ok": False,
+            "reason": str(exc),
+            "adapter": adapter.name,
+            "action": normalized_action,
+            "challenge_id": challenge_id,
+        }
+
+    lease_result: dict[str, object] = {}
+    active_lease_id = lease_id or ""
+    if normalized_action in {"start", "restart"}:
+        if not policy.resources.remote_server.provisioning:
+            return {"ok": False, "reason": "remote_server_provisioning_disabled", "adapter": adapter.name}
+        blocked = _policy_gate(
+            policy,
+            "allow_server_create",
+            confirmed=confirmed,
+            allow_ask_confirmation=True,
+            suggested_command="rerun with --confirm after manual approval",
+        )
+        if blocked:
+            return {**blocked, "adapter": adapter.name, "action": normalized_action, "challenge_id": challenge_id}
+        lease_result = acquire_remote_server(
+            policy,
+            challenge_id=challenge_id,
+            run_id=run_id,
+            worker_id=worker_id,
+            mode="primary",
+            metadata={"adapter": adapter.name, "dreamhack_vm_action": normalized_action},
+        )
+        if not lease_result.get("ok"):
+            append_queue_event(
+                event_type="platform_server_acquire_blocked",
+                challenge_id=challenge_id,
+                run_id=run_id,
+                platform=platform,
+                event=event,
+                worker_id=worker_id,
+                reason=str(lease_result.get("reason") or ""),
+                public_safe_metadata={
+                    "adapter": adapter.name,
+                    "dreamhack_vm_action_attempted": False,
+                    "max_active_leases": lease_result.get("max_active_leases"),
+                    "active_primary_count": lease_result.get("active_primary_count"),
+                },
+            )
+            return {
+                "ok": False,
+                "reason": lease_result.get("reason"),
+                "adapter": adapter.name,
+                "action": normalized_action,
+                "challenge_id": challenge_id,
+                "run_id": run_id,
+                "active_primary_count": lease_result.get("active_primary_count"),
+                "max_active_leases": lease_result.get("max_active_leases"),
+            }
+        lease = lease_result.get("lease") if isinstance(lease_result.get("lease"), dict) else {}
+        active_lease_id = str(lease.get("lease_id") or active_lease_id)
+
+    try:
+        summary = control_vm(
+            action=normalized_action,
+            challenge_id=challenge_id,
+            live=True,
+            session_id=resolved_session,
+            csrf_value=resolved_csrf,
+            base_url=base_url or policy.base_url or None,
+        )
+    except PlatformAdapterError as exc:
+        release_result: dict[str, object] = {}
+        if active_lease_id and normalized_action in {"start", "restart"}:
+            release_result = release_lease(lease_id=active_lease_id, release_reason="dreamhack_vm_action_failed")
+        return {
+            "ok": False,
+            "reason": str(exc),
+            "adapter": adapter.name,
+            "action": normalized_action,
+            "challenge_id": challenge_id,
+            "run_id": run_id,
+            "lease_id": active_lease_id,
+            "resource_release": release_result,
+        }
+
+    server_info: dict[str, object] = {}
+    server_release: dict[str, object] = {}
+    resource_release: dict[str, object] = {}
+    queue_item = None
+    if summary.get("ok") and normalized_action in {"start", "restart"}:
+        record_vm_action = getattr(adapter, "record_vm_action", None)
+        if callable(record_vm_action):
+            with DirectoryLock("platform-automation", "record Dreamhack VM action", wait_seconds=30):
+                server_info = record_vm_action(
+                    platform=platform,
+                    event=event,
+                    challenge_id=challenge_id,
+                    run_id=run_id,
+                    lease_id=active_lease_id,
+                    summary=summary,
+                )
+        queue_item = _update_existing_queue(
+            platform=platform,
+            event=event,
+            challenge_id=challenge_id,
+            run_id=run_id,
+            state="remote_lease_active",
+            remote_required=True,
+            reason="dreamhack_vm_action",
+        )
+    elif summary.get("ok") and normalized_action == "stop":
+        try:
+            with DirectoryLock("platform-automation", "release Dreamhack VM records", wait_seconds=30):
+                server_release = adapter.release_server(
+                    platform=platform,
+                    event=event,
+                    challenge_id=challenge_id,
+                    run_id=run_id,
+                    lease_id=active_lease_id or None,
+                    reason="dreamhack_vm_stop",
+                )
+        except PlatformAdapterError as exc:
+            server_release = {"ok": False, "reason": str(exc), "released_count": 0, "released": []}
+        resource_release = release_lease(
+            lease_id=active_lease_id or None,
+            run_id=run_id,
+            platform=platform,
+            event=event,
+            release_reason="dreamhack_vm_stop",
+        )
+    elif not summary.get("ok") and active_lease_id and normalized_action in {"start", "restart"}:
+        resource_release = release_lease(lease_id=active_lease_id, release_reason="dreamhack_vm_action_failed")
+
+    active_count = len(list_leases(platform=platform, event=event, resource_type=REMOTE_SERVER))
+    append_queue_event(
+        event_type="dreamhack_vm_action",
+        challenge_id=challenge_id,
+        run_id=run_id,
+        platform=platform,
+        event=event,
+        worker_id=worker_id,
+        reason=normalized_action,
+        public_safe_metadata={
+            "adapter": adapter.name,
+            "dreamhack_vm_action_attempted": True,
+            "dreamhack_vm_action_success": bool(summary.get("ok")),
+            "dreamhack_vm_active_count": active_count,
+            "lease_id": active_lease_id,
+            "queue_updated": bool(queue_item),
+        },
+    )
+    result = {
+        "ok": bool(summary.get("ok")),
+        "platform": platform,
+        "event": event,
+        "adapter": adapter.name,
+        "action": normalized_action,
+        "challenge_id": challenge_id,
+        "run_id": run_id,
+        "live": True,
+        "lease_id": active_lease_id,
+        "vm_action": summary,
+        "server_info": server_info,
+        "server_release": server_release,
+        "resource_release": resource_release,
+        "queue_updated": bool(queue_item),
+        "dreamhack_vm_action_attempted": True,
+        "dreamhack_vm_action_success": bool(summary.get("ok")),
+        "dreamhack_vm_active_count": active_count,
+    }
+    errors = validate_public_record(result)
+    if errors:
+        raise PlatformAutomationError("Dreamhack VM output not public-safe: " + "; ".join(errors))
+    return result
+
+
 def submit_flag(
     *,
     platform: str,

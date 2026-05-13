@@ -324,7 +324,14 @@ def validate_platform_config(path: str | Path | None = None) -> list[str]:
     for policy in policies:
         if not policy.platform:
             errors.append("platform policy missing platform")
-        if policy.resources.remote_server.lease_scope not in {"event", "platform", "challenge", "run"}:
+        if policy.resources.remote_server.lease_scope not in {
+            "event",
+            "platform",
+            "platform_event",
+            "user_session",
+            "challenge",
+            "run",
+        }:
             errors.append(
                 f"{policy.platform}/{policy.event}: unsupported remote_server.lease_scope "
                 f"{policy.resources.remote_server.lease_scope!r}"

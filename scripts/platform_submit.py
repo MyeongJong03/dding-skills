@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--flag", required=True)
     parser.add_argument("--run-id")
     parser.add_argument("--role", default="primary", choices=["primary", "helper"])
-    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local", "ctfd"])
+    parser.add_argument("--adapter", default="generic", choices=["generic", "mock", "local", "ctfd", "dreamhack"])
     parser.add_argument("--policy")
     parser.add_argument("--json", action="store_true")
     return parser
