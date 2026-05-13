@@ -68,6 +68,66 @@ def test_live_smoke_dry_run_does_not_access_network(temp_ctf_env, run_cli) -> No
     assert result["actions"]["discovery"]["reason"] == "live_flag_absent_dry_run_only"
 
 
+def test_live_smoke_ctfd_dry_run_does_not_access_local_mock(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
+    temp_ctf_env.write_platform_config(platform="ctfd", event="LocalCTF", adapter="ctfd", auth_mode="none")
+    server = ctfd_mock_server()
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_live_smoke.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--mode",
+                "discovery",
+                "--base-url",
+                server.base_url,
+                "--json",
+            ]
+        )
+    )
+    assert result["ok"] is True
+    assert result["live_network_performed"] is False
+    assert result["actions"]["discovery"]["performed"] is False
+    assert server.hits == []
+
+
+def test_live_smoke_ctfd_live_discovery_uses_local_mock(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
+    temp_ctf_env.write_platform_config(platform="ctfd", event="LocalCTF", adapter="ctfd", auth_mode="none")
+    server = ctfd_mock_server()
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_live_smoke.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--mode",
+                "discovery",
+                "--base-url",
+                server.base_url,
+                "--live",
+                "--json",
+            ]
+        )
+    )
+    assert result["ok"] is True
+    assert result["live_network_performed"] is True
+    assert result["actions"]["discovery"]["performed"] is True
+    assert result["actions"]["discovery"]["challenge_count"] == 1
+    assert result["public_metrics"]["ctfd_live_discovery_attempted"] is True
+    assert result["public_metrics"]["ctfd_live_discovery_success"] is True
+    assert result["public_metrics"]["ctfd_live_discovered_count"] == 1
+    assert validate_public_record(result["public_metrics"]) == []
+    assert "description" not in json.dumps(result)
+
+
 def test_live_smoke_dry_run_validates_profile_without_reading_storage_state(temp_ctf_env, run_cli) -> None:
     storage = temp_ctf_env.base / "external-state.json"
     marker = "SECRET_CONTENT_SHOULD_NOT_PRINT"

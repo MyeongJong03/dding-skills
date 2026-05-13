@@ -423,6 +423,159 @@ def test_ctfd_live_fixture_boundary_blocks_url_without_opt_in(temp_ctf_env) -> N
         raise AssertionError("live URL should be blocked without explicit opt-in")
 
 
+def test_platform_discover_ctfd_without_live_does_not_network(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
+    _ctfd_policy(temp_ctf_env)
+    server = ctfd_mock_server()
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_discover.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--base-url",
+                server.base_url,
+                "--json",
+            ],
+            check=False,
+        )
+    )
+    assert result["ok"] is False
+    assert result["reason"] == "ctfd_live_mode_requires_opt_in"
+    assert server.hits == []
+
+
+def test_ctfd_live_discovery_parses_local_mock_api(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
+    _ctfd_policy(temp_ctf_env)
+    server = ctfd_mock_server()
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_discover.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--base-url",
+                server.base_url,
+                "--live",
+                "--json",
+            ]
+        )
+    )
+    assert result["ok"] is True
+    assert result["live"] is True
+    assert result["challenge_count"] == 1
+    challenge = result["challenges"][0]
+    assert challenge["external_id"] == "1"
+    assert challenge["name"] == "web baby"
+    assert challenge["value"] == 100
+    assert challenge["solves"] == 3
+    assert challenge["tags"] == ["starter"]
+    assert "/api/v1/challenges" in server.hits
+    assert "description" not in json.dumps(result)
+
+
+def test_ctfd_live_detail_parses_local_mock_api(temp_ctf_env, ctfd_mock_server) -> None:
+    _ctfd_policy(temp_ctf_env)
+    server = ctfd_mock_server()
+    adapter = get_adapter("ctfd")
+    detail = adapter.get_challenge_detail(
+        platform="ctfd",
+        event="LocalCTF",
+        challenge_id="1",
+        source=server.base_url,
+        live=True,
+    )
+    assert detail["external_id"] == "1"
+    assert detail["description"] == "local mock detail"
+    assert detail["connection_info"] == "nc example.invalid 31337"
+    assert "/api/v1/challenges/1" in server.hits
+
+
+def test_ctfd_live_discovery_queue_adds_items(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
+    _ctfd_policy(temp_ctf_env)
+    server = ctfd_mock_server()
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_discover.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--base-url",
+                server.base_url,
+                "--live",
+                "--queue",
+                "--json",
+            ]
+        )
+    )
+    assert result["queued_count"] == 1
+    items = list_queue_items(platform="ctfd", event="LocalCTF")
+    assert len(items) == 1
+    assert items[0]["challenge_id"] == "ctfd/localctf/web/web-baby"
+    assert items[0]["state"] == "discovered"
+
+
+def test_ctfd_live_auth_missing_returns_clear_error(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
+    _ctfd_policy(temp_ctf_env)
+    server = ctfd_mock_server(required_cookie=("sess" + "ion=required"))
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_discover.py",
+                "--platform",
+                "ctfd",
+                "--event",
+                "LocalCTF",
+                "--adapter",
+                "ctfd",
+                "--base-url",
+                server.base_url,
+                "--live",
+                "--json",
+            ],
+            check=False,
+        )
+    )
+    assert result["ok"] is False
+    assert result["reason"] == "auth_required_or_profile_missing"
+
+
+def test_ctfd_live_cookie_header_is_not_printed(temp_ctf_env, run_cli, ctfd_mock_server) -> None:
+    _ctfd_policy(temp_ctf_env)
+    cookie = ("sess" + "ion=SECRET_COOKIE_SHOULD_NOT_PRINT")
+    temp_ctf_env.env["CTF_CTFD_COOKIE_HEADER"] = cookie
+    server = ctfd_mock_server(required_cookie=cookie)
+    output = run_cli(
+        [
+            "scripts/platform_discover.py",
+            "--platform",
+            "ctfd",
+            "--event",
+            "LocalCTF",
+            "--adapter",
+            "ctfd",
+            "--base-url",
+            server.base_url,
+            "--live",
+            "--json",
+        ]
+    )
+    assert cookie not in output.stdout
+    result = parse_json_output(output)
+    assert result["ok"] is True
+
+
 def test_ctfd_metrics_public_safe_fields(temp_ctf_env, run_cli) -> None:
     result = parse_json_output(
         run_cli(
@@ -445,6 +598,10 @@ def test_ctfd_metrics_public_safe_fields(temp_ctf_env, run_cli) -> None:
                 "--ctfd-download-count",
                 "1",
                 "--ctfd-submit-attempted",
+                "--ctfd-live-discovery-attempted",
+                "--ctfd-live-discovery-success",
+                "--ctfd-live-discovered-count",
+                "1",
             ]
         )
     )
@@ -454,5 +611,8 @@ def test_ctfd_metrics_public_safe_fields(temp_ctf_env, run_cli) -> None:
     assert records[0]["ctfd_challenge_count"] == 1
     assert records[0]["ctfd_download_count"] == 1
     assert records[0]["ctfd_submit_attempted"] is True
+    assert records[0]["ctfd_live_discovery_attempted"] is True
+    assert records[0]["ctfd_live_discovery_success"] is True
+    assert records[0]["ctfd_live_discovered_count"] == 1
     check = run_cli(["scripts/update_metrics.py", "--check"])
     assert "OK: public metrics are safe" in check.stdout

@@ -5,7 +5,9 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import threading
 from types import SimpleNamespace
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
@@ -239,6 +241,84 @@ def run_cli(temp_ctf_env: SimpleNamespace):
         return result
 
     return _run
+
+
+@pytest.fixture()
+def ctfd_mock_server():
+    servers: list[HTTPServer] = []
+
+    def _start(*, required_cookie: str | None = None) -> SimpleNamespace:
+        hits: list[str] = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def _send_json(self, status: int, payload: dict[str, object]) -> None:
+                body = json.dumps(payload).encode("utf-8")
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self) -> None:
+                hits.append(self.path)
+                if required_cookie and self.headers.get("Cookie") != required_cookie:
+                    self._send_json(403, {"success": False, "error": "auth required"})
+                    return
+                if self.path == "/api/v1/challenges":
+                    self._send_json(
+                        200,
+                        {
+                            "success": True,
+                            "data": [
+                                {
+                                    "id": 1,
+                                    "name": "web baby",
+                                    "category": "web",
+                                    "value": 100,
+                                    "solves": 3,
+                                    "tags": [{"name": "starter"}],
+                                }
+                            ],
+                        },
+                    )
+                    return
+                if self.path == "/api/v1/challenges/1":
+                    self._send_json(
+                        200,
+                        {
+                            "success": True,
+                            "data": {
+                                "id": 1,
+                                "name": "web baby",
+                                "category": "web",
+                                "description": "local mock detail",
+                                "connection_info": "nc example.invalid 31337",
+                                "value": 100,
+                                "solves": 3,
+                                "tags": [{"name": "starter"}],
+                                "files": [],
+                                "state": "visible",
+                            },
+                        },
+                    )
+                    return
+                self._send_json(404, {"success": False})
+
+            def log_message(self, format: str, *args: object) -> None:
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        servers.append(server)
+        host, port = server.server_address
+        return SimpleNamespace(base_url=f"http://{host}:{port}", hits=hits)
+
+    yield _start
+
+    for server in servers:
+        server.shutdown()
+        server.server_close()
 
 
 def parse_json_output(result: subprocess.CompletedProcess[str]) -> dict[str, object]:
