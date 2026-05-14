@@ -210,6 +210,15 @@
 - Cleanup checks should verify that scratch run/workspace artifacts are removed while final metadata remains local-only.
 - Doctor and regression tests must not require live CTF credentials for offline E2E smoke.
 
+## Regression / Status Rules
+- When the user asks for current setup or repo status, prefer `python3 ~/ctf-solver/scripts/status_summary.py`.
+- After substantial repo changes, prefer `python3 ~/ctf-solver/scripts/regression_check.py --quick`; use the full regression command before handoff when time allows.
+- Regression/status output must be shared as marker summaries, not raw command dumps.
+- Do not print raw `~/.claude.json`; summarize only MCP server names from `mcpServers`.
+- Do not paste cookies, auth headers, tokens, browser storage state, platform responses, flags, writeups, exploit code, or private run logs into status/regression summaries.
+- Regression commands default to no live network; live platform smoke remains a separate explicit `--live` step after approval.
+- Docker and `ctf-pwn:latest` are optional in status summaries; missing Docker image is info unless a pwn/GDB task explicitly needs it.
+
 ## Performance / Benchmark Rules
 - After each challenge finalization, record public-safe metrics when enough data exists.
 - If `benchmark_id` is known, record a benchmark result with `scripts/benchmark_record_result.py` or pass `--benchmark-id` to `challenge_finalize.py`.

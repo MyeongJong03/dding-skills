@@ -387,6 +387,8 @@ class Doctor:
             "scripts/platform_live_smoke.py",
             "scripts/ctfd_live_smoke_runbook.py",
             "scripts/offline_e2e_smoke.py",
+            "scripts/status_summary.py",
+            "scripts/regression_check.py",
             "scripts/benchmark_init.py",
             "scripts/benchmark_record_result.py",
             "scripts/benchmark_report.py",
@@ -453,6 +455,7 @@ class Doctor:
             "docs/live-smoke.md",
             "docs/ctfd-live-smoke-runbook.md",
             "docs/offline-e2e-smoke.md",
+            "docs/regression.md",
             "docs/worker-runner.md",
             "docs/sessions.md",
             "docs/gdb-session.md",
@@ -536,6 +539,27 @@ class Doctor:
         else:
             self.fail("offline E2E platform flow smoke scaffold missing fixture-only lifecycle checks")
         self.info("offline E2E smoke uses fixture-only temp roots and does not require live credentials")
+
+        status_script = ROOT / "scripts" / "status_summary.py"
+        regression_script = ROOT / "scripts" / "regression_check.py"
+        regression_doc = ROOT / "docs" / "regression.md"
+        status_text = status_script.read_text(encoding="utf-8", errors="replace") if status_script.is_file() else ""
+        regression_text = regression_script.read_text(encoding="utf-8", errors="replace") if regression_script.is_file() else ""
+        regression_doc_text = regression_doc.read_text(encoding="utf-8", errors="replace") if regression_doc.is_file() else ""
+        if (
+            "CTF_SOLVER_STATUS_BEGIN" in status_text
+            and "mcp_server_names" in status_text
+            and ".claude.json" in status_text
+            and "CTF_SOLVER_REGRESSION_BEGIN" in regression_text
+            and "offline_e2e_ctfd" in regression_text
+            and "--quick" in regression_text
+            and "skip-offline-e2e" in regression_text
+            and "no live network" in regression_doc_text.lower()
+            and "`~/.claude.json` is never printed" in regression_doc_text
+        ):
+            self.ok("regression/status command pack scaffold is present")
+        else:
+            self.fail("regression/status command pack scaffold missing marker, redaction, or no-live guidance")
 
         platform_errors = validate_platform_config(ROOT / "config" / "platforms.example.yaml")
         if platform_errors:

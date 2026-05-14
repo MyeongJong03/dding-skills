@@ -275,7 +275,7 @@ MCP tool `verify_run`도 command/session/manual mode를 지원합니다. Public 
 
 여러 터미널/worker가 같은 대회 리소스를 공유할 때는 platform policy, queue, lease helper를 사용합니다. THCON처럼 한 세션에서 VM/server 1개만 가능한 플랫폼은 `max_active_leases: 1`로 표현하고, remote lease를 못 받은 worker는 idle하지 않고 local-capable 문제의 triage/analysis/exploit planning을 먼저 진행합니다. `local_exploit_ready=true` 문제는 remote capacity가 풀릴 때 우선순위를 받습니다.
 
-P1-4 browser/platform scaffold는 로그인 세션 metadata 등록, mock/local discovery, download, server acquire/release/status, submission policy gate를 제공합니다. P1-6 browser action scaffold는 optional Playwright 기반 DOM 조작, local-only screenshot, console/network/cookie redaction, run_id 기반 session cleanup을 제공합니다. P1-10 live smoke framework는 실제 adapter 구현 전 수동 opt-in 검증을 제공하고, P1-12는 CTFd read-only live discovery 운영 runbook을 제공합니다. P1-13 CTFd live attachment download는 기본 no-download이며 `--live`와 `--allow-download`가 모두 있을 때만 동작합니다. P1-14 Dreamhack adapter scaffold는 fixture discovery/download와 명시적 `dreamhack_vm_control.py --live` VM action을 resource lease에 연결합니다. P1-15 offline E2E smoke는 fixture 기반으로 discovery부터 finalize/writeup/metrics/cleanup까지 전체 lifecycle을 검증합니다. 기본은 dry-run/no-network이고, `--live` 없이는 외부 CTF 사이트에 접속하지 않으며, smoke mode에서는 flag submit을 수행하지 않습니다. 자세한 내용은 [docs/browser-platform-automation.md](docs/browser-platform-automation.md), [docs/browser-actions.md](docs/browser-actions.md), [docs/live-smoke.md](docs/live-smoke.md), [docs/ctfd-live-smoke-runbook.md](docs/ctfd-live-smoke-runbook.md), [docs/dreamhack-adapter.md](docs/dreamhack-adapter.md), [docs/offline-e2e-smoke.md](docs/offline-e2e-smoke.md)를 봅니다.
+P1-4 browser/platform scaffold는 로그인 세션 metadata 등록, mock/local discovery, download, server acquire/release/status, submission policy gate를 제공합니다. P1-6 browser action scaffold는 optional Playwright 기반 DOM 조작, local-only screenshot, console/network/cookie redaction, run_id 기반 session cleanup을 제공합니다. P1-10 live smoke framework는 실제 adapter 구현 전 수동 opt-in 검증을 제공하고, P1-12는 CTFd read-only live discovery 운영 runbook을 제공합니다. P1-13 CTFd live attachment download는 기본 no-download이며 `--live`와 `--allow-download`가 모두 있을 때만 동작합니다. P1-14 Dreamhack adapter scaffold는 fixture discovery/download와 명시적 `dreamhack_vm_control.py --live` VM action을 resource lease에 연결합니다. P1-15 offline E2E smoke는 fixture 기반으로 discovery부터 finalize/writeup/metrics/cleanup까지 전체 lifecycle을 검증합니다. P1-16 regression command pack은 반복 검증을 marker-based status/regression summary로 묶습니다. 기본은 dry-run/no-network이고, `--live` 없이는 외부 CTF 사이트에 접속하지 않으며, smoke mode에서는 flag submit을 수행하지 않습니다. 자세한 내용은 [docs/browser-platform-automation.md](docs/browser-platform-automation.md), [docs/browser-actions.md](docs/browser-actions.md), [docs/live-smoke.md](docs/live-smoke.md), [docs/ctfd-live-smoke-runbook.md](docs/ctfd-live-smoke-runbook.md), [docs/dreamhack-adapter.md](docs/dreamhack-adapter.md), [docs/offline-e2e-smoke.md](docs/offline-e2e-smoke.md), [docs/regression.md](docs/regression.md)를 봅니다.
 
 P1-7 web callback listener는 XSS/admin bot/SSRF/CSP leak/CSS exfil 같은 Web CTF에서 loopback-only callback hit를 수집합니다. 기본 bind는 `127.0.0.1`이고, 외부 tunnel은 자동 실행하지 않습니다. 수동 tunnel base URL은 metadata로만 등록할 수 있습니다. Hit header/query/body preview는 bounded/redacted 처리되고, finalize/verifier/writeup/metrics에는 public-safe summary만 연결됩니다. 자세한 내용은 [docs/callback-listener.md](docs/callback-listener.md)를 봅니다.
 
@@ -380,6 +380,8 @@ MCP tools mirror the CLI: `session_start`, `session_write`, `session_read`, `ses
 ## 점검 및 공유 전 redaction
 
 ```bash
+python3 scripts/status_summary.py
+python3 scripts/regression_check.py --quick
 python3 -m pytest tests
 python3 scripts/secret_scan.py --strict
 python3 scripts/doctor.py
@@ -387,7 +389,7 @@ python3 scripts/redact_sensitive.py --self-test
 python3 scripts/redact_sensitive.py audit-pack.txt > audit-pack.redacted.txt
 ```
 
-Regression tests는 temp env roots를 사용하며 실제 HOME의 `~/.ctf-solver`, `~/SolvedWriteUp`, `~/.agents`, `~/.claude`, `~/.codex`를 건드리지 않습니다. lifecycle/resource/session 변경 후에는 `python3 -m pytest tests`와 `python3 scripts/secret_scan.py --strict`를 실행합니다.
+Regression tests는 temp env roots를 사용하며 실제 HOME의 `~/.ctf-solver`, `~/SolvedWriteUp`, `~/.agents`, `~/.claude`, `~/.codex`를 건드리지 않습니다. 상태 공유에는 `status_summary.py`, 큰 변경 후 검증에는 `regression_check.py`를 우선 사용합니다. lifecycle/resource/session 변경 후에는 `python3 -m pytest tests`와 `python3 scripts/secret_scan.py --strict`를 실행합니다.
 
 audit pack이나 설정을 공유하기 전에는 API key뿐 아니라 email, account UUID, organization UUID, referral code, billing/subscription metadata도 redaction 대상입니다. `~/.claude.json`, `~/.codex/config.toml`, browser storage state, cookies, tokens 원문은 paste하거나 commit하지 않습니다.
 
