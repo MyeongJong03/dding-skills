@@ -105,11 +105,27 @@ def test_status_summary_markers_and_claude_redaction(temp_ctf_env) -> None:
         assert section in output
     assert "ctf_solver" in output
     assert "local_probe" in output
+    assert "result=redacted grep clean" in output
+    assert "result=repo raw grep clean" in output
+    assert "clean=true" not in output
+    assert "locations_shown=" not in output
+    assert "location_count=" not in output
     assert '"mcpServers"' not in output
     assert private_value not in output
     assert "person@example.invalid" not in output
     assert "11111111-1111-4111-8111-111111111111" not in output
     assert "/Users/private" not in output
+
+
+def test_status_summary_verbose_shows_grep_locations(temp_ctf_env) -> None:
+    _write_temp_claude_config(temp_ctf_env.home)
+    result = _run(["scripts/status_summary.py", "--verbose"], env=temp_ctf_env.env)
+    assert result.returncode in (0, 1)
+    output = result.stdout
+    assert "result=redacted grep clean" in output
+    assert "result=repo raw grep clean" in output
+    assert "location_count=" in output
+    assert "locations_shown=" in output
 
 
 def test_status_summary_json_is_public_safe(temp_ctf_env) -> None:
@@ -119,6 +135,14 @@ def test_status_summary_json_is_public_safe(temp_ctf_env) -> None:
     data = json.loads(result.stdout)
     assert set(STATUS_SECTIONS_SECTION.strip("[]") for STATUS_SECTIONS_SECTION in STATUS_SECTIONS) <= set(data)
     assert data["mcp_json_summary"]["mcp_server_names"] == ["ctf_solver", "local_probe"]
+    assert data["redaction"]["clean"] is True
+    assert data["redaction"]["result"] == "redacted grep clean"
+    assert data["repo_raw_grep"]["clean"] is True
+    assert data["repo_raw_grep"]["result"] == "repo raw grep clean"
+    assert "location_count" not in data["redaction"]
+    assert "locations" not in data["redaction"]
+    assert "location_count" not in data["repo_raw_grep"]
+    assert "locations" not in data["repo_raw_grep"]
     assert private_value not in result.stdout
     assert "/Users/private" not in result.stdout
 

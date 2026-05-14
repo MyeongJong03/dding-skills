@@ -664,6 +664,7 @@ python3 scripts/dreamhack_vm_control.py --challenge-id 1001 --run-id RUN_A --act
 python3 scripts/offline_e2e_smoke.py --platform ctfd --json
 python3 scripts/offline_e2e_smoke.py --platform dreamhack --json
 python3 scripts/status_summary.py
+python3 scripts/status_summary.py --verbose
 python3 scripts/regression_check.py --quick
 ```
 

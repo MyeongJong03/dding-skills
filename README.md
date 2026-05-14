@@ -381,6 +381,7 @@ MCP tools mirror the CLI: `session_start`, `session_write`, `session_read`, `ses
 
 ```bash
 python3 scripts/status_summary.py
+python3 scripts/status_summary.py --verbose
 python3 scripts/regression_check.py --quick
 python3 -m pytest tests
 python3 scripts/secret_scan.py --strict

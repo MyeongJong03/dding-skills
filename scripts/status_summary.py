@@ -17,6 +17,7 @@ SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
+import secret_scan
 from redact_sensitive import redact
 
 
@@ -186,6 +187,64 @@ def _grep_locations(limit: int = 30) -> dict[str, Any]:
     }
 
 
+def _secret_scan_locations(limit: int = 30) -> dict[str, Any]:
+    try:
+        findings = secret_scan.scan_paths(secret_scan._git_ls_files(ROOT), root=ROOT)  # noqa: SLF001 - CLI reuse.
+    except Exception as exc:  # noqa: BLE001 - status summaries must stay bounded.
+        return {"ok": False, "reason": exc.__class__.__name__, "locations": []}
+    locations = [
+        redact(f"{finding.get('path', 'unknown')}:{finding.get('line', 'unknown')}:{finding.get('rule', 'unknown')}")
+        for finding in findings
+    ]
+    return {
+        "ok": True,
+        "location_count": len(locations),
+        "locations": locations[:limit],
+        "truncated": len(locations) > limit,
+    }
+
+
+def _status_grep_summary(*, result: str, verbose: bool) -> dict[str, Any]:
+    grep = _grep_locations()
+    if not grep.get("ok"):
+        return {
+            "ok": False,
+            "clean": False,
+            "result": f"{result} failed",
+            "reason": grep.get("reason", "git grep failed"),
+        }
+
+    findings = _secret_scan_locations()
+    if not findings.get("ok"):
+        return {
+            "ok": False,
+            "clean": False,
+            "result": f"{result} failed",
+            "reason": findings.get("reason", "secret scan failed"),
+        }
+
+    if int(findings.get("location_count", 0)):
+        return {
+            "ok": False,
+            "clean": False,
+            "result": f"{result} findings",
+            "location_count": findings["location_count"],
+            "locations": findings["locations"],
+            "truncated": findings["truncated"],
+        }
+
+    section: dict[str, Any] = {"ok": True, "clean": True, "result": f"{result} clean"}
+    if verbose:
+        section.update(
+            {
+                "location_count": grep["location_count"],
+                "locations": grep["locations"],
+                "truncated": grep["truncated"],
+            }
+        )
+    return section
+
+
 def _status_doctor() -> dict[str, Any]:
     required = {relative: (ROOT / relative).is_file() for relative in NEW_COMMAND_FILES}
     section: dict[str, Any] = {
@@ -196,14 +255,14 @@ def _status_doctor() -> dict[str, Any]:
     return section
 
 
-def collect_status() -> dict[str, Any]:
+def collect_status(*, verbose: bool = False) -> dict[str, Any]:
     raw = {
         "git": _status_git(),
         "docker": _status_docker(),
         "mcp_json_summary": _status_mcp_json_summary(),
         "mcp_live": _status_mcp_live(),
-        "redaction": _grep_locations(),
-        "repo_raw_grep": _grep_locations(),
+        "redaction": _status_grep_summary(result="redacted grep", verbose=verbose),
+        "repo_raw_grep": _status_grep_summary(result="repo raw grep", verbose=verbose),
         "doctor": _status_doctor(),
     }
     raw["ok"] = all(bool(raw[name].get("ok", False)) for name in SECTIONS)
@@ -229,6 +288,8 @@ def print_marker_summary(status: dict[str, Any]) -> None:
             print("ok=false")
             continue
         for key in sorted(section):
+            if key == "clean":
+                continue
             value = section[key]
             if key == "locations" and isinstance(value, list):
                 print(f"{key}_shown={len(value)}")
@@ -242,8 +303,9 @@ def print_marker_summary(status: dict[str, Any]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="print public-safe structured status")
+    parser.add_argument("--verbose", action="store_true", help="include benign grep locations in clean sections")
     args = parser.parse_args()
-    status = collect_status()
+    status = collect_status(verbose=args.verbose)
     if args.json:
         print(json.dumps(status, ensure_ascii=False, indent=2, sort_keys=True))
     else:

@@ -12,6 +12,7 @@ Use this when you ask for the current repo/setup status:
 
 ```bash
 python3 scripts/status_summary.py
+python3 scripts/status_summary.py --verbose
 python3 scripts/status_summary.py --json
 ```
 
@@ -32,12 +33,17 @@ The default output is bounded by:
 The command performs quick checks only. It does not run the full pytest suite
 and does not run live platform smoke.
 
+In the normal clean case, `[redaction]` and `[repo_raw_grep]` print only short
+`result=... clean` lines. Use `--verbose` when you need the benign grep
+locations for debugging. If a real finding appears, the default output includes
+the finding count and file locations.
+
 Safety rules:
 
 - `~/.claude.json` is never printed. The script parses it only to summarize
   `mcpServers` names.
-- Repo grep output is location-only (`relative-file:line`), never matched line
-  bodies.
+- Repo grep details, when shown with `--verbose` or on failure, are
+  location-only (`relative-file:line`), never matched line bodies.
 - Docker is optional. Missing Docker or missing `ctf-pwn:latest` is reported as
   info, not as a failure.
 - The summary must not include raw cookies, auth headers, private CTF URLs,
