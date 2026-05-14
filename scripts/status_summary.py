@@ -27,6 +27,7 @@ SECTIONS = (
     "git",
     "docker",
     "mcp_json_summary",
+    "mcp_raw_consistency",
     "mcp_live",
     "redaction",
     "repo_raw_grep",
@@ -150,6 +151,65 @@ def _status_mcp_json_summary() -> dict[str, Any]:
     return section
 
 
+def _status_mcp_raw_consistency() -> dict[str, Any]:
+    config = Path.home() / ".claude.json"
+    section: dict[str, Any] = {
+        "ok": True,
+        "claude_json": "missing",
+        "raw_contains_ctf_solver": False,
+        "raw_contains_dreamhack_solver": False,
+        "raw_contains_reva": False,
+        "json_has_ctf_solver": False,
+        "json_has_dreamhack_solver": False,
+        "json_has_reva": False,
+        "raw_json_ctf_solver_match": True,
+        "raw_json_dreamhack_solver_match": True,
+    }
+    if not config.is_file():
+        return section
+
+    section["claude_json"] = "present"
+    try:
+        raw_text = config.read_text(encoding="utf-8")
+    except OSError as exc:
+        section["ok"] = False
+        section["reason"] = exc.__class__.__name__
+        return section
+
+    section["raw_contains_ctf_solver"] = f'"{CANONICAL_MCP_NAME}"' in raw_text
+    section["raw_contains_dreamhack_solver"] = f'"{LEGACY_MCP_NAME}"' in raw_text
+    section["raw_contains_reva"] = '"ReVa"' in raw_text
+
+    try:
+        data = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        section["ok"] = False
+        section["json_parse_ok"] = False
+        section["reason"] = exc.__class__.__name__
+        if section["raw_contains_dreamhack_solver"]:
+            section["warning"] = "legacy_mcp_name_detected_in_raw_text"
+        return section
+
+    names = _collect_mcp_server_names(data)
+    section["json_parse_ok"] = True
+    section["json_has_ctf_solver"] = CANONICAL_MCP_NAME in names
+    section["json_has_dreamhack_solver"] = LEGACY_MCP_NAME in names
+    section["json_has_reva"] = "ReVa" in names
+    section["raw_json_ctf_solver_match"] = section["raw_contains_ctf_solver"] == section["json_has_ctf_solver"]
+    section["raw_json_dreamhack_solver_match"] = (
+        section["raw_contains_dreamhack_solver"] == section["json_has_dreamhack_solver"]
+    )
+
+    legacy_present = bool(section["raw_contains_dreamhack_solver"] or section["json_has_dreamhack_solver"])
+    mismatched = not bool(section["raw_json_ctf_solver_match"] and section["raw_json_dreamhack_solver_match"])
+    section["ok"] = not legacy_present and not mismatched
+    if legacy_present:
+        section["warning"] = "legacy_mcp_name_detected"
+    elif mismatched:
+        section["warning"] = "raw_json_mcp_name_mismatch"
+    return section
+
+
 def _status_mcp_live() -> dict[str, Any]:
     section: dict[str, Any] = {"ok": True}
     server = ROOT / "server.py"
@@ -261,6 +321,7 @@ def collect_status(*, verbose: bool = False) -> dict[str, Any]:
         "git": _status_git(),
         "docker": _status_docker(),
         "mcp_json_summary": _status_mcp_json_summary(),
+        "mcp_raw_consistency": _status_mcp_raw_consistency(),
         "mcp_live": _status_mcp_live(),
         "redaction": _status_grep_summary(result="redacted grep", verbose=verbose),
         "repo_raw_grep": _status_grep_summary(result="repo raw grep", verbose=verbose),

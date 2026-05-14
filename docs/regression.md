@@ -24,6 +24,7 @@ The default output is bounded by:
 [git]
 [docker]
 [mcp_json_summary]
+[mcp_raw_consistency]
 [mcp_live]
 [redaction]
 [repo_raw_grep]
@@ -33,6 +34,17 @@ The default output is bounded by:
 
 The command performs quick checks only. It does not run the full pytest suite
 and does not run live platform smoke.
+
+`[mcp_raw_consistency]` compares safe booleans from the raw
+`~/.claude.json` text with the parsed `mcpServers` map. It reports whether the
+raw text contains quoted `ctf_solver`, `dreamhack_solver`, and `ReVa` names,
+then reports parsed `json_has_*` booleans for the MCP server names. A clean
+canonical setup has `raw_contains_ctf_solver=true`,
+`raw_contains_dreamhack_solver=false`, `json_has_ctf_solver=true`,
+`json_has_dreamhack_solver=false`, matching raw/json booleans, and `ok=true`.
+If the legacy Dreamhack-specific MCP name appears in raw text or parsed JSON,
+the section reports `ok=false` with a warning. The raw config body is never
+printed.
 
 In the normal clean case, `[redaction]` and `[repo_raw_grep]` print only short
 `result=... clean` lines. Use `--verbose` when you need the benign grep
@@ -69,6 +81,7 @@ The default output is bounded by:
 ===== CTF_SOLVER_REGRESSION_BEGIN =====
 [git]
 [secret_scan]
+[mcp_raw_consistency]
 [pytest]
 [doctor]
 [update_metrics]

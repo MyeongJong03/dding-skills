@@ -552,8 +552,10 @@ class Doctor:
         if (
             "CTF_SOLVER_STATUS_BEGIN" in status_text
             and "mcp_server_names" in status_text
+            and "mcp_raw_consistency" in status_text
             and ".claude.json" in status_text
             and "CTF_SOLVER_REGRESSION_BEGIN" in regression_text
+            and "mcp_raw_consistency" in regression_text
             and "offline_e2e_ctfd" in regression_text
             and "--quick" in regression_text
             and "skip-offline-e2e" in regression_text
@@ -982,8 +984,29 @@ class Doctor:
             return
 
         try:
-            data = json.loads(config.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
+            raw_text = config.read_text(encoding="utf-8")
+        except OSError as exc:
+            self.warn(f"Could not read Claude MCP registration safely: {exc}")
+            return
+
+        raw_contains_ctf_solver = f'"{CANONICAL_MCP_NAME}"' in raw_text
+        raw_contains_dreamhack_solver = f'"{LEGACY_MCP_NAME}"' in raw_text
+        raw_contains_reva = '"ReVa"' in raw_text
+        self.info(
+            "Claude MCP raw presence: "
+            f"ctf_solver={str(raw_contains_ctf_solver).lower()}, "
+            f"dreamhack_solver={str(raw_contains_dreamhack_solver).lower()}, "
+            f"ReVa={str(raw_contains_reva).lower()}"
+        )
+        if raw_contains_dreamhack_solver:
+            self.warn(
+                f"legacy Claude MCP {LEGACY_MCP_NAME} appears in raw config text; "
+                f"prefer {CANONICAL_MCP_NAME} after manual migration review"
+            )
+
+        try:
+            data = json.loads(raw_text)
+        except json.JSONDecodeError as exc:
             self.warn(f"Could not inspect Claude MCP registration safely: {exc}")
             return
 
@@ -998,6 +1021,12 @@ class Doctor:
                 f"legacy Claude MCP {LEGACY_MCP_NAME} appears registered; "
                 f"prefer {CANONICAL_MCP_NAME} after manual migration review"
             )
+        json_has_ctf_solver = CANONICAL_MCP_NAME in names
+        json_has_dreamhack_solver = LEGACY_MCP_NAME in names
+        if raw_contains_ctf_solver != json_has_ctf_solver:
+            self.warn("Claude MCP raw/json ctf_solver presence mismatch")
+        if raw_contains_dreamhack_solver != json_has_dreamhack_solver:
+            self.warn("Claude MCP raw/json dreamhack_solver presence mismatch")
 
     def check_mcp_names(self) -> None:
         server = (ROOT / "server.py").read_text(encoding="utf-8")
@@ -1021,7 +1050,10 @@ class Doctor:
 
         stale = []
         for path in checked_paths:
-            if path.is_file() and LEGACY_MCP_NAME in path.read_text(encoding="utf-8", errors="replace"):
+            text = path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
+            if path == ROOT / "docs" / "regression.md" and "mcp_raw_consistency" in text:
+                continue
+            if LEGACY_MCP_NAME in text:
                 stale.append(str(path.relative_to(ROOT)))
         if stale:
             self.warn(

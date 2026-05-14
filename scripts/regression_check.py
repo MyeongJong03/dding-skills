@@ -26,6 +26,7 @@ END_MARKER = "===== CTF_SOLVER_REGRESSION_END ====="
 SECTIONS = (
     "git",
     "secret_scan",
+    "mcp_raw_consistency",
     "pytest",
     "doctor",
     "update_metrics",
@@ -197,6 +198,52 @@ def _secret_scan_step() -> StepResult:
     return StepResult("secret_scan", ok, returncode, time.monotonic() - started, lines)
 
 
+def _mcp_raw_consistency_step() -> StepResult:
+    started = time.monotonic()
+    result = subprocess.run(
+        [sys.executable, "scripts/status_summary.py", "--json"],
+        cwd=str(ROOT),
+        env=_safe_env(),
+        text=True,
+        capture_output=True,
+        timeout=45,
+        check=False,
+    )
+    duration = time.monotonic() - started
+    lines = [f"returncode={result.returncode}", f"duration_sec={duration:.2f}"]
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        lines.append("status_summary_json=false")
+        lines.extend(_bounded_lines(result.stdout + result.stderr))
+        return StepResult("mcp_raw_consistency", False, result.returncode or 1, duration, lines)
+
+    section = data.get("mcp_raw_consistency") if isinstance(data, dict) else None
+    if not isinstance(section, dict):
+        lines.append("mcp_raw_consistency_section=missing")
+        return StepResult("mcp_raw_consistency", False, result.returncode or 1, duration, lines)
+
+    for key in (
+        "claude_json",
+        "raw_contains_ctf_solver",
+        "raw_contains_dreamhack_solver",
+        "raw_contains_reva",
+        "json_has_ctf_solver",
+        "json_has_dreamhack_solver",
+        "json_has_reva",
+        "raw_json_ctf_solver_match",
+        "raw_json_dreamhack_solver_match",
+        "warning",
+    ):
+        if key in section:
+            value = section[key]
+            if isinstance(value, bool):
+                value = str(value).lower()
+            lines.append(f"{key}={redact(str(value))}")
+    ok = bool(section.get("ok"))
+    return StepResult("mcp_raw_consistency", ok, 0 if ok else result.returncode or 1, duration, lines)
+
+
 def _pytest_step(quick: bool) -> StepResult:
     if quick:
         command = [sys.executable, "-m", "pytest", *QUICK_TESTS, "-q"]
@@ -286,6 +333,7 @@ def run_pack(args: argparse.Namespace) -> list[StepResult]:
     return [
         _git_step(),
         _secret_scan_step(),
+        _mcp_raw_consistency_step(),
         _pytest_step(args.quick),
         _simple_ok_step("doctor", [sys.executable, "scripts/doctor.py"], timeout=120),
         _simple_ok_step("update_metrics", [sys.executable, "scripts/update_metrics.py", "--check"], timeout=60),

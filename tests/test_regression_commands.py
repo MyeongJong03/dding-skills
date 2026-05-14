@@ -13,6 +13,7 @@ STATUS_SECTIONS = (
     "[git]",
     "[docker]",
     "[mcp_json_summary]",
+    "[mcp_raw_consistency]",
     "[mcp_live]",
     "[redaction]",
     "[repo_raw_grep]",
@@ -21,6 +22,7 @@ STATUS_SECTIONS = (
 REGRESSION_SECTIONS = (
     "[git]",
     "[secret_scan]",
+    "[mcp_raw_consistency]",
     "[pytest]",
     "[doctor]",
     "[update_metrics]",
@@ -51,6 +53,9 @@ def _write_temp_claude_config(home: Path) -> str:
     account_key = "account" + "Uuid"
     data = {
         "mcpServers": {
+            "ReVa": {
+                "url": "http://127.0.0.1:18080/mcp/message",
+            },
             "ctf_solver": {
                 "command": "python3",
                 "args": ["/Users/private/source/server.py"],
@@ -71,6 +76,22 @@ def _write_temp_claude_config(home: Path) -> str:
     }
     (home / ".claude.json").write_text(json.dumps(data), encoding="utf-8")
     return private_value
+
+
+def _write_legacy_claude_config(home: Path) -> None:
+    data = {
+        "mcpServers": {
+            "ctf_solver": {
+                "command": "python3",
+                "args": ["/Users/private/source/server.py"],
+            },
+            "dreamhack_solver": {
+                "command": "python3",
+                "args": ["/Users/private/source/old_server.py"],
+            },
+        }
+    }
+    (home / ".claude.json").write_text(json.dumps(data), encoding="utf-8")
 
 
 def _prepare_doctor_home(home: Path) -> None:
@@ -105,6 +126,13 @@ def test_status_summary_markers_and_claude_redaction(temp_ctf_env) -> None:
         assert section in output
     assert "ctf_solver" in output
     assert "local_probe" in output
+    assert "raw_contains_ctf_solver=true" in output
+    assert "raw_contains_dreamhack_solver=false" in output
+    assert "raw_contains_reva=true" in output
+    assert "json_has_ctf_solver=true" in output
+    assert "json_has_dreamhack_solver=false" in output
+    assert "raw_json_ctf_solver_match=true" in output
+    assert "raw_json_dreamhack_solver_match=true" in output
     assert "result=redacted grep clean" in output
     assert "result=repo raw grep clean" in output
     assert "clean=true" not in output
@@ -134,7 +162,15 @@ def test_status_summary_json_is_public_safe(temp_ctf_env) -> None:
     assert result.returncode in (0, 1)
     data = json.loads(result.stdout)
     assert set(STATUS_SECTIONS_SECTION.strip("[]") for STATUS_SECTIONS_SECTION in STATUS_SECTIONS) <= set(data)
-    assert data["mcp_json_summary"]["mcp_server_names"] == ["ctf_solver", "local_probe"]
+    assert data["mcp_json_summary"]["mcp_server_names"] == ["ReVa", "ctf_solver", "local_probe"]
+    assert data["mcp_raw_consistency"]["raw_contains_ctf_solver"] is True
+    assert data["mcp_raw_consistency"]["raw_contains_dreamhack_solver"] is False
+    assert data["mcp_raw_consistency"]["raw_contains_reva"] is True
+    assert data["mcp_raw_consistency"]["json_has_ctf_solver"] is True
+    assert data["mcp_raw_consistency"]["json_has_dreamhack_solver"] is False
+    assert data["mcp_raw_consistency"]["raw_json_ctf_solver_match"] is True
+    assert data["mcp_raw_consistency"]["raw_json_dreamhack_solver_match"] is True
+    assert data["mcp_raw_consistency"]["ok"] is True
     assert data["redaction"]["clean"] is True
     assert data["redaction"]["result"] == "redacted grep clean"
     assert data["repo_raw_grep"]["clean"] is True
@@ -145,6 +181,21 @@ def test_status_summary_json_is_public_safe(temp_ctf_env) -> None:
     assert "locations" not in data["repo_raw_grep"]
     assert private_value not in result.stdout
     assert "/Users/private" not in result.stdout
+
+
+def test_status_summary_mcp_raw_consistency_flags_legacy_name(temp_ctf_env) -> None:
+    _write_legacy_claude_config(temp_ctf_env.home)
+    result = _run(["scripts/status_summary.py"], env=temp_ctf_env.env)
+    assert result.returncode == 1
+    output = result.stdout
+    assert "[mcp_raw_consistency]" in output
+    assert "raw_contains_ctf_solver=true" in output
+    assert "raw_contains_dreamhack_solver=true" in output
+    assert "json_has_ctf_solver=true" in output
+    assert "json_has_dreamhack_solver=true" in output
+    assert "warning=legacy_mcp_name_detected" in output
+    assert '"mcpServers"' not in output
+    assert "/Users/private" not in output
 
 
 def test_regression_check_help(run_cli) -> None:
