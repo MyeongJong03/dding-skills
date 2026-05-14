@@ -29,6 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--platform", default="unknown")
     parser.add_argument("--event", default="unknown")
+    parser.add_argument("--challenge-id", help="explicit stable challenge_id from a platform queue item")
     parser.add_argument("--challenge-name", required=True)
     parser.add_argument("--category", choices=CATEGORIES, default="unknown")
     parser.add_argument("--workspace", help="optional challenge workspace path")
@@ -37,7 +38,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def initialize_challenge(args: argparse.Namespace) -> dict[str, object]:
-    challenge_id = make_challenge_id(args.platform, args.event, args.challenge_name, args.category)
+    challenge_id = str(args.challenge_id or "").strip() or make_challenge_id(
+        args.platform,
+        args.event,
+        args.challenge_name,
+        args.category,
+    )
     workspace = resolve_path(args.workspace) if args.workspace else work_root() / challenge_id
 
     with DirectoryLock(f"challenge-init-{challenge_id}", "challenge initialization"):
