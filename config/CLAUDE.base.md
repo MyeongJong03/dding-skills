@@ -61,6 +61,20 @@
 - If unsure whether a challenge is complete, ask the user, or finalize as `manual_stop`/`skipped` only when explicitly directed.
 - Full browser solver and full queue runner are future work.
 
+## Operator Mode Rules
+- Treat `docs/operator-mode.md` as the canonical runbook for real CTF solving operations.
+- Use `ctf-status` for quick setup/status checks; fallback is `python3 ~/ctf-solver/scripts/status_summary.py`.
+- Use `ctf-check` for fast local regression; fallback is `python3 ~/ctf-solver/scripts/regression_check.py --quick`.
+- Use `ctf-regression` before larger handoffs or commits; fallback is `python3 ~/ctf-solver/scripts/regression_check.py`.
+- The normal flow is: `challenge_init.py -> solve -> verify_run.py -> challenge_finalize.py --generate-writeup --cleanup --update-metrics -> next`.
+- In multi-terminal operation, claim work with `worker_next.py` or `worker_run_once.py` before solving and inspect `queue_history.py` when state is unclear.
+- Use resource leases for shared remote servers or VMs; heartbeat long-running leases and dry-run stale reclaim before applying it.
+- Do not move to another challenge until `challenge_finalize.py` succeeds for the current `run_dir`, even for skipped, abandoned, timed-out, already-solved, or manual-stop runs.
+- Writeups and copied exploit files stay local-only under `CTF_SOLVED_WRITEUP_ROOT` or `~/SolvedWriteUp`.
+- Public metrics may go under repo `metrics/`, but they must remain aggregate and must not contain flags, exploit code, raw transcripts, cookies, tokens, private URLs, platform raw responses, or private absolute paths.
+- CTFd live discovery/download and Dreamhack VM control are explicit opt-in platform flows. Start with dry-run/no-network helpers when available, and use `--live` only after explicit approval.
+- If shortcuts are missing or stale after moving the repo, reinstall them with `python3 ~/ctf-solver/scripts/install_shortcuts.py --dry-run` followed by `python3 ~/ctf-solver/scripts/install_shortcuts.py`.
+
 ## Verifier Rules
 - When claiming a challenge is solved, run verifier when possible.
 - Prefer `verify_run` before `status=solved` finalization.
@@ -211,8 +225,10 @@
 - Doctor and regression tests must not require live CTF credentials for offline E2E smoke.
 
 ## Regression / Status Rules
-- When the user asks for current setup or repo status, prefer `python3 ~/ctf-solver/scripts/status_summary.py`.
-- After substantial repo changes, prefer `python3 ~/ctf-solver/scripts/regression_check.py --quick`; use the full regression command before handoff when time allows.
+- When the user asks for current setup or repo status, prefer `ctf-status` when installed; otherwise use `python3 ~/ctf-solver/scripts/status_summary.py`.
+- After substantial repo changes, prefer `ctf-check` when installed; otherwise use `python3 ~/ctf-solver/scripts/regression_check.py --quick`.
+- Before larger handoffs or commits, prefer `ctf-regression` when installed; `python3 ~/ctf-solver/scripts/regression_check.py` is the direct fallback.
+- Install or refresh shortcuts with `python3 ~/ctf-solver/scripts/install_shortcuts.py`; use `--dry-run` before writing and `--uninstall` to remove managed wrappers.
 - Regression/status output must be shared as marker summaries, not raw command dumps.
 - Do not print raw `~/.claude.json`; summarize only MCP server names from `mcpServers`.
 - Do not paste cookies, auth headers, tokens, browser storage state, platform responses, flags, writeups, exploit code, or private run logs into status/regression summaries.

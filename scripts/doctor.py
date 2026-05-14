@@ -64,6 +64,7 @@ HOME = Path.home()
 CTF_DIR = HOME / "CTF"
 CANONICAL_MCP_NAME = "ctf_solver"
 LEGACY_MCP_NAME = "".join(("dreamhack", "_solver"))
+OPERATOR_SHORTCUTS = ("ctf-status", "ctf-check", "ctf-regression")
 EXTERNAL_SKILL_NAMES = {
     "ctf-ai-ml",
     "ctf-crypto",
@@ -389,6 +390,7 @@ class Doctor:
             "scripts/offline_e2e_smoke.py",
             "scripts/status_summary.py",
             "scripts/regression_check.py",
+            "scripts/install_shortcuts.py",
             "scripts/benchmark_init.py",
             "scripts/benchmark_record_result.py",
             "scripts/benchmark_report.py",
@@ -455,6 +457,7 @@ class Doctor:
             "docs/live-smoke.md",
             "docs/ctfd-live-smoke-runbook.md",
             "docs/offline-e2e-smoke.md",
+            "docs/operator-mode.md",
             "docs/regression.md",
             "docs/worker-runner.md",
             "docs/sessions.md",
@@ -554,12 +557,53 @@ class Doctor:
             and "offline_e2e_ctfd" in regression_text
             and "--quick" in regression_text
             and "skip-offline-e2e" in regression_text
+            and "ctf-status" in regression_doc_text
+            and "install_shortcuts.py" in regression_doc_text
             and "no live network" in regression_doc_text.lower()
             and "`~/.claude.json` is never printed" in regression_doc_text
         ):
             self.ok("regression/status command pack scaffold is present")
         else:
             self.fail("regression/status command pack scaffold missing marker, redaction, or no-live guidance")
+
+        operator_doc = ROOT / "docs" / "operator-mode.md"
+        readme = ROOT / "README.md"
+        guide = ROOT / "GUIDE.md"
+        claude_base = ROOT / "config" / "CLAUDE.base.md"
+        operator_doc_text = operator_doc.read_text(encoding="utf-8", errors="replace") if operator_doc.is_file() else ""
+        readme_text = readme.read_text(encoding="utf-8", errors="replace") if readme.is_file() else ""
+        guide_text = guide.read_text(encoding="utf-8", errors="replace") if guide.is_file() else ""
+        claude_text = claude_base.read_text(encoding="utf-8", errors="replace") if claude_base.is_file() else ""
+        if (
+            "# Operator Mode Runbook" in operator_doc_text
+            and "ctf-status" in operator_doc_text
+            and "ctf-check" in operator_doc_text
+            and "ctf-regression" in operator_doc_text
+            and "challenge_init.py" in operator_doc_text
+            and "worker_next.py" in operator_doc_text
+            and "verify_run.py" in operator_doc_text
+            and "challenge_finalize.py --run-dir <run-dir> --status solved --require-verifier --generate-writeup --cleanup --update-metrics"
+            in operator_doc_text
+            and "CTFd" in operator_doc_text
+            and "Dreamhack" in operator_doc_text
+            and "~/SolvedWriteUp" in operator_doc_text
+            and "metrics/" in operator_doc_text
+            and "docs/operator-mode.md" in readme_text
+            and "docs/operator-mode.md" in guide_text
+            and "## Operator Mode Rules" in claude_text
+        ):
+            self.ok("operator mode runbook and README/GUIDE/CLAUDE links are present")
+        else:
+            self.fail("operator mode runbook missing key commands, storage rules, or docs/config links")
+
+        installer = ROOT / "scripts" / "install_shortcuts.py"
+        installer_text = installer.read_text(encoding="utf-8", errors="replace") if installer.is_file() else ""
+        if "--dry-run" in installer_text and "--uninstall" in installer_text and "ctf-check" in installer_text:
+            self.ok("operator shortcut installer scaffold is present")
+        else:
+            self.fail("operator shortcut installer scaffold missing shortcut or dry-run support")
+
+        self.check_operator_shortcuts()
 
         platform_errors = validate_platform_config(ROOT / "config" / "platforms.example.yaml")
         if platform_errors:
@@ -797,6 +841,37 @@ class Doctor:
                 "Dreamhack private fixture root is inside repo; "
                 "prefer ~/.ctf-solver/fixtures/dreamhack or CTF_DREAMHACK_FIXTURE_ROOT outside repo"
             )
+
+    def check_operator_shortcuts(self) -> None:
+        raw_bin_dir = os.environ.get("CTF_SHORTCUT_BIN_DIR")
+        bin_dir = Path(raw_bin_dir).expanduser() if raw_bin_dir else HOME / ".local" / "bin"
+        missing: list[str] = []
+        unmanaged: list[str] = []
+        for name in OPERATOR_SHORTCUTS:
+            path = bin_dir / name
+            if not path.exists():
+                missing.append(name)
+                continue
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                unmanaged.append(name)
+                continue
+            if "ctf-solver-shortcut:" not in text or "scripts/install_shortcuts.py" not in text:
+                unmanaged.append(name)
+        if not missing and not unmanaged:
+            self.ok(f"operator shortcuts installed in {display_path(bin_dir)}")
+            return
+        details = []
+        if missing:
+            details.append(f"missing={','.join(missing)}")
+        if unmanaged:
+            details.append(f"unmanaged={','.join(unmanaged)}")
+        self.warn(
+            "operator shortcuts are optional; "
+            + "; ".join(details)
+            + "; run python3 scripts/install_shortcuts.py to install"
+        )
 
     def check_agents_generation(self) -> None:
         required = [

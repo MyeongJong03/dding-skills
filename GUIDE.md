@@ -105,6 +105,7 @@ Claude 구독/설치가 없어도 deploy, skills, Docker, local tools 기반 Cod
 ├── docs/
 │   ├── lifecycle.md
 │   ├── metrics.md
+│   ├── operator-mode.md
 │   ├── platform-automation.md
 │   ├── browser-platform-automation.md
 │   ├── callback-listener.md
@@ -538,6 +539,21 @@ bash install.sh --with-external-skills
 
 ## 8. 풀이 후 업데이트 및 동기화
 
+### Operator mode quick runbook
+
+실제 대회/워게임 운영 절차는 `docs/operator-mode.md`를 기준으로 한다.
+상태 확인은 `ctf-status`, 빠른 검증은 `ctf-check`, 전체 검증은
+`ctf-regression`을 기본 명령으로 사용한다.
+
+```bash
+ctf-status
+ctf-check
+ctf-regression
+```
+
+Operator mode의 핵심은 `challenge_init.py -> solve -> verify_run.py -> challenge_finalize.py --generate-writeup --cleanup --update-metrics -> next` 순서다.
+여러 터미널에서는 `worker_next.py` 또는 `worker_run_once.py`로 claim한 뒤 진행하고, 다음 문제로 넘어가기 전 현재 run의 finalize 성공을 반드시 확인한다.
+
 ### 문제 단위 lifecycle
 
 P1-0.5부터는 한 문제를 시작할 때 `init`, 끝낼 때 `finalize`를 반드시 수행한다.
@@ -636,7 +652,7 @@ python3 scripts/callback_close.py --listener-id "$LISTENER_ID" --json
 
 P1-0.6부터는 여러 터미널/worker가 같은 플랫폼 리소스를 안전하게 공유하도록 policy, queue, lease scaffold를 사용한다. Login/session storage는 repo에 넣지 않고, 실제 사이트 adapter와 live browser login은 별도 manual phase로 둔다.
 
-Live platform smoke는 `scripts/platform_live_smoke.py`를 사용한다. 항상 dry-run부터 실행하고, `--live`가 없으면 외부 CTF 사이트에 접속하지 않는다. CTFd live discovery는 `--live`와 명시적 `--base-url`/policy가 있을 때만 `/api/v1/challenges`를 read-only로 호출한다. CTFd live attachment download는 기본 no-download이고 `--live`와 `--allow-download`가 모두 있어야 detail/files 요청을 수행한다. `scripts/ctfd_live_smoke_runbook.py`는 dry-run/live/queue 명령을 출력하는 no-network checklist helper다. Dreamhack adapter는 canonical MCP 이름이 아니며 `ctf_solver` MCP 아래의 platform adapter다. Dreamhack fixture discovery/download는 local-only이고, private fixture root는 `CTF_DREAMHACK_FIXTURE_ROOT` 또는 기본 `~/.ctf-solver/fixtures/dreamhack`을 사용한다. Repo에는 `tests/fixtures/dreamhack/` 아래 synthetic dummy fixture만 허용하고 real Dreamhack response/cookie/session/csrf/raw response는 넣지 않는다. Offline E2E smoke는 `scripts/offline_e2e_smoke.py`로 fixture discovery부터 finalize/writeup/metrics/cleanup까지 temp root에서 검증한다. P1-16 regression command pack은 상태 요청에는 `scripts/status_summary.py`, 큰 변경 후 검증에는 `scripts/regression_check.py`를 우선 사용한다. VM `start`/`stop`/`restart`/`status`는 `scripts/dreamhack_vm_control.py --live`와 local-only auth 입력이 있을 때만 수행한다. Smoke mode에서는 `automation.allow_submission: true`여도 flag submit을 수행하지 않는다. Queue 등록은 `--queue`가 명시된 경우에만 수행한다. Download 결과 파일은 `CTF_DOWNLOAD_ROOT` 또는 `~/CTF/downloads` 아래 repo 밖에 저장하고, live smoke 결과는 `CTF_LIVE_SMOKE_ROOT` 또는 `~/.ctf-solver/live-smoke` 아래 local-only로 저장한다. server acquire는 `--allow-server-acquire`가 별도로 있어야 한다. auth가 필요하면 browser_state profile metadata, repo 밖 cookie file, local-only env/file 값을 사용하고, cookie/token/storage_state/raw response/raw URL query는 출력하거나 저장하지 않는다. 자세한 내용은 `docs/live-smoke.md`, `docs/ctfd-live-smoke-runbook.md`, `docs/dreamhack-adapter.md`, `docs/offline-e2e-smoke.md`, `docs/regression.md`를 기준으로 한다.
+Live platform smoke는 `scripts/platform_live_smoke.py`를 사용한다. 항상 dry-run부터 실행하고, `--live`가 없으면 외부 CTF 사이트에 접속하지 않는다. CTFd live discovery는 `--live`와 명시적 `--base-url`/policy가 있을 때만 `/api/v1/challenges`를 read-only로 호출한다. CTFd live attachment download는 기본 no-download이고 `--live`와 `--allow-download`가 모두 있어야 detail/files 요청을 수행한다. `scripts/ctfd_live_smoke_runbook.py`는 dry-run/live/queue 명령을 출력하는 no-network checklist helper다. Dreamhack adapter는 canonical MCP 이름이 아니며 `ctf_solver` MCP 아래의 platform adapter다. Dreamhack fixture discovery/download는 local-only이고, private fixture root는 `CTF_DREAMHACK_FIXTURE_ROOT` 또는 기본 `~/.ctf-solver/fixtures/dreamhack`을 사용한다. Repo에는 `tests/fixtures/dreamhack/` 아래 synthetic dummy fixture만 허용하고 real Dreamhack response/cookie/session/csrf/raw response는 넣지 않는다. Offline E2E smoke는 `scripts/offline_e2e_smoke.py`로 fixture discovery부터 finalize/writeup/metrics/cleanup까지 temp root에서 검증한다. P1-16 regression command pack은 상태 요청에는 `scripts/status_summary.py`, 큰 변경 후 검증에는 `scripts/regression_check.py`를 우선 사용한다. P1-17 operator shortcuts를 설치한 환경에서는 상태 확인에 `ctf-status`, 빠른 검증에 `ctf-check`, 큰 변경/커밋 전 검증에 `ctf-regression`을 우선 사용한다. P1-18 operator mode는 문제 시작/진행/종료, multi-terminal queue/lease, writeup/metrics storage 경계를 `docs/operator-mode.md`에 고정한다. VM `start`/`stop`/`restart`/`status`는 `scripts/dreamhack_vm_control.py --live`와 local-only auth 입력이 있을 때만 수행한다. Smoke mode에서는 `automation.allow_submission: true`여도 flag submit을 수행하지 않는다. Queue 등록은 `--queue`가 명시된 경우에만 수행한다. Download 결과 파일은 `CTF_DOWNLOAD_ROOT` 또는 `~/CTF/downloads` 아래 repo 밖에 저장하고, live smoke 결과는 `CTF_LIVE_SMOKE_ROOT` 또는 `~/.ctf-solver/live-smoke` 아래 local-only로 저장한다. server acquire는 `--allow-server-acquire`가 별도로 있어야 한다. auth가 필요하면 browser_state profile metadata, repo 밖 cookie file, local-only env/file 값을 사용하고, cookie/token/storage_state/raw response/raw URL query는 출력하거나 저장하지 않는다. 자세한 내용은 `docs/operator-mode.md`, `docs/live-smoke.md`, `docs/ctfd-live-smoke-runbook.md`, `docs/dreamhack-adapter.md`, `docs/offline-e2e-smoke.md`, `docs/regression.md`를 기준으로 한다.
 
 THCON처럼 한 세션에서 server/VM 하나만 가능한 대회는 `max_active_leases: 1`, `lease_scope: event`로 설정한다. Dreamhack은 기본 예시에서 `max_active_leases: 1`, `lease_scope: platform_event`로 설정해 한 번에 하나의 VM만 시작하게 한다. Remote lease를 못 받은 worker는 idle하지 않고 `local_capable=true` 문제의 정찰, 정적 분석, exploit planning, local skeleton 작성을 진행한다. `local_exploit_ready=true` 문제는 remote lease 우선순위가 올라간다.
 
@@ -663,6 +679,11 @@ python3 scripts/resource_release.py --run-id RUN_A --platform thcon --event THCO
 python3 scripts/dreamhack_vm_control.py --challenge-id 1001 --run-id RUN_A --action start --confirm --live --session-id-file ~/.ctf-solver/auth/dreamhack-session.txt --csrf-token-file ~/.ctf-solver/auth/dreamhack-csrf.txt --json
 python3 scripts/offline_e2e_smoke.py --platform ctfd --json
 python3 scripts/offline_e2e_smoke.py --platform dreamhack --json
+python3 scripts/install_shortcuts.py --dry-run
+python3 scripts/install_shortcuts.py
+ctf-status
+ctf-check
+ctf-regression
 python3 scripts/status_summary.py
 python3 scripts/status_summary.py --verbose
 python3 scripts/regression_check.py --quick
@@ -673,13 +694,15 @@ python3 scripts/regression_check.py --quick
 lifecycle/resource/session 변경 후에는 regression tests와 secret scan을 실행한다.
 
 ```bash
+ctf-status
+ctf-check
 python3 scripts/status_summary.py
 python3 scripts/regression_check.py --quick
 python3 -m pytest tests
 python3 scripts/secret_scan.py --strict
 ```
 
-테스트는 temp env roots를 사용하며 실제 HOME의 `~/.ctf-solver`, `~/SolvedWriteUp`, `~/.agents`, `~/.claude`, `~/.codex`를 건드리지 않는다. `~/.claude.json`, `~/.codex/config.toml`, browser storage state, cookies, tokens 원문은 paste하거나 commit하지 않는다. 반복 검증 결과를 공유할 때는 raw command 출력 대신 regression/status marker summary를 붙인다.
+테스트는 temp env roots를 사용하며 실제 HOME의 `~/.ctf-solver`, `~/SolvedWriteUp`, `~/.agents`, `~/.claude`, `~/.codex`를 건드리지 않는다. `~/.claude.json`, `~/.codex/config.toml`, browser storage state, cookies, tokens 원문은 paste하거나 commit하지 않는다. 반복 검증 결과를 공유할 때는 raw command 출력 대신 regression/status marker summary를 붙인다. Shortcut이 없으면 `python3 scripts/install_shortcuts.py`로 설치하고, repo를 옮긴 뒤에는 재설치한다.
 
 ### 자동 업데이트 원칙
 

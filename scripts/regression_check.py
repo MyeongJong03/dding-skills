@@ -40,6 +40,7 @@ QUICK_TESTS = (
     "tests/test_secret_scan.py",
     "tests/test_redact_sensitive.py",
     "tests/test_metrics_safety.py",
+    "tests/test_shortcuts.py",
     "tests/test_offline_e2e_smoke.py",
 )
 SCRUB_ENV_KEYS = (

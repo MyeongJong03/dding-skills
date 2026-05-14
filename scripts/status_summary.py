@@ -42,6 +42,7 @@ P1_15_FILES = (
 NEW_COMMAND_FILES = (
     "scripts/status_summary.py",
     "scripts/regression_check.py",
+    "scripts/install_shortcuts.py",
     "docs/regression.md",
 )
 SENSITIVE_GREP_TERMS = (

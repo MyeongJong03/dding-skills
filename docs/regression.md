@@ -11,6 +11,7 @@ command result.
 Use this when you ask for the current repo/setup status:
 
 ```bash
+ctf-status
 python3 scripts/status_summary.py
 python3 scripts/status_summary.py --verbose
 python3 scripts/status_summary.py --json
@@ -55,6 +56,8 @@ Use this after larger changes, before committing or asking another terminal to
 review the state:
 
 ```bash
+ctf-check
+ctf-regression
 python3 scripts/regression_check.py
 python3 scripts/regression_check.py --quick
 python3 scripts/regression_check.py --quick --skip-offline-e2e
@@ -93,6 +96,43 @@ The full command runs:
 `--quick` replaces the full pytest suite with selected fast regression tests.
 It still keeps the marker layout. `--skip-offline-e2e` is available when you
 need a faster local-only check and have already run the offline E2E smoke.
+
+## Operator Shortcuts
+
+`scripts/install_shortcuts.py` installs short macOS-friendly wrappers into
+`~/.local/bin` by default:
+
+```bash
+python3 scripts/install_shortcuts.py --dry-run
+python3 scripts/install_shortcuts.py
+python3 scripts/install_shortcuts.py --uninstall
+```
+
+Installed commands:
+
+- `ctf-status` runs `python3 <repo>/scripts/status_summary.py`
+- `ctf-check` runs `python3 <repo>/scripts/regression_check.py --quick`
+- `ctf-regression` runs `python3 <repo>/scripts/regression_check.py`
+
+The wrappers embed the absolute repo path from the current checkout. If the
+repo is moved, rerun the installer from the new checkout. If `~/.local/bin` is
+not on `PATH`, add it in the shell profile, for example:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Options:
+
+- `--dry-run` shows the planned install/uninstall without writing files.
+- `--bin-dir <path>` installs into a different wrapper directory, useful for
+  tests or temporary shells.
+- `--uninstall` removes wrappers managed by this installer.
+- `--force` replaces or removes an existing unmanaged file with the same name.
+
+Windows/WSL2 shortcuts are a later phase. For now, use the Python commands
+directly there, or install the wrappers only inside a WSL shell after reviewing
+the target `PATH`.
 
 ## Network And Secret Policy
 

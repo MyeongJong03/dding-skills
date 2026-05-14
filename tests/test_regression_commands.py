@@ -154,6 +154,33 @@ def test_regression_check_help(run_cli) -> None:
     assert "--skip-offline-e2e" in result.stdout
 
 
+def test_operator_mode_runbook_links_and_rules_exist() -> None:
+    operator_doc = (REPO_ROOT / "docs" / "operator-mode.md").read_text(encoding="utf-8")
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    guide = (REPO_ROOT / "GUIDE.md").read_text(encoding="utf-8")
+    claude_base = (REPO_ROOT / "config" / "CLAUDE.base.md").read_text(encoding="utf-8")
+
+    assert "# Operator Mode Runbook" in operator_doc
+    for required in (
+        "ctf-status",
+        "ctf-check",
+        "ctf-regression",
+        "challenge_init.py",
+        "worker_next.py",
+        "worker_run_once.py",
+        "verify_run.py",
+        "challenge_finalize.py --run-dir <run-dir> --status solved --require-verifier --generate-writeup --cleanup --update-metrics",
+        "CTFd",
+        "Dreamhack",
+        "~/SolvedWriteUp",
+        "metrics/",
+    ):
+        assert required in operator_doc
+    assert "docs/operator-mode.md" in readme
+    assert "docs/operator-mode.md" in guide
+    assert "## Operator Mode Rules" in claude_base
+
+
 def test_regression_check_quick_marker_pack(temp_ctf_env) -> None:
     _prepare_doctor_home(temp_ctf_env.home)
     env = dict(temp_ctf_env.env)
