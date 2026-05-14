@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from html.parser import HTMLParser
 import json
+from json import JSONDecodeError
 import os
 from pathlib import Path
 from socket import timeout as SocketTimeout
@@ -17,7 +18,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urljoin, urlparse, urlunparse
 from urllib.request import Request, urlopen
 
-from ..paths import is_inside_repo, platform_automation_root, resolve_path
+from ..paths import dreamhack_fixture_root, is_inside_repo, platform_automation_root, repo_root, resolve_path
 from ..platform_adapters import PlatformAdapter, PlatformAdapterError, _copy_file
 from ..schemas import CATEGORIES, atomic_write_json, iso_now, read_json, slugify, validate_public_record
 
@@ -26,6 +27,23 @@ DREAMHACK_BASE_URL = "https://dreamhack.io"
 DREAMHACK_LIVE_TIMEOUT_SECONDS = 15
 DREAMHACK_LIVE_MAX_BYTES = 1024 * 1024
 DREAMHACK_VM_ACTIONS = {"start", "stop", "restart", "status"}
+DREAMHACK_REPO_FIXTURE_ROOT = Path("tests") / "fixtures" / "dreamhack"
+DREAMHACK_FIXTURE_SENSITIVE_KEYS = {
+    "authorization",
+    "cookie",
+    "cookies",
+    "csrf",
+    "csrf_token",
+    "csrfmiddlewaretoken",
+    "raw_response",
+    "response_body",
+    "session",
+    "session_id",
+    "sessionid",
+    "set-cookie",
+    "set_cookie",
+    "storage_state",
+}
 
 
 def _is_url(value: str | None) -> bool:
@@ -63,8 +81,33 @@ def _int(value: object) -> int | None:
 
 
 def _normalize_category(value: object) -> str:
+    if isinstance(value, dict):
+        value = value.get("name") or value.get("value") or value.get("slug") or value.get("category")
     category = str(value or "unknown").strip().lower()
     return category if category in CATEGORIES else "unknown"
+
+
+def _repo_dummy_fixture_allowed(path: Path) -> bool:
+    if not is_inside_repo(path):
+        return True
+    try:
+        path.resolve().relative_to((repo_root() / DREAMHACK_REPO_FIXTURE_ROOT).resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def _resolve_fixture_path(source: str) -> Path:
+    path = Path(source).expanduser()
+    candidates = [path.resolve()]
+    if not path.is_absolute():
+        candidates.append((dreamhack_fixture_root() / source).resolve())
+    for candidate in candidates:
+        if candidate.is_file():
+            if not _repo_dummy_fixture_allowed(candidate):
+                raise PlatformAdapterError("dreamhack_repo_fixture_not_allowed")
+            return candidate
+    return candidates[0]
 
 
 def _require_fixture_source(source: str | None) -> Path:
@@ -72,7 +115,7 @@ def _require_fixture_source(source: str | None) -> Path:
         raise PlatformAdapterError("source_required")
     if _is_url(source):
         raise PlatformAdapterError("dreamhack_live_mode_requires_opt_in")
-    path = resolve_path(source)
+    path = _resolve_fixture_path(source)
     if not path.is_file():
         raise PlatformAdapterError("source_not_found")
     return path
@@ -144,6 +187,40 @@ def _walk_first(node: object, keys: set[str]) -> object | None:
             if found is not None:
                 return found
     return None
+
+
+def _first_value(item: dict[str, object], *keys: str) -> object | None:
+    lowered = {str(key).lower(): value for key, value in item.items()}
+    for key in keys:
+        if key in item and item[key] is not None and item[key] != "":
+            return item[key]
+        lowered_value = lowered.get(key.lower())
+        if lowered_value is not None and lowered_value != "":
+            return lowered_value
+    return None
+
+
+def _has_sensitive_fixture_key(node: object) -> bool:
+    if isinstance(node, dict):
+        for key, value in node.items():
+            normalized = str(key).strip().lower().replace("-", "_")
+            if normalized in DREAMHACK_FIXTURE_SENSITIVE_KEYS:
+                return True
+            if _has_sensitive_fixture_key(value):
+                return True
+    elif isinstance(node, list):
+        return any(_has_sensitive_fixture_key(value) for value in node)
+    return False
+
+
+def _read_json_fixture(path: Path) -> object:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except JSONDecodeError as exc:
+        raise PlatformAdapterError("dreamhack_fixture_invalid_json") from exc
+    if _has_sensitive_fixture_key(data):
+        raise PlatformAdapterError("dreamhack_fixture_contains_sensitive_fields")
+    return data
 
 
 def _extract_port(data: object) -> int | None:
@@ -309,25 +386,52 @@ class _DreamhackHTMLParser(HTMLParser):
         files = data.get("data-files")
         if files:
             item["files"] = [part.strip() for part in files.split(",") if part.strip()]
+        tags = data.get("data-tags")
+        if tags:
+            item["tags"] = [part.strip() for part in tags.split(",") if part.strip()]
         self.items.append(item)
 
 
 def _unwrap_items(data: object) -> list[dict[str, object]]:
     if isinstance(data, dict):
-        for key in ("challenges", "wargames", "problems", "results"):
+        for key in ("challenges", "wargames", "problems", "results", "items"):
             if isinstance(data.get(key), list):
                 return [item for item in data[key] if isinstance(item, dict)]  # type: ignore[index]
         if isinstance(data.get("data"), list):
             return [item for item in data["data"] if isinstance(item, dict)]  # type: ignore[index]
         if isinstance(data.get("data"), dict):
             nested = data["data"]  # type: ignore[index]
-            if isinstance(nested.get("results"), list):
-                return [item for item in nested["results"] if isinstance(item, dict)]
-        if any(key in data for key in ("name", "title", "category", "files", "attachments")):
+            nested_items = _unwrap_items(nested)
+            if nested_items:
+                return nested_items
+        if isinstance(data.get("response"), dict):
+            nested_items = _unwrap_items(data["response"])  # type: ignore[index]
+            if nested_items:
+                return nested_items
+        if any(key in data for key in ("name", "title", "category", "files", "attachments", "wargame_id")):
             return [data]
     if isinstance(data, list):
         return [item for item in data if isinstance(item, dict)]
     return []
+
+
+def _unwrap_detail(data: object) -> dict[str, object] | None:
+    if isinstance(data, dict):
+        for key in ("challenge", "wargame", "problem", "detail"):
+            value = data.get(key)
+            if isinstance(value, dict):
+                return value
+        data_value = data.get("data")
+        if isinstance(data_value, dict):
+            nested = _unwrap_detail(data_value)
+            return nested if nested is not None else data_value
+        response = data.get("response")
+        if isinstance(response, dict):
+            nested = _unwrap_detail(response)
+            return nested if nested is not None else response
+        if any(key in data for key in ("name", "title", "category", "files", "attachments", "wargame_id")):
+            return data
+    return None
 
 
 def _file_name(raw: object) -> str | None:
@@ -344,8 +448,10 @@ def _file_name(raw: object) -> str | None:
 
 def _item_files(item: dict[str, object]) -> list[str]:
     files: list[str] = []
-    for key in ("files", "attachments", "handouts"):
+    for key in ("files", "attachments", "handouts", "downloads"):
         raw = item.get(key)
+        if isinstance(raw, dict):
+            raw = [raw]
         if not isinstance(raw, list):
             continue
         for entry in raw:
@@ -356,6 +462,8 @@ def _item_files(item: dict[str, object]) -> list[str]:
 
 
 def _tags(raw: object) -> list[str]:
+    if isinstance(raw, str):
+        return [part.strip() for part in raw.split(",") if part.strip()]
     if not isinstance(raw, list):
         return []
     tags: list[str] = []
@@ -370,15 +478,17 @@ def _tags(raw: object) -> list[str]:
 
 
 def _normalize_challenge(platform: str, event: str, item: dict[str, object], index: int) -> dict[str, object]:
-    external_id = str(item.get("external_id") or item.get("id") or item.get("wargame_id") or "").strip()
+    external_id = str(_first_value(item, "external_id", "id", "wargame_id", "problem_id") or "").strip()
     name = str(
-        item.get("name")
-        or item.get("title")
-        or item.get("challenge_name")
+        _first_value(item, "name", "title", "challenge_name", "problem_title")
         or (f"challenge-{external_id}" if external_id else f"challenge-{index}")
     )
-    category = _normalize_category(item.get("category") or item.get("type"))
-    challenge_id = str(item.get("challenge_id") or "").strip()
+    category = _normalize_category(_first_value(item, "category", "type"))
+    challenge_id = str(_first_value(item, "challenge_id") or "").strip()
+    if not external_id and challenge_id and "/" not in challenge_id:
+        external_id = challenge_id
+    if challenge_id == external_id:
+        challenge_id = ""
     if not challenge_id:
         challenge_id = "/".join(
             [
@@ -392,19 +502,23 @@ def _normalize_challenge(platform: str, event: str, item: dict[str, object], ind
         "challenge_id": challenge_id,
         "external_id": external_id,
         "name": name,
+        "title": name,
         "category": category,
         "platform": platform,
         "event": event,
-        "remote_required": _bool(item.get("remote_required"), bool(item.get("has_vm") or item.get("connection_info"))),
-        "local_capable": _bool(item.get("local_capable"), True),
+        "remote_required": _bool(
+            _first_value(item, "remote_required"),
+            bool(_first_value(item, "has_vm", "server", "connection_info")),
+        ),
+        "local_capable": _bool(_first_value(item, "local_capable"), True),
     }
-    url = str(item.get("url") or item.get("link") or "").strip()
+    url = str(_first_value(item, "url", "link", "href") or "").strip()
     if url:
         normalized["url"] = url
-    value = _int(item.get("value") or item.get("points"))
+    value = _int(_first_value(item, "value", "points", "point"))
     if value is not None:
         normalized["value"] = value
-    solves = _int(item.get("solves") or item.get("solved_count"))
+    solves = _int(_first_value(item, "solves", "solved_count", "solve_count"))
     if solves is not None:
         normalized["solves"] = solves
     files = _item_files(item)
@@ -418,21 +532,32 @@ def _normalize_challenge(platform: str, event: str, item: dict[str, object], ind
 
 def _load_fixture_items(path: Path) -> list[dict[str, object]]:
     if path.suffix.lower() == ".json":
-        return _unwrap_items(read_json(path, default={}))
+        return _unwrap_items(_read_json_fixture(path))
     parser = _DreamhackHTMLParser()
     parser.feed(path.read_text(encoding="utf-8", errors="replace"))
     return parser.items
 
 
 def _find_item(path: Path, platform: str, event: str, challenge_id: str) -> dict[str, object]:
+    if path.suffix.lower() == ".json":
+        detail = _unwrap_detail(_read_json_fixture(path))
+        if detail is not None:
+            normalized = _normalize_challenge(platform, event, detail, 1)
+            candidates = {
+                str(normalized.get("challenge_id") or ""),
+                str(normalized.get("external_id") or ""),
+                str(_first_value(detail, "id", "wargame_id", "challenge_id", "problem_id") or ""),
+                str(_first_value(detail, "name", "title") or ""),
+            }
+            if challenge_id in candidates:
+                return detail
     for index, item in enumerate(_load_fixture_items(path), start=1):
         normalized = _normalize_challenge(platform, event, item, index)
         candidates = {
             str(normalized.get("challenge_id") or ""),
             str(normalized.get("external_id") or ""),
-            str(item.get("id") or ""),
-            str(item.get("name") or ""),
-            str(item.get("title") or ""),
+            str(_first_value(item, "id", "wargame_id", "challenge_id", "problem_id") or ""),
+            str(_first_value(item, "name", "title") or ""),
         }
         if challenge_id in candidates:
             return item
@@ -450,8 +575,10 @@ def _local_source_path(fixture: Path, raw: str) -> Path:
 
 def _download_entries(fixture: Path, item: dict[str, object]) -> list[tuple[Path, str]]:
     entries: list[tuple[Path, str]] = []
-    for key in ("files", "attachments", "handouts"):
+    for key in ("files", "attachments", "handouts", "downloads"):
         raw_files = item.get(key)
+        if isinstance(raw_files, dict):
+            raw_files = [raw_files]
         if not isinstance(raw_files, list):
             continue
         for raw in raw_files:
@@ -527,6 +654,30 @@ class DreamhackPlatformAdapter(PlatformAdapter):
         path = _require_fixture_source(source)
         items = _load_fixture_items(path)
         return [_normalize_challenge(platform, event, item, index) for index, item in enumerate(items, start=1)]
+
+    def get_challenge_detail(
+        self,
+        *,
+        platform: str,
+        event: str,
+        challenge_id: str,
+        source: str | None = None,
+        url: str | None = None,
+        live: bool = False,
+        base_url: str | None = None,
+        profile: str | None = None,
+    ) -> dict[str, object]:
+        if live or _is_url(source) or _is_url(url):
+            raise PlatformAdapterError("dreamhack_live_detail_unsupported")
+        path = _require_fixture_source(source or url)
+        item = _find_item(path, platform, event, challenge_id)
+        return {
+            **_normalize_challenge(platform, event, item, 1),
+            "description": str(_first_value(item, "description", "content") or ""),
+            "connection_info": str(_first_value(item, "connection_info", "server", "connection") or ""),
+            "hints": item.get("hints") if isinstance(item.get("hints"), list) else [],
+            "state": str(_first_value(item, "state", "status") or ""),
+        }
 
     def download_files(
         self,

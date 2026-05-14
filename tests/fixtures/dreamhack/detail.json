@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "data": {
+    "wargame_id": 4242,
+    "title": "Dummy Dreamhack Web",
+    "category": "web",
+    "description": "Dummy Dreamhack detail fixture for parser coverage.",
+    "connection_info": "dummy.example.invalid 31337",
+    "state": "visible",
+    "tags": "parser,download",
+    "attachments": [
+      {
+        "filename": "handout.txt",
+        "path": "attachments/handout.txt"
+      },
+      {
+        "name": "source.zip",
+        "path": "attachments/source.zip"
+      }
+    ],
+    "has_vm": true
+  }
+}

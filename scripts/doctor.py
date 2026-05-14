@@ -23,6 +23,7 @@ from ctf_solver_core.paths import (
     callbackd_root,
     download_root,
     display_path,
+    dreamhack_fixture_root,
     gdb_artifact_root,
     gdb_root,
     ai_usage_root,
@@ -385,6 +386,7 @@ class Doctor:
             "scripts/platform_smoke_test.py",
             "scripts/platform_live_smoke.py",
             "scripts/ctfd_live_smoke_runbook.py",
+            "scripts/offline_e2e_smoke.py",
             "scripts/benchmark_init.py",
             "scripts/benchmark_record_result.py",
             "scripts/benchmark_report.py",
@@ -450,6 +452,7 @@ class Doctor:
             "docs/dreamhack-adapter.md",
             "docs/live-smoke.md",
             "docs/ctfd-live-smoke-runbook.md",
+            "docs/offline-e2e-smoke.md",
             "docs/worker-runner.md",
             "docs/sessions.md",
             "docs/gdb-session.md",
@@ -518,6 +521,21 @@ class Doctor:
             self.ok("CTFd live smoke runbook helper and docs are present")
         else:
             self.fail("CTFd live smoke runbook helper/docs missing dry-run and no-submit guidance")
+
+        offline_script = ROOT / "scripts" / "offline_e2e_smoke.py"
+        offline_doc = ROOT / "docs" / "offline-e2e-smoke.md"
+        offline_text = offline_script.read_text(encoding="utf-8", errors="replace") if offline_script.is_file() else ""
+        offline_doc_text = offline_doc.read_text(encoding="utf-8", errors="replace") if offline_doc.is_file() else ""
+        if (
+            "--platform" in offline_text
+            and "fixture_root_must_be_local" in offline_text
+            and "challenge_finalize.py" in offline_text
+            and "external network" in offline_doc_text
+        ):
+            self.ok("offline E2E platform flow smoke scaffold is present")
+        else:
+            self.fail("offline E2E platform flow smoke scaffold missing fixture-only lifecycle checks")
+        self.info("offline E2E smoke uses fixture-only temp roots and does not require live credentials")
 
         platform_errors = validate_platform_config(ROOT / "config" / "platforms.example.yaml")
         if platform_errors:
@@ -668,6 +686,7 @@ class Doctor:
             self.warn("platform automation root is inside repo; prefer ~/.ctf-solver/platforms or CTF_PLATFORM_AUTOMATION_ROOT outside repo")
         if is_inside_repo(downloads):
             self.warn("download root is inside repo; prefer ~/CTF/downloads or CTF_DOWNLOAD_ROOT outside repo")
+        self.check_dreamhack_fixture_root()
         try:
             daemon = session_daemon_status()
             if daemon.get("running"):
@@ -745,6 +764,15 @@ class Doctor:
         except Exception as exc:
             self.warn(f"could not inspect platform automation counts safely: {exc}")
         self.ok("metrics are repo-local public-safe targets; writeups/private runs are local-only targets")
+
+    def check_dreamhack_fixture_root(self) -> None:
+        fixture_root = dreamhack_fixture_root()
+        self.info(f"Dreamhack private fixture root: {display_path(fixture_root)}")
+        if is_inside_repo(fixture_root):
+            self.warn(
+                "Dreamhack private fixture root is inside repo; "
+                "prefer ~/.ctf-solver/fixtures/dreamhack or CTF_DREAMHACK_FIXTURE_ROOT outside repo"
+            )
 
     def check_agents_generation(self) -> None:
         required = [

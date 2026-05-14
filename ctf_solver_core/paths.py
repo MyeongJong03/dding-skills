@@ -107,6 +107,10 @@ def platform_automation_root() -> Path:
     return _env_path("CTF_PLATFORM_AUTOMATION_ROOT", Path.home() / ".ctf-solver" / "platforms")
 
 
+def dreamhack_fixture_root() -> Path:
+    return _env_path("CTF_DREAMHACK_FIXTURE_ROOT", Path.home() / ".ctf-solver" / "fixtures" / "dreamhack")
+
+
 def download_root() -> Path:
     return _env_path("CTF_DOWNLOAD_ROOT", Path.home() / "CTF" / "downloads")
 

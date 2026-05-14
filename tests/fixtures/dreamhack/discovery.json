@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "wargame_id": 4242,
+        "title": "Dummy Dreamhack Web",
+        "category": {
+          "name": "web"
+        },
+        "points": 100,
+        "solves": 7,
+        "tags": [
+          {
+            "name": "parser"
+          },
+          "fixture"
+        ],
+        "has_vm": true
+      }
+    ]
+  }
+}

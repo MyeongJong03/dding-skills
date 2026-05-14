@@ -178,6 +178,7 @@
 - Never log, print, store, commit, or copy Dreamhack sessionid, CSRF values, browser cookies, storage state contents, raw platform responses, private VM URLs, or account metadata.
 - Dreamhack VM actions require explicit user approval through `--live` and, for start/restart when policy is `ask`, `--confirm`.
 - Read Dreamhack auth only from local-only CLI input, repo-external files, or local environment variables; do not require live credentials for doctor or tests.
+- Keep real Dreamhack fixtures under `CTF_DREAMHACK_FIXTURE_ROOT` or `~/.ctf-solver/fixtures/dreamhack`; repo fixtures must be synthetic dummy parser fixtures only under `tests/fixtures/dreamhack/`.
 - Respect `resources.remote_server.max_active_leases=1` when the Dreamhack policy says one VM at a time.
 - Helper workers may not start a second Dreamhack VM; only the primary worker may start, restart, stop, or release the VM.
 - Do not submit Dreamhack flags automatically.
@@ -198,6 +199,16 @@
 - Store live smoke results under `CTF_LIVE_SMOKE_ROOT` or `~/.ctf-solver/live-smoke`, outside the repo.
 - Record only public-safe smoke summaries in metrics: counts, downloaded bytes, mode, success boolean, and server-acquire attempted boolean.
 - Regression tests must remain mock/local only and must not contact live CTF sites.
+
+## Offline E2E Smoke Rules
+- Use `scripts/offline_e2e_smoke.py` to validate the full platform lifecycle without a live CTF URL.
+- Offline E2E smoke must use fixture discovery/download only and must not perform external network requests.
+- Do not use real flags, exploit code, raw transcripts, cookies, tokens, session values, CSRF values, private URLs, or raw platform responses in offline E2E fixtures.
+- Generate writeups only under a temp local-only `CTF_SOLVED_WRITEUP_ROOT`, outside the temp public repo.
+- Write metrics only under a temp public-safe repo `metrics/` path and validate with `scripts/update_metrics.py --check`.
+- Explicitly carry `challenge_id` and `run_id` through queue, challenge init, verifier, finalize, metrics, and cleanup checks.
+- Cleanup checks should verify that scratch run/workspace artifacts are removed while final metadata remains local-only.
+- Doctor and regression tests must not require live CTF credentials for offline E2E smoke.
 
 ## Performance / Benchmark Rules
 - After each challenge finalization, record public-safe metrics when enough data exists.

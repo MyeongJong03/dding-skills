@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -56,6 +57,18 @@ def _dreamhack_fixture(base: Path) -> tuple[Path, Path]:
     return fixture, handout
 
 
+def _repo_fixture(name: str) -> Path:
+    return REPO_ROOT / "tests" / "fixtures" / "dreamhack" / name
+
+
+def _load_doctor_class():
+    spec = importlib.util.spec_from_file_location("doctor_module", REPO_ROOT / "scripts" / "doctor.py")
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.Doctor
+
+
 def test_dreamhack_adapter_registry_present() -> None:
     adapter = get_adapter("dreamhack")
     assert adapter.name == "dreamhack"
@@ -99,13 +112,168 @@ def test_dreamhack_discovery_parses_fixture(temp_ctf_env, run_cli) -> None:
     assert result["queued_count"] == 1
 
 
+def test_dreamhack_discovery_parses_repo_dummy_fixture(temp_ctf_env, run_cli) -> None:
+    _dreamhack_policy(temp_ctf_env)
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_discover.py",
+                "--platform",
+                "dreamhack",
+                "--event",
+                "dreamhackWargame",
+                "--adapter",
+                "dreamhack",
+                "--source",
+                str(_repo_fixture("discovery.json")),
+                "--queue",
+                "--json",
+            ]
+        )
+    )
+    assert result["ok"] is True
+    assert result["challenge_count"] == 1
+    challenge = result["challenges"][0]
+    assert challenge["challenge_id"] == "dreamhack/dreamhackwargame/web/dummy-dreamhack-web"
+    assert challenge["external_id"] == "4242"
+    assert challenge["category"] == "web"
+    assert challenge["name"] == "Dummy Dreamhack Web"
+    assert challenge["title"] == "Dummy Dreamhack Web"
+    assert challenge["tags"] == ["parser", "fixture"]
+    assert challenge["remote_required"] is True
+    assert result["queued_count"] == 1
+
+
+def test_dreamhack_detail_and_download_normalize_attachments(temp_ctf_env, run_cli) -> None:
+    _dreamhack_policy(temp_ctf_env)
+    adapter = get_adapter("dreamhack")
+    detail = adapter.get_challenge_detail(
+        platform="dreamhack",
+        event="dreamhackWargame",
+        challenge_id="4242",
+        source=str(_repo_fixture("detail.json")),
+    )
+    assert detail["challenge_id"] == "dreamhack/dreamhackwargame/web/dummy-dreamhack-web"
+    assert detail["files"] == ["handout.txt", "source.zip"]
+    assert detail["tags"] == ["parser", "download"]
+    assert detail["description"] == "Dummy Dreamhack detail fixture for parser coverage."
+
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_download.py",
+                "--platform",
+                "dreamhack",
+                "--event",
+                "dreamhackWargame",
+                "--challenge-id",
+                "4242",
+                "--adapter",
+                "dreamhack",
+                "--source",
+                str(_repo_fixture("detail.json")),
+                "--queue",
+                "--json",
+            ]
+        )
+    )
+    assert result["ok"] is True
+    assert result["metadata"]["adapter"] == "dreamhack"
+    assert result["metadata"]["file_count"] == 2
+    names = {item["name"] for item in result["metadata"]["files"]}
+    assert names == {"handout.txt", "source.zip"}
+
+
+def test_dreamhack_malformed_fixture_returns_clear_reason(temp_ctf_env, run_cli) -> None:
+    _dreamhack_policy(temp_ctf_env)
+    malformed = temp_ctf_env.base / "malformed-dreamhack.json"
+    malformed.write_text('{"data": [', encoding="utf-8")
+    result = parse_json_output(
+        run_cli(
+            [
+                "scripts/platform_discover.py",
+                "--platform",
+                "dreamhack",
+                "--event",
+                "dreamhackWargame",
+                "--adapter",
+                "dreamhack",
+                "--source",
+                str(malformed),
+                "--json",
+            ],
+            check=False,
+        )
+    )
+    assert result["ok"] is False
+    assert result["reason"] == "dreamhack_fixture_invalid_json"
+
+
+def test_dreamhack_fixture_sensitive_fields_are_rejected(temp_ctf_env, run_cli) -> None:
+    _dreamhack_policy(temp_ctf_env)
+    marker_session = "LOCAL_SESSION_SHOULD_NOT_PRINT"
+    marker_csrf = "LOCAL_CSRF_SHOULD_NOT_PRINT"
+    fixture = temp_ctf_env.base / "sensitive-dreamhack.json"
+    fixture.write_text(
+        json.dumps(
+            {
+                "data": [
+                    {
+                        "wargame_id": 1,
+                        "title": "bad fixture",
+                        "category": "web",
+                        "sessionid": marker_session,
+                        "csrf_token": marker_csrf,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = run_cli(
+        [
+            "scripts/platform_discover.py",
+            "--platform",
+            "dreamhack",
+            "--event",
+            "dreamhackWargame",
+            "--adapter",
+            "dreamhack",
+            "--source",
+            str(fixture),
+            "--json",
+        ],
+        check=False,
+    )
+    result = parse_json_output(output)
+    assert result["ok"] is False
+    assert result["reason"] == "dreamhack_fixture_contains_sensitive_fields"
+    assert marker_session not in output.stdout
+    assert marker_csrf not in output.stdout
+
+
+def test_dreamhack_private_fixture_root_warns_when_inside_repo(temp_ctf_env, monkeypatch) -> None:
+    monkeypatch.setenv("CTF_DREAMHACK_FIXTURE_ROOT", str(temp_ctf_env.solver_repo / "fixtures" / "dreamhack"))
+    doctor = _load_doctor_class()()
+    doctor.check_dreamhack_fixture_root()
+    assert any("Dreamhack private fixture root is inside repo" in warning for warning in doctor.warnings)
+
+
 def test_vm_action_summary_redacts_session_csrf_and_host() -> None:
     adapter = get_adapter("dreamhack")
+    marker_session = "LOCAL_SESSION_SHOULD_NOT_PRINT"
+    marker_csrf = "LOCAL_CSRF_SHOULD_NOT_PRINT"
     summary = adapter.summarize_vm_response(
         action="start",
         challenge_id="1001",
         status_code=200,
-        response={"status": "started", "host": "host3.dreamhack.games", "port": 31337},
+        response={
+            "status": "started",
+            "host": "host3.dreamhack.games",
+            "port": 31337,
+            "sessionid": marker_session,
+            "csrf_token": marker_csrf,
+        },
         session_configured=True,
         csrf_configured=True,
     )
@@ -115,6 +283,8 @@ def test_vm_action_summary_redacts_session_csrf_and_host() -> None:
     assert summary["port"] == 31337
     assert summary["auth"] == {"session_configured": True, "csrf_configured": True}
     assert "host3.dreamhack.games" not in rendered
+    assert marker_session not in rendered
+    assert marker_csrf not in rendered
     assert "csrf-token-value" not in rendered
     assert "session-value" not in rendered
 

@@ -24,11 +24,12 @@ Discovery is fixture-first. Tests and regression runs must use local JSON or
 HTML fixtures:
 
 ```bash
+DH_FIXTURE_ROOT="${CTF_DREAMHACK_FIXTURE_ROOT:-$HOME/.ctf-solver/fixtures/dreamhack}"
 python3 scripts/platform_discover.py \
   --platform dreamhack \
   --event dreamhackWargame \
   --adapter dreamhack \
-  --source fixtures/dreamhack.json \
+  --source "$DH_FIXTURE_ROOT/discovery.json" \
   --queue \
   --json
 ```
@@ -37,18 +38,37 @@ Live Dreamhack discovery is intentionally unsupported in this scaffold. Passing
 a URL without `--live` is blocked as a live-mode request, and passing `--live`
 returns an unsupported-live-discovery result.
 
+## Private Fixtures
+
+Private Dreamhack fixtures are local-only. The default private fixture root is
+`~/.ctf-solver/fixtures/dreamhack`; set `CTF_DREAMHACK_FIXTURE_ROOT` to override
+it. Keep real Dreamhack discovery/detail/download responses, account metadata,
+session values, CSRF values, cookies, raw platform responses, and private VM
+URLs out of the repo.
+
+The repo may contain dummy parser fixtures only under
+`tests/fixtures/dreamhack/`. Those files must be synthetic and must not be
+copied from live Dreamhack responses. The adapter rejects repo-local fixture
+sources outside that dummy fixture directory and rejects fixture JSON containing
+Dreamhack auth/session/cookie/raw-response field names.
+
+`scripts/doctor.py` prints the resolved private fixture root and warns when it
+resolves inside the repo.
+
 ## Attachments
 
-Fixture downloads copy local `files`, `attachments`, or `handouts` entries into
-`CTF_DOWNLOAD_ROOT`. Network attachment download is not implemented.
+Fixture downloads copy local `files`, `attachments`, `handouts`, or `downloads`
+entries into `CTF_DOWNLOAD_ROOT`. Network attachment download is not
+implemented.
 
 ```bash
+DH_FIXTURE_ROOT="${CTF_DREAMHACK_FIXTURE_ROOT:-$HOME/.ctf-solver/fixtures/dreamhack}"
 python3 scripts/platform_download.py \
   --platform dreamhack \
   --event dreamhackWargame \
   --adapter dreamhack \
   --challenge-id dreamhack/dreamhackwargame/web/web-baby \
-  --source fixtures/dreamhack-detail.json \
+  --source "$DH_FIXTURE_ROOT/detail.json" \
   --json
 ```
 

@@ -44,6 +44,12 @@ host values; it never stores Dreamhack session values, CSRF values, cookies, raw
 responses, flags, exploit code, or private VM URLs. See
 `docs/dreamhack-adapter.md`.
 
+Dreamhack private fixtures default to `~/.ctf-solver/fixtures/dreamhack` and can
+be moved with `CTF_DREAMHACK_FIXTURE_ROOT`. The repo only allows synthetic dummy
+fixtures under `tests/fixtures/dreamhack/`; live response captures, cookies,
+session values, CSRF values, and raw platform responses must stay outside the
+repo.
+
 Before attaching a real site adapter, use `scripts/platform_live_smoke.py` in
 dry-run mode. For CTFd read-only discovery, generate the checklist with
 `scripts/ctfd_live_smoke_runbook.py` first. Add `--live` only for explicit
