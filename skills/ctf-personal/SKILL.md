@@ -352,6 +352,13 @@ p[76:80] = b".txt"
 - glibc 2.39 + Full RELRO에서는 poisoned `malloc(0x220)`을 `_IO_2_1_stdout_`으로 보내 fake FILE을 복사하고, `_IO_wfile_jumps` 기반 House-of-Apple2 경로로 `system("true;cat flag")`를 호출하는 루트가 짧다.
 - tcache poison과 fake FILE에는 heap page 기준 offset이 따로 필요할 수 있다. poison source chunk와 final current record 주소를 trace로 분리해서 잡고, trigger가 선택하는 history slot도 고정하면 원격 성공률이 올라간다.
 
+### FILE first-0x78 overwrite -> fread second-stage FSOP
+- `read(0, fp, 0x78)`처럼 FILE 앞부분만 덮은 뒤 같은 stream으로 `fread()`를 호출하면, 첫 stage에서 `_fileno=0`, `_IO_buf_base=fp+0x78`, `_IO_buf_end=fp+large`로 바꿔 stdin 데이터를 FILE 나머지 영역에 쓰는 second-stage primitive를 만들 수 있다.
+- 방어 함수가 `_wide_data`/vtable을 "기존 값과 비교"하지 않고 함수 내부에서 자기 자신과만 비교하면, 우리가 미리 설정한 `_wide_data`와 vtable은 그대로 통과한다. `_chain`만 0으로 지워도 `_IO_list_all` head가 현재 fp이면 exit flush 트리거는 살아 있다.
+- `system(fp)`가 FILE flags의 NUL/비문자 때문에 불가능하면 `_IO_wfile_jumps -> _IO_wdoallocbuf -> wide_vtable->__doallocate` 슬롯을 full `setcontext(fp)`로 바꾼다. `fp+0xa0`은 `_wide_data`여야 하므로 이를 stack으로 쓰고, `fp+0xa8=pop rsp; ret`, `wide+0=rop_addr`로 한 번 더 pivot한다.
+- full `setcontext(fp)`는 `fldenv [fp+0xe0]`와 `ldmxcsr [fp+0x1c0]`를 거치므로, controlled 영역에 fake FPU env 포인터와 `MXCSR=0x1f80`을 준비한다. 그 뒤 syscall ROP로 `close(original_fd) -> open(flag_path) -> read -> write`가 안정적이다.
+- pwn.red jail은 Dockerfile상 `/srv/app/flag.txt`라도 chroot 이후 원격 경로가 `/app/flag.txt`일 수 있다. 로컬 직접 실행 경로와 원격 jail 경로를 분리해서 검증한다.
+
 ### stack use-after-return note pointer -> current frame ROP
 - note/compose 함수가 stack local buffer 주소를 global pointer로 저장하고 반환하면, 다음 menu handler의 같은 크기 stack frame이 그 주소를 재사용한다. handler 시작부의 `memset(local, 0, N)` 때문에 원본 note는 사라져도, global pointer는 현재 handler frame의 canary/saved RBP/return address 기준점이 된다.
 - `peek(offset, length)`가 `global_ptr + signed_offset`를 bounds 없이 출력하면 `buffer+0x88` 부근에서 canary, `buffer+0x98`에서 PIE return, 상위 caller frame에서 libc return을 한 번에 leak한다. glibc 2.39에서는 main을 호출한 뒤 저장된 return address가 `libc_base + 0x2a1ca`인 형태를 먼저 확인한다.
