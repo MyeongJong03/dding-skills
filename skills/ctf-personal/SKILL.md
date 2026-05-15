@@ -391,6 +391,24 @@ from Crypto.Util.number import *
 - Go: 심볼 스트리핑 → GoReSym으로 복원
 - Rust: 거대 바이너리, 패닉 문자열에서 함수 이름 힌트
 
+### ELF NUL-byte -> Space Corruption 복구
+
+ELF가 `file`에서 `data` 또는 `ELF ... unknown arch 0x203e`처럼 보이고, 헤더/문자열에 `0x00`이 있어야 할 자리가 대량의 `0x20`으로 바뀌어 있으면 NUL byte가 space로 치환된 손상일 수 있다.
+
+체크리스트:
+- 첫 4바이트가 `7f 45 4c 4b`처럼 `ELF` 한 글자만 틀리면 먼저 magic을 `7f 45 4c 46`으로 복사본에만 복구한다.
+- `xxd -g1 -l64`에서 `EI_PAD`, `e_type`, `e_machine`, `e_phoff` 주변에 `20`이 반복되면 `LC_ALL=C tr ' ' '\000' < chall > fixed`로 전체 NUL 후보를 만든다.
+- 전체 치환본은 ELF 헤더/심볼/대부분의 코드 분석용으로 쓰되, 실제 코드의 정상 displacement/immediate에 있던 `0x20`까지 0으로 바뀔 수 있으므로 실행 결과를 맹신하지 않는다.
+- unstripped이면 전체 치환본에서 `nm`/`r2`로 함수 주소를 얻고, 원본 바이트에서 `mov edi, imm32`, `mov esi, imm32`, `lea rdi, [rip+...]` 같은 출력 조각을 읽어 플래그를 재구성한다.
+
+짧은 추출 형태:
+```python
+def imm32(blob, off):
+    return int.from_bytes(bytes(0 if b == 0x20 else b for b in blob[off:off+4]), "little")
+
+# mov edi, imm32 / mov esi, imm32 immediate는 space를 NUL로 보고 printable만 수집한다.
+```
+
 ### 원격 실행 코드가 파일 검증 오라클일 때
 - 클라이언트가 서버에서 받은 x86-64 stage를 `mmap(PROT_EXEC)` 후 실행하고 `uint64 ret`만 돌려주면, stage 자체가 플래그 데이터를 직접 들고 있지 않아도 **로컬 파일 검증 오라클**일 수 있다.
 - `open("flag.png")`, `mmap`, `cmp [mapped+off], embedded` 패턴이면 embedded bytes/constraints를 추출해서 파일을 재구성한다. 서버에는 실제 실행 결과 대신 성공값을 보내 다음 stage를 계속 받는다.
