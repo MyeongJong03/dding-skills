@@ -1,23 +1,43 @@
 # Regression Command Pack
 
 `scripts/status_summary.py` and `scripts/regression_check.py` provide
-paste-safe, marker-based command output for routine repo health checks. They
-are designed for manual handoff: run one command, paste the whole marker block,
-and the receiving agent can judge the state without asking for every individual
-command result.
+paste-safe, marker-based status and regression output. They are meant for
+handoff: run one command, paste the whole marker block, and the next terminal or
+agent can judge the state without seeing raw secrets.
 
-## Status Summary
-
-Use this when you ask for the current repo/setup status:
+Shortcuts are preferred when installed:
 
 ```bash
 ctf-status
+ctf-check
+ctf-regression
+```
+
+Direct fallbacks:
+
+```bash
+python3 scripts/status_summary.py
+python3 scripts/regression_check.py --quick
+python3 scripts/regression_check.py
+```
+
+## Status Summary
+
+Use this when someone asks for current setup or repo status:
+
+```bash
+ctf-status
+```
+
+Fallback and optional formats:
+
+```bash
 python3 scripts/status_summary.py
 python3 scripts/status_summary.py --verbose
 python3 scripts/status_summary.py --json
 ```
 
-The default output is bounded by:
+Default output is bounded by:
 
 ```text
 ===== CTF_SOLVER_STATUS_BEGIN =====
@@ -35,47 +55,74 @@ The default output is bounded by:
 The command performs quick checks only. It does not run the full pytest suite
 and does not run live platform smoke.
 
-`[mcp_raw_consistency]` compares safe booleans from the raw
-`~/.claude.json` text with the parsed `mcpServers` map. It reports whether the
-raw text contains quoted `ctf_solver`, `dreamhack_solver`, and `ReVa` names,
-then reports parsed `json_has_*` booleans for the MCP server names. A clean
-canonical setup has `raw_contains_ctf_solver=true`,
-`raw_contains_dreamhack_solver=false`, `json_has_ctf_solver=true`,
-`json_has_dreamhack_solver=false`, matching raw/json booleans, and `ok=true`.
-If the legacy Dreamhack-specific MCP name appears in raw text or parsed JSON,
-the section reports `ok=false` with a warning. The raw config body is never
-printed.
+## `[mcp_raw_consistency]`
 
-In the normal clean case, `[redaction]` and `[repo_raw_grep]` print only short
-`result=... clean` lines. Use `--verbose` when you need the benign grep
-locations for debugging. If a real finding appears, the default output includes
-the finding count and file locations.
+This section checks whether the active MCP config uses the expected canonical
+server names without printing the active config body.
 
-Safety rules:
+What it reports:
 
-- `~/.claude.json` is never printed. The script parses it only to summarize
-  `mcpServers` names.
-- Repo grep details, when shown with `--verbose` or on failure, are
-  location-only (`relative-file:line`), never matched line bodies.
-- Docker is optional. Missing Docker or missing `ctf-pwn:latest` is reported as
-  info, not as a failure.
-- The summary must not include raw cookies, auth headers, private CTF URLs,
-  flags, account metadata, browser storage, or live credential values.
+- whether the raw config text contains quoted `ctf_solver`
+- whether the raw config text contains quoted `dreamhack_solver`
+- whether the raw config text contains quoted `ReVa`
+- whether parsed `mcpServers` contains those same names
+- whether raw-text booleans and parsed-JSON booleans match
+
+Normal current setup:
+
+```text
+raw_contains_ctf_solver=true
+raw_contains_dreamhack_solver=false
+json_has_ctf_solver=true
+json_has_dreamhack_solver=false
+raw_json_ctf_solver_match=true
+raw_json_dreamhack_solver_match=true
+ok=true
+```
+
+`raw_contains_dreamhack_solver=false` is the expected active-config result.
+`dreamhack_solver` can still appear inside this repo because legacy detector,
+migration guidance, and regression fixtures need to recognize the old name.
+That repo-local legacy text is different from registering `dreamhack_solver` as
+an active MCP server.
+
+Safety guarantee:
+
+- `~/.claude.json` is never printed.
+- The script summarizes MCP server names from `mcpServers`.
+- Raw cookies, auth headers, tokens, account metadata, browser storage, flags,
+  platform responses, writeups, exploits, and private run logs are not printed.
+
+Use `--verbose` only when you need benign grep locations for debugging. Even in
+verbose mode, grep details are location-only, not matched line bodies.
 
 ## Regression Check
 
-Use this after larger changes, before committing or asking another terminal to
-review the state:
+Use the quick check after routine edits:
 
 ```bash
 ctf-check
-ctf-regression
-python3 scripts/regression_check.py
-python3 scripts/regression_check.py --quick
-python3 scripts/regression_check.py --quick --skip-offline-e2e
 ```
 
-The default output is bounded by:
+Fallback:
+
+```bash
+python3 scripts/regression_check.py --quick
+```
+
+Use the full check before larger handoffs, release-like changes, or commits:
+
+```bash
+ctf-regression
+```
+
+Fallback:
+
+```bash
+python3 scripts/regression_check.py
+```
+
+Default full output is bounded by:
 
 ```text
 ===== CTF_SOLVER_REGRESSION_BEGIN =====
@@ -100,7 +147,7 @@ The full command runs:
 - `python3 -m pytest tests`
 - `python3 scripts/doctor.py`
 - public metrics safety check
-- MCP docs drift check
+- MCP tools documentation drift check
 - redaction self-test
 - fixture-only offline E2E smoke for CTFd and Dreamhack
 - compileall for `tools`, `server.py`, `scripts`, and `ctf_solver_core`
@@ -110,14 +157,57 @@ The full command runs:
 It still keeps the marker layout. `--skip-offline-e2e` is available when you
 need a faster local-only check and have already run the offline E2E smoke.
 
+## Paste-Safe Marker Usage
+
+Good handoff:
+
+```bash
+ctf-status
+```
+
+or:
+
+```bash
+ctf-check
+```
+
+Then paste the whole marker block.
+
+Avoid pasting:
+
+- raw `~/.claude.json`
+- raw `~/.codex/config.toml`
+- cookies, bearer headers, session values, CSRF values
+- browser storage state contents
+- platform raw responses
+- flags
+- exploit code
+- private run logs
+- private URLs with secret query strings
+
+The receiving agent should judge status by section names and `ok=true/false`
+lines, not by asking for raw config files.
+
 ## Operator Shortcuts
 
-`scripts/install_shortcuts.py` installs short macOS-friendly wrappers into
-`~/.local/bin` by default:
+`scripts/install_shortcuts.py` installs macOS-friendly wrappers into
+`~/.local/bin` by default.
+
+Dry-run first:
 
 ```bash
 python3 scripts/install_shortcuts.py --dry-run
+```
+
+Install:
+
+```bash
 python3 scripts/install_shortcuts.py
+```
+
+Uninstall:
+
+```bash
 python3 scripts/install_shortcuts.py --uninstall
 ```
 
@@ -128,8 +218,9 @@ Installed commands:
 - `ctf-regression` runs `python3 <repo>/scripts/regression_check.py`
 
 The wrappers embed the absolute repo path from the current checkout. If the
-repo is moved, rerun the installer from the new checkout. If `~/.local/bin` is
-not on `PATH`, add it in the shell profile, for example:
+repo is moved, rerun the installer from the new checkout.
+
+If `~/.local/bin` is not on `PATH`, add it in the shell profile:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
@@ -138,21 +229,20 @@ export PATH="$HOME/.local/bin:$PATH"
 Options:
 
 - `--dry-run` shows the planned install/uninstall without writing files.
-- `--bin-dir <path>` installs into a different wrapper directory, useful for
-  tests or temporary shells.
+- `--bin-dir <path>` installs into a different wrapper directory.
 - `--uninstall` removes wrappers managed by this installer.
 - `--force` replaces or removes an existing unmanaged file with the same name.
 
-Windows/WSL2 shortcuts are a later phase. For now, use the Python commands
-directly there, or install the wrappers only inside a WSL shell after reviewing
-the target `PATH`.
+Windows/WSL2 shortcuts are a later phase. For now, use direct Python commands
+there, or install wrappers only inside a WSL shell after checking the target
+`PATH`.
 
 ## Network And Secret Policy
 
 Regression commands follow a no live network default and do not perform live
-network platform actions. Offline E2E
-uses synthetic local fixtures and temp roots only. Live smoke remains a
-separate explicit step using the live smoke runbook and `--live` approval.
+platform actions. Offline E2E uses synthetic local fixtures and temp roots only.
+Live smoke remains a separate explicit step using the live smoke runbook and
+`--live` approval.
 
 The command pack captures child command output and only prints redacted,
 bounded summaries on failure. Do not paste raw global config files, browser
