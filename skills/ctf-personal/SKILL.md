@@ -485,6 +485,23 @@ if s.check() == sat:
 - TLS 복호화: 키로그 파일 활용
 - USB HID: hidtool / USB-Mouse-Pcap-Visualizer
 
+### Crushed ICNS metadata XOR
+
+작은 `.icns`/`icns` 파일이 `file`에서는 정상처럼 보이지만 chunk 길이/필드가 이상하고 `LZMA_DATA:` 같은 마커 뒤에 짧은 고엔트로피 데이터가 있으면, 실제 압축 해제 전에 **메타데이터 문자열/카운터를 XOR key로 쓰는 장난**을 먼저 본다.
+
+체크리스트:
+- `xxd`에서 `icns`, `name`, 파일 타입(`ttf` 등), 좌표/태그(`xy`), codec 문자열(`lzma`)처럼 의미 있는 토큰을 순서대로 모은다.
+- flag prefix로 첫 key bytes를 검증한다. 예: `cipher[0:5] ^ b"tjctf"`가 `b"icns\\x01"`처럼 헤더/카운터와 맞으면 XOR 경로가 맞다.
+- 마커 직전 1바이트(`K` 등)까지 key에 포함되는지 확인한다.
+
+형태:
+```python
+marker = b"LZMA_DATA:"
+cipher = blob[blob.index(marker) + len(marker):].rstrip(b"\x00")
+key = b"icns" + b"\x01" + b"ttf" + b"\x02" + b"xy" + b"lzma" + b"K"
+flag = bytes(c ^ key[i % len(key)] for i, c in enumerate(cipher))
+```
+
 ---
 
 ## OSINT 패턴
