@@ -236,6 +236,18 @@ http://example.com/#%3B%7D%7D%7D%0A%0Assl_engine%20../../../../../../mnt/share/p
 - sink가 URL 자체가 아니라 "설정 문자열"로 재사용되는지 확인
 - decode 이후 값이 별도 재검증 없이 config/template에 박히면 코드 주입 관점으로 전환
 
+### Server-Side CSS Selector Oracle
+
+서버가 사용자 CSS를 파싱한 뒤 실제 브라우저가 아니라 `soupsieve`, `cheerio`, `css-select` 같은 selector 엔진으로 숨겨진 DOM에 적용하고,
+매칭 결과의 style 값을 응답에 그대로 노출하면 CSS selector injection으로 secret을 prefix oracle처럼 뽑을 수 있다.
+
+체크리스트:
+- 숨겨진 secret 요소와 관측 가능한 oracle 요소의 DOM 관계를 먼저 복원한다. 예: `<input id=flag value=...> + <div id=oracle>`.
+- sibling/ancestor selector가 가능하면 `input#flag[value^="PREFIX"]+#oracle{background:#000001}` 형태로 prefix 조건을 oracle 요소 매칭 조건에 건다.
+- 서버가 `background` 값을 CSS 유효성 검증 없이 그대로 저장하면 후보 문자별로 `#000001`, `#000002`처럼 다른 marker를 넣어 한 요청에 여러 후보를 배치한다.
+- CSS 길이 제한이 있으면 prefix 길이에 따라 batch 크기를 줄인다.
+- attribute string 안의 `"`, `\`, 제어문자는 CSS string escape로 처리하고, `}` 같은 문자는 string 내부에 넣어 rule 구조를 깨지 않게 한다.
+
 ### SSTI
 ```python
 # Jinja2 기본 확인
