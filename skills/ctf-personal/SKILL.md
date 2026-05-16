@@ -17,6 +17,17 @@ description: >
 
 ## Web 패턴
 
+### Next.js Server Actions RCE 이후 Git 이력 우선 확인
+
+Next.js/React Server Actions Flight RCE로 컨테이너 명령 실행을 얻으면 `/flag.txt`, `FLAG` 환경변수, DB의 flag-like API key가 미끼일 수 있다.
+앱 루트에 `.git`이 남아 있으면 파일시스템 전체 스캔보다 먼저 삭제된 설정 파일을 확인한다.
+
+체크리스트:
+- `git --no-pager log --oneline --max-count=5`로 초기 커밋/삭제 커밋을 확인한다.
+- `git --no-pager show <initial>:.env` 또는 `git --no-pager show <commit>:<deleted-file>`를 먼저 본다.
+- `NEXT_REDIRECT` 헤더로 결과를 회수할 때는 길이 제한이 있으므로 `sed -n 's/^FLAG=//p'`, `head -c`, 특정 파일 조회처럼 출력량을 제한한다.
+- `/flag.txt`, `/proc/1/environ`, SQLite/Redis의 flag-like 값은 제출 실패 시 즉시 미끼로 분류하고 Git 이력/빌드 산출물로 전환한다.
+
 ### XSS + Bot 챌린지
 1. XSS 페이로드 → 봇 방문 유도
 2. document.cookie 또는 내부 fetch → bore.pub 콜백
