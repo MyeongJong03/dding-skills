@@ -15,6 +15,13 @@
 - generic adapter가 정수 응답을 `error`로 표시해도 같은 flag를 즉시 재제출하지 말고 먼저 ID 상태를 확인한다.
 - Cookie/Authorization 원문과 raw response 전체는 public metrics나 writeup에 남기지 않는다.
 
+### GZCTF 첨부파일 교체 감지
+- 같은 challenge ID와 파일명이어도 운영 중 attachment 내용이 교체될 수 있다.
+- platform sync 때 파일 존재 여부만 보지 말고 크기와 SHA-256을 다시 계산한다.
+- digest가 달라지면 기존 추출물, offset, solver 결과를 stale로 표시하고 새 파일에서 다시 검증한다.
+- 원격 동작과 attachment가 충돌하면 분석 실수로 단정하기 전에 현재 platform digest와 로컬 digest를 비교한다.
+- writeup에는 사용한 attachment hash를 기록하되 인증 URL과 query string은 남기지 않는다.
+
 ### Dreamhack
 - 플래그 포맷: DH{...}
 - 봇: Puppeteer 기반 Chromium

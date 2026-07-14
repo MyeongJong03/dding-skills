@@ -265,6 +265,24 @@ http://example.com/#%3B%7D%7D%7D%0A%0Assl_engine%20../../../../../../mnt/share/p
 - sink가 URL 자체가 아니라 "설정 문자열"로 재사용되는지 확인
 - decode 이후 값이 별도 재검증 없이 config/template에 박히면 코드 주입 관점으로 전환
 
+### 첫 줄만 검증하고 전체 multiline batch를 실행하는 불일치
+
+진단/핑/배치 처리 폼이 여러 줄 입력을 받으면, validator가 `splitlines()[0]` 또는 첫 줄만 검사하고
+sink는 원본 문자열 전체를 `shell_exec`, `exec`, `subprocess(..., shell=True)`에 넘기는지 먼저 확인한다.
+
+체크리스트:
+- 정상 IP/호스트를 첫 줄에 두고 두 번째 줄에 최소 부작용 명령(`id`, `printf`)을 넣어 PoC한다.
+- 세미콜론이 필터링돼도 개행 자체가 shell command separator로 작동할 수 있다.
+- frontend의 줄별 검증보다 backend가 실제로 어느 변수를 실행하는지 소스에서 추적한다.
+- RCE 확인 후 고정 `/flag` 경로 추측을 반복하지 말고 `find`를 깊이/이름 제한과 함께 사용한다.
+
+```text
+127.0.0.1
+127.0.0.1;id
+```
+
+첫 줄이 allowlist를 통과하고 전체 raw value가 실행되면, SSRF나 추가 parser 우회보다 직접 RCE를 우선한다.
+
 ### Server-Side CSS Selector Oracle
 
 서버가 사용자 CSS를 파싱한 뒤 실제 브라우저가 아니라 `soupsieve`, `cheerio`, `css-select` 같은 selector 엔진으로 숨겨진 DOM에 적용하고,
@@ -334,6 +352,26 @@ payload = pickle.dumps(Exploit())
 - Introspection으로 스키마 덤프
 - 클라이언트 사이드 이스케이프 결함 우선 탐색
 - 관리자 권한 mutation 탐색
+
+### Node `vm`에서 host-realm callback의 constructor로 탈출
+
+`vm.createContext()`가 문자열 코드 생성과 sandbox 쪽 `Function`을 막아도, host에서 만든 함수를
+context에 주입하면 그 함수의 `.constructor`는 host realm의 `Function`일 수 있다.
+
+체크리스트:
+- context에 주입된 callback/logger/emitter를 모두 나열한다.
+- sandbox의 `this.constructor.constructor` 실패를 host callback에도 그대로 일반화하지 않는다.
+- `callback.constructor('return process')()`처럼 host object 회수가 되는지 최소 PoC로 확인한다.
+- prototype pollution이나 feature flag가 코드 경로를 여는 조건이면, pollution과 realm escape를 분리해 각각 검증한다.
+
+```javascript
+const processRef = emit.constructor('return process')();
+const output = processRef.mainModule.require('child_process').execSync('id').toString();
+emit(output);
+```
+
+문자열 코드 생성 차단은 realm별 제약이다. sandbox 자체 constructor만 반복하지 말고 host에서 넘어온
+함수를 우선 점검한다.
 
 ---
 
@@ -511,6 +549,26 @@ def imm32(blob, off):
 - 중간에 `Solve: ... = ?`, figlet 숫자 `Input:`, `ptrace(PTRACE_TRACEME)` 같은 anti-automation stage가 섞이면 decoded stage를 실행하지 말고 문자열/OCR/고정 syscall 결과를 파싱해서 ret 값을 직접 전송한다.
 - 커버리지는 `bytearray`로 추적하고, 겹치는 chunk는 conflict 검증한다. PNG/JPEG처럼 헤더/크기 검증 stage(`fstat`, `qword/dword cmp`)도 작은 chunk로 병합하면 앞부분 복원이 빨라진다.
 
+### PyInstaller native DLL의 component score를 복구 오라클로 사용
+
+PyInstaller 프로그램이 입력 전체의 정답 여부 대신 여러 component score를 출력하면 Python wrapper만 보지 말고
+번들에서 DLL을 추출해 Wine에서 직접 반복 호출한다. 점수가 입력의 일부에만 반응하면 각 필드를 독립 오라클로 분리할 수 있다.
+
+체크리스트:
+- `pyinstxtractor`로 번들을 풀고 `.pyd`/`.dll` import 및 exported function을 찾는다.
+- 한 번에 한 field/byte만 바꾸고 score vector의 어느 component가 변하는지 기록한다.
+- deterministic score가 있으면 전체 문자열 brute force보다 coordinate descent를 우선한다.
+- 경계값(`e60`, signed/unsigned, NaN, locale parsing)은 별도 field로 취급한다.
+- Apple Silicon에서는 amd64 Wine 컨테이너를 쓰되 입력/출력 protocol을 고정하고, 최종 후보는 원본 실행 파일에서도 재검증한다.
+
+```python
+for pos in range(len(candidate)):
+    best = max(alphabet, key=lambda ch: score(candidate[:pos] + ch + candidate[pos+1:]))
+    candidate = candidate[:pos] + best + candidate[pos+1:]
+```
+
+점수가 plateau에 들어가면 같은 변형을 반복하지 말고 field grouping과 parser edge case를 다시 복원한다.
+
 ### Z3 플래그 역산
 ```python
 from z3 import *
@@ -577,6 +635,25 @@ for token in cover_ids:
 - Wireshark: Follow TCP/HTTP stream
 - TLS 복호화: 키로그 파일 활용
 - USB HID: hidtool / USB-Mouse-Pcap-Visualizer
+
+### 다중 탭 PCAP은 TCP payload를 sequence number로 중복 제거
+
+같은 세션을 여러 인터페이스/브리지에서 동시에 캡처하면 동일 packet이 두 번 이상 나타날 수 있다.
+packet 수나 payload 길이를 그대로 세면 전파 횟수와 명령 순서가 틀어진다.
+
+체크리스트:
+- flow를 양방향 4-tuple로 정규화하고 방향별 `(seq, payload)`를 기준으로 deduplicate한다.
+- retransmission과 다중 탭 복제본을 구분하기 어렵다면 timestamp보다 sequence/payload 동일성을 우선한다.
+- payload-bearing RST는 성공한 application exchange로 세지 않는다.
+- persistent connection과 즉시 RST되는 짧은 시도를 나눠 첫 정상 control session을 찾는다.
+- deduplicate 전후 packet/payload 수를 출력해 분석기가 실제로 중복을 제거했는지 검증한다.
+
+```python
+key = (flow_id, direction, tcp.seq, bytes(tcp.data))
+if key in seen:
+    continue
+seen.add(key)
+```
 
 ### PCAP record header의 captured length / wire length covert channel
 
