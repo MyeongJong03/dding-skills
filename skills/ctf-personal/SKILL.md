@@ -339,6 +339,21 @@ payload = pickle.dumps(Exploit())
 
 ## Pwn 패턴
 
+### 첨부 바이너리와 배포 바이너리가 다를 때 arbitrary-read로 live layout 복구
+
+첨부 ELF의 PIE/canary/CET 여부나 함수 배치가 원격 서비스와 다르면 로컬 offset을 계속 보정하지 말고,
+format string `%s` 같은 arbitrary-read primitive로 배포 코드 자체를 작은 범위씩 덤프한다.
+
+체크리스트:
+- 먼저 format string의 stack index와 attacker-controlled address 위치를 고정한다.
+- 알려진 함수 return address 주변을 읽어 live text base, prologue, canary access, frame size를 확인한다.
+- attachment gadget 대신 live code에서 `pop`/`syscall`/`leave; ret` 바이트를 재확인한다.
+- leak한 code pointer의 page alignment와 하위 비트를 검증한 뒤에만 ROP offset을 확정한다.
+- attachment와 remote가 다르다는 사실이 확인되면 attachment 기반 crash를 반복하지 않는다.
+
+Junior Crypt 2026의 Red Tide Terminal 계열에서는 attachment가 PIE+canary였지만 배포본은 non-PIE이고
+취약 frame에 canary가 없었다. format-string dump로 live gadget과 frame을 복구한 뒤 staged ORW가 안정화됐다.
+
 ### Decoy 포트 뒤에 공개 course 포트가 살아있는 유형
 - 문제 설명에서 몇 개의 decoy endpoint만 강조해도, 연관된 공개 vhost/course site가 살아 있으면 거기에 적힌 원래 포트를 먼저 다시 스캔한다.
 - 특히 교육용/랩형 문제는 `/page/...` 문서에 `ssh -p ...`, `:5151`, `:5301-5303` 같은 실제 공략 포트가 그대로 남아 있는 경우가 있다.
@@ -410,6 +425,22 @@ p[76:80] = b".txt"
 ---
 
 ## Crypto 패턴
+
+### 변형 ECC 생성점 -> 새 곡선 차수 -> signed subgroup nonce HNP
+
+표준 곡선 문제처럼 보여도 생성점 좌표가 한두 바이트 다르면 손상 파일로 넘기지 말고,
+점으로부터 곡선 계수와 실제 생성점 차수를 다시 계산한다.
+
+절차:
+1. short Weierstrass에서 `B = y^2 - x^3 mod p`를 계산해 실제 곡선을 확정한다.
+2. 공개키와 모든 ECDSA `r` lift가 같은 곡선에 놓이는지 검증한다.
+3. 생성점 차수를 인수분해하고 작은 prime factor `m`에 대해 `H=(q/m)G`를 만든다.
+4. 각 `r`을 `(r,y)`와 `(r,-y)` 두 점으로 lift한다. x좌표만 공개되므로 nonce residue는 `k mod m` 또는 `-k mod m`이다.
+5. BSGS로 signed residue를 얻고, 적은 서명 수에 대해 sign을 열거한 뒤 ECDSA 식을 HNP lattice로 푼다.
+6. 후보 개인키는 모든 서명과 공개키로 검증한 다음에만 KDF/복호화에 쓴다.
+
+핵심은 부가 trace 전체를 먼저 해석해야 한다고 가정하지 않는 것이다. 작은 부분군 residue만으로 HNP가 충분하면
+복잡한 bucket/bit-plane 해석은 후순위로 내린다.
 
 ### RSA
 ```python
@@ -495,6 +526,26 @@ if s.check() == sat:
 
 ## Misc 패턴
 
+### LLM token-rank 스테가노그래피는 runtime과 eval granularity까지 고정
+
+커버 문장의 각 token이 다음-token 확률 순위로 비밀을 전달하는 문제에서는 model 파일만 같다고 재현되는 것이 아니다.
+`llama.cpp` 버전, tokenizer 옵션, CPU/Metal backend, batch 크기가 근접 logit 순위를 바꿀 수 있다.
+
+체크리스트:
+- 문제에서 지정한 GGUF와 `llama-cpp-python` 버전을 그대로 사용한다.
+- cover prompt와 cover text를 분리하고 `add_bos`/`special` 값을 명시한다.
+- 전체 cover를 한 번에 `eval()`하지 말고 생성 당시처럼 token을 한 개씩 평가하며 rank를 저장한다.
+- CPU와 Metal 결과가 다르면 한 backend를 정답으로 단정하지 말고 top-k 교집합/순위 범위를 기록한다.
+- 알려진 flag prefix에서 rank replay를 검증한 뒤 남은 token path만 bounded search한다.
+
+```python
+model.eval(prompt_ids)
+for token in cover_ids:
+    order = np.argsort(np.asarray(model.scores)[model.n_tokens - 1])[::-1]
+    ranks.append(int(np.where(order == token)[0][0]))
+    model.eval([token])
+```
+
 ### Pyjail / Bash Jail
 - `__builtins__` 복원: `().__class__.__bases__[0].__subclasses__()`
 - 문자 제한 우회: `chr()` 조합, exec/eval 체인
@@ -526,6 +577,28 @@ if s.check() == sat:
 - Wireshark: Follow TCP/HTTP stream
 - TLS 복호화: 키로그 파일 활용
 - USB HID: hidtool / USB-Mouse-Pcap-Visualizer
+
+### PCAP record header의 captured length / wire length covert channel
+
+TLS payload가 정상이고 반복 flow 모양만 미세하게 다르면 protocol field보다 먼저 PCAP per-record header를 검사한다.
+classic PCAP은 각 packet에 저장 길이 `incl_len/captured_len`과 원래 wire 길이 `orig_len/original_len`을 모두 보존한다.
+
+체크리스트:
+- 모든 packet에 대해 `deficit = original_len - captured_len` 분포를 센다.
+- deficit이 `0..7`, `0..15`처럼 작은 고정 범위면 각각 3-bit/4-bit symbol 가능성을 우선한다.
+- 같은 방향/포트의 PSH+ACK packet 위치를 flow별로 그룹화해 행렬을 만든다.
+- all-zero row/column은 delimiter 또는 calibration일 수 있다.
+- row-major와 column-major를 모두 시험하되 known flag prefix로 방향을 즉시 검증한다.
+- clean reference PCAP이 있으면 payload diff보다 modified/truncated packet index를 먼저 비교한다.
+
+```python
+deficits = [record.original_len - record.captured_len for record in records]
+bits = ''.join(f'{x:03b}' for x in column_major_symbols)
+decoded = bytes(int(bits[i:i+8], 2) for i in range(0, len(bits), 8))
+```
+
+이 채널은 TLS 복호화가 필요 없고 raw PCAP header만으로 재현된다. 일반 stream reassembly, DNS/IP-ID,
+Ethernet padding을 깊게 보기 전에 기본 structural scout에 포함한다.
 
 ### Crushed ICNS metadata XOR
 

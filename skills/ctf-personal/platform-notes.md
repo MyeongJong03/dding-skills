@@ -8,6 +8,13 @@
 - 플래그 포맷: `FLAG{...}` 또는 `[대회명]{...}`
 - CTFd 플랫폼: `/api/v1/challenges`로 문제 목록 조회 가능
 
+### GZCTF 비동기 제출 응답
+- challenge submit POST가 HTTP 200과 JSON/object 대신 정수 submission ID만 반환할 수 있다.
+- 이 정수 응답을 즉시 Accepted/Error로 해석하지 않는다. 제출 ID를 저장하고 status endpoint를 bounded polling한다.
+- 실제 상태가 `Accepted`가 된 뒤 flag store와 challenge solved 상태를 한 번만 갱신한다.
+- generic adapter가 정수 응답을 `error`로 표시해도 같은 flag를 즉시 재제출하지 말고 먼저 ID 상태를 확인한다.
+- Cookie/Authorization 원문과 raw response 전체는 public metrics나 writeup에 남기지 않는다.
+
 ### Dreamhack
 - 플래그 포맷: DH{...}
 - 봇: Puppeteer 기반 Chromium
