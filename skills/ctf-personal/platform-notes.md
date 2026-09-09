@@ -32,6 +32,12 @@
 - `restart` 후에는 host와 port가 둘 다 바뀔 수 있다. 이전 `host:port`를 재사용하지 말고 페이지에서 다시 긁어야 한다.
 - 외부 CTF 문제를 재호스팅한 워게임은 hidden secret이 원 대회 포맷(`INCOGNITO{...}` 등)으로 남아 있을 수 있다. 제출도 원 포맷 그대로 받는 경우가 있으니, `DH{...}` 가정이 안 맞으면 실제로 leak된 포맷을 먼저 제출해 본다.
 
+### PortSwigger Web Security Academy
+- 개별 랩의 exploit-server 호스트명과 lab 호스트명이 같은 식별자를 공유한다고 가정하지 않는다. exploit server 화면의 `Back to lab` 링크를 현재 랩 origin의 기준으로 사용한다.
+- CORS 풀이에서는 본 exploit 전에 credentialed XHR의 `status:response_length`만 exploit-server log로 보내는 안전한 PoC로 브라우저가 응답 본문을 읽었는지 확인한다.
+- `Submit solution`은 JavaScript prompt를 열 수 있다. 브라우저 자동화에서는 DOM input을 찾기 전에 활성 dialog를 확인하고 `prompt.accept(answer)`로 제출한다.
+- access log의 계정 JSON, 세션, API key, victim 내부 주소, 임시 lab/exploit URL은 원문을 남기지 않는다. 사용자명 일치, 길이, 문자 형태, 공식 `LAB Solved`만 증거로 기록한다.
+
 ---
 
 ## macOS / Apple Silicon
