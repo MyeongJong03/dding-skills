@@ -12,6 +12,7 @@ description: >
 ## 추가 리소스
 - [war-stories.md](war-stories.md) - 특정 문제에서만 적용되는 특수 사례 기록. 유사 패턴 인식 시 참조.
 - [platform-notes.md](platform-notes.md) - 플랫폼/환경별 특이사항 및 주의점.
+- [numerical-validation.md](numerical-validation.md) - 모듈러 선형 모형과 근사 결과의 전제·검증 한계를 확인할 때 참조.
 
 ---
 
